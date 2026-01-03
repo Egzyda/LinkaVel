@@ -1,0 +1,356 @@
+/* ==========================================
+   1. 基本設定 & テーマ変数
+   ========================================== */
+:root {
+    --bg-dark: #121212;
+    --bg-panel: rgba(30, 30, 30, 0.9);
+    --text-main: #e0e0e0;
+    --accent-blue: #00d2ff;
+    --accent-red: #ff4b2b;
+    --gray-border: #444;
+
+    /* カード色定義 */
+    --color-normal: #fdfd96; /* 薄黄色 */
+    --color-effect: #ffb347; /* オレンジ色 */
+    --color-magic: #1a1a1a;  /* 黒 */
+
+    --card-aspect-ratio: 1.4; /* スタンダードサイズ準拠 */
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: 'Exo 2', 'Noto Sans JP', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    position: fixed; /* iOSのスクロール戻り防止 */
+    touch-action: none; /* ぐにゃぐにゃスクロール防止 */
+}
+
+#app-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+/* 画面切り替えの基本設定 */
+.screen {
+    position: absolute;
+    inset: 0;
+    display: none;
+    overflow: hidden;
+}
+
+.screen.active {
+    display: block;
+}
+
+/* セーフエリア対応のコンテナ */
+.safe-area {
+    width: 100%;
+    height: 100%;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    pointer-events: none;
+}
+
+/* ==========================================
+   2. メインレイアウト
+   ========================================== */
+#game-viewport {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: radial-gradient(circle at center, #2c2c2c 0%, #121212 100%);
+}
+
+/* UIレイヤー（3Dの影響を受けない最前面） */
+#ui-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    pointer-events: none; /* 下のフィールドを触れるように */
+}
+
+#ui-layer > * {
+    pointer-events: auto; /* UI要素は触れるように戻す */
+}
+
+/* ステータスバー */
+.status-bar {
+    position: absolute;
+    width: 140px;
+    padding: 10px;
+    background: var(--bg-panel);
+    border: 1px solid var(--gray-border);
+    border-radius: 0 0 15px 15px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.opponent-status { top: 0; left: 20px; border-top: none; }
+.player-status { bottom: calc(120px + env(safe-area-inset-bottom)); left: 20px; border-radius: 15px 15px 0 0; border-bottom: none; }
+
+.lp-value {
+    display: block;
+    font-size: 1.5rem;
+    color: var(--accent-blue);
+    text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+}
+
+/* ==========================================
+   3. 3Dフィールド演出
+   ========================================== */
+#field-perspective-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    perspective: 1200px; /* 奥行きの強さ */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#field-surface {
+    position: relative;
+    width: 90%;
+    height: 70%;
+    transform: rotateX(40deg); /* 傾き演出 */
+    transform-style: preserve-3d;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 20px;
+}
+
+/* 各ゾーンの共通設定 */
+.monster-zones, .magic-zones {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.zone {
+    width: 70px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    position: relative;
+    transition: background 0.3s;
+}
+
+.zone.monster-zone { border-color: rgba(255, 179, 71, 0.3); }
+.zone.magic-zone { border-color: rgba(0, 210, 255, 0.3); }
+
+/* サイドゾーン（デッキ・トラッシュ） */
+#side-zones {
+    position: absolute;
+    right: -10px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    transform: translateZ(10px);
+}
+
+.deck-zone { background: rgba(100, 100, 100, 0.2); border-style: dashed; }
+.deck-count {
+    position: absolute;
+    bottom: -20px;
+    width: 100%;
+    text-align: center;
+    font-size: 0.8rem;
+}
+
+/* ==========================================
+   4. カード詳細表示（中央エリア）
+   ========================================== */
+#card-detail-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -55%); /* 少し上に配置 */
+    width: 85%;
+    max-width: 320px;
+    background: var(--bg-panel);
+    border: 2px solid var(--accent-blue);
+    border-radius: 15px;
+    padding: 15px;
+    display: flex;
+    gap: 15px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+    opacity: 0; /* 初期は非表示 */
+    transition: opacity 0.3s;
+}
+
+#detail-card-image {
+    width: 100px;
+    height: 140px;
+    background: #333;
+    border-radius: 5px;
+    flex-shrink: 0;
+}
+
+#detail-info { flex-grow: 1; font-size: 0.9rem; }
+#detail-name-row { font-weight: bold; border-bottom: 1px solid var(--gray-border); margin-bottom: 5px; padding-bottom: 2px; }
+#detail-text { font-size: 0.75rem; height: 60px; overflow-y: auto; margin: 5px 0; }
+#detail-stats { display: flex; justify-content: space-between; font-weight: bold; color: var(--accent-blue); }
+
+/* ==========================================
+   5. 手札・操作UI
+   ========================================== */
+#player-hand-container {
+    position: absolute;
+    bottom: -20px;
+    width: 100%;
+    height: 150px;
+    display: flex;
+    justify-content: center;
+    z-index: 110;
+}
+
+#player-hand {
+    display: flex;
+    gap: -10px;
+    padding: 10px;
+}
+
+/* 簡易表示カード（フィールド/手札用） */
+.card-mini {
+    width: 65px;
+    height: 91px;
+    border-radius: 3px;
+    position: relative;
+    border: 2px solid #000;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+    background-size: cover;
+}
+
+/* フェイズ進行ボタン */
+#phase-control {
+    position: absolute;
+    right: 15px;
+    bottom: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+#current-phase-display {
+    background: var(--accent-red);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: bold;
+}
+
+.btn {
+    background: linear-gradient(135deg, #444, #222);
+    border: 1px solid var(--accent-blue);
+    color: white;
+    padding: 12px 15px;
+    border-radius: 8px;
+    font-family: 'Exo 2';
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.btn:active { transform: scale(0.95); }
+
+/* ==========================================
+   6. メインメニューのデザイン
+   ========================================== */
+#menu-screen {
+    background: radial-gradient(circle at center, #222, #000);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    text-align: center;
+}
+
+.menu-header {
+    margin-top: 50px;
+}
+
+.game-title {
+    font-size: 3.5rem;
+    letter-spacing: 8px;
+    color: var(--text-main);
+    text-shadow: 0 0 20px var(--accent-blue);
+}
+
+.menu-options {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 80%;
+    max-width: 300px;
+}
+
+.menu-btn {
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #333, #1a1a1a);
+    border: 1px solid var(--gray-border);
+    padding: 15px;
+    border-radius: 12px;
+    color: white;
+    text-decoration: none;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.menu-btn:active {
+    transform: scale(0.95);
+    border-color: var(--accent-blue);
+}
+
+.menu-btn.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.btn-icon {
+    font-size: 1.5rem;
+    margin-right: 15px;
+}
+
+.btn-text {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    font-weight: bold;
+}
+
+.btn-text small {
+    font-size: 0.6rem;
+    color: #888;
+}
+
+#surrender-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(255,0,0,0.2);
+    border: 1px solid var(--accent-red);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.7rem;
+    pointer-events: auto;
+}

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>LinkaVel Card Game</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div id="app-container">
+
+        <div id="menu-screen" class="screen active">
+            <div class="menu-header">
+                <h1 class="game-title">LinkaVel</h1>
+                <p class="game-subtitle">Card Game Project</p>
+            </div>
+            
+            <div class="menu-options">
+                <button class="menu-btn" onclick="startSinglePlay()">
+                    <span class="btn-icon">👤</span>
+                    <span class="btn-text">SOLO MODE<small>CPU対戦</small></span>
+                </button>
+                <button class="menu-btn disabled" onclick="startOnlinePlay()">
+                    <span class="btn-icon">🌐</span>
+                    <span class="btn-text">ONLINE MATCH<small>近日公開</small></span>
+                </button>
+                <button class="menu-btn" onclick="openDeckEditor()">
+                    <span class="btn-icon">🃏</span>
+                    <span class="btn-text">DECK BUILD<small>デッキ編成</small></span>
+                </button>
+            </div>
+
+            <div class="menu-footer">
+                <span id="user-status">Guest Mode</span>
+            </div>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <div id="game-viewport">
+                <div id="ui-layer" class="safe-area">
+                    <div class="status-bar opponent-status">
+                        <span class="name">OPPONENT</span>
+                        <span class="lp-value" id="opponent-lp">4000</span>
+                    </div>
+
+                    <div id="card-detail-overlay">
+                        <div id="detail-card-image"></div>
+                        <div id="detail-info">
+                            <div id="detail-name-row">
+                                <span id="detail-name">---</span>
+                                <span id="detail-attribute"></span>
+                            </div>
+                            <div id="detail-level"></div>
+                            <div id="detail-text"></div>
+                            <div id="detail-stats">
+                                <span id="detail-cost"></span>
+                                <span id="detail-power"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="status-bar player-status">
+                        <span class="name">YOU</span>
+                        <span class="lp-value" id="player-lp">4000</span>
+                    </div>
+
+                    <div id="phase-control">
+                        <div id="current-phase-display">DRAW</div>
+                        <button id="next-phase-btn" class="btn">NEXT</button>
+                    </div>
+
+                    <button id="surrender-btn" onclick="backToMenu()">QUIT</button>
+                </div>
+
+                <div id="field-perspective-wrapper">
+                    <div id="field-surface">
+                        <div class="field-half opponent-field">
+                            <div class="magic-zones">
+                                <div class="zone magic-zone" id="opt-magic-0"></div>
+                                <div class="zone magic-zone" id="opt-magic-1"></div>
+                                <div class="zone magic-zone" id="opt-magic-2"></div>
+                            </div>
+                            <div class="monster-zones">
+                                <div class="zone monster-zone" id="opt-monster-0"></div>
+                                <div class="zone monster-zone" id="opt-monster-1"></div>
+                                <div class="zone monster-zone" id="opt-monster-2"></div>
+                            </div>
+                        </div>
+
+                        <div class="field-half player-field">
+                            <div class="monster-zones">
+                                <div class="zone monster-zone" data-index="0" id="ply-monster-0"></div>
+                                <div class="zone monster-zone" data-index="1" id="ply-monster-1"></div>
+                                <div class="zone monster-zone" data-index="2" id="ply-monster-2"></div>
+                            </div>
+                            <div class="magic-zones">
+                                <div class="zone magic-zone" data-index="0" id="ply-magic-0"></div>
+                                <div class="zone magic-zone" data-index="1" id="ply-magic-1"></div>
+                                <div class="zone magic-zone" data-index="2" id="ply-magic-2"></div>
+                            </div>
+                        </div>
+
+                        <div id="side-zones">
+                            <div class="zone deck-zone" id="opponent-deck-zone"><div class="deck-count" id="opt-deck-count">20</div></div>
+                            <div class="zone trash-zone" id="opponent-trash-zone"></div>
+                            <div class="zone trash-zone" id="player-trash-zone"></div>
+                            <div class="zone deck-zone" id="player-deck-zone"><div class="deck-count" id="ply-deck-count">20</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="player-hand-container">
+                    <div id="player-hand"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="deck-screen" class="screen">
+            <div class="safe-area">
+                <h2>DECK BUILDER</h2>
+                <p>Coming Soon...</p>
+                <button class="btn" onclick="backToMenu()">BACK</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="master_cards.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
