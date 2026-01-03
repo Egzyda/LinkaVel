@@ -2,19 +2,18 @@
    1. 基本設定 & テーマ変数
    ========================================== */
 :root {
-    --bg-dark: #121212;
-    --bg-panel: rgba(30, 30, 30, 0.9);
-    --text-main: #e0e0e0;
+    --bg-dark: #0a0a0a;
+    --bg-panel: rgba(20, 20, 20, 0.85); /* グラスモーフィズム用 */
+    --text-main: #f0f0f0;
     --accent-blue: #00d2ff;
     --accent-red: #ff4b2b;
-    --gray-border: #444;
-
-    /* カード色定義 */
-    --color-normal: #fdfd96; /* 薄黄色 */
-    --color-effect: #ffb347; /* オレンジ色 */
-    --color-magic: #1a1a1a;  /* 黒 */
-
-    --card-aspect-ratio: 1.4; /* スタンダードサイズ準拠 */
+    --zone-border: rgba(255, 255, 255, 0.15);
+    
+    /* カードサイズ計算 (画面幅基準) */
+    --card-width: 14vw;
+    --card-height: 19vw;
+    --card-max-width: 65px;
+    --card-max-height: 90px;
 }
 
 * {
@@ -23,93 +22,160 @@
     padding: 0;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    font-family: 'Exo 2', 'Noto Sans JP', sans-serif;
 }
 
 body {
     background-color: var(--bg-dark);
     color: var(--text-main);
-    font-family: 'Exo 2', 'Noto Sans JP', sans-serif;
     overflow: hidden;
     height: 100vh;
     width: 100vw;
-    position: fixed; /* iOSのスクロール戻り防止 */
-    touch-action: none; /* ぐにゃぐにゃスクロール防止 */
+    position: fixed;
+    touch-action: none;
 }
 
 #app-container {
     width: 100%;
     height: 100%;
     position: relative;
+    background: radial-gradient(circle at center, #1f1f1f 0%, #000000 100%);
 }
 
-/* 画面切り替えの基本設定 */
+/* 画面切り替え */
 .screen {
     position: absolute;
     inset: 0;
     display: none;
-    overflow: hidden;
+    z-index: 10;
 }
-
 .screen.active {
     display: block;
+    animation: fadeIn 0.5s ease;
 }
 
-/* セーフエリア対応のコンテナ */
-.safe-area {
-    width: 100%;
-    height: 100%;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-    pointer-events: none;
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 /* ==========================================
-   2. メインレイアウト
+   2. UIレイヤー (HUD)
    ========================================== */
-#game-viewport {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    background: radial-gradient(circle at center, #2c2c2c 0%, #121212 100%);
-}
-
-/* UIレイヤー（3Dの影響を受けない最前面） */
 #ui-layer {
     position: absolute;
     inset: 0;
     z-index: 100;
-    pointer-events: none; /* 下のフィールドを触れるように */
+    pointer-events: none; /* フィールド操作を阻害しない */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 #ui-layer > * {
-    pointer-events: auto; /* UI要素は触れるように戻す */
+    pointer-events: auto;
 }
 
-/* ステータスバー */
-.status-bar {
+/* 左上：カード情報パネル */
+#card-info-panel {
     position: absolute;
-    width: 140px;
-    padding: 10px;
+    top: calc(10px + env(safe-area-inset-top));
+    left: 10px;
+    width: 160px;
     background: var(--bg-panel);
-    border: 1px solid var(--gray-border);
-    border-radius: 0 0 15px 15px;
-    font-weight: bold;
-    text-align: center;
+    backdrop-filter: blur(10px);
+    border-left: 3px solid var(--accent-blue);
+    border-radius: 0 8px 8px 0;
+    padding: 8px;
+    font-size: 0.8rem;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
 }
 
-.opponent-status { top: 0; left: 20px; border-top: none; }
-.player-status { bottom: calc(120px + env(safe-area-inset-bottom)); left: 20px; border-radius: 15px 15px 0 0; border-bottom: none; }
+.info-header {
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+}
+
+.info-body { font-size: 0.7rem; color: #ccc; }
+#info-stats { display: flex; gap: 10px; color: var(--accent-blue); margin-bottom: 4px; }
+#info-text { max-height: 40px; overflow: hidden; line-height: 1.2; }
+
+/* 右上：相手ステータス */
+.opponent-status {
+    position: absolute;
+    top: calc(10px + env(safe-area-inset-top));
+    right: 10px;
+    text-align: right;
+    background: var(--bg-panel);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border-right: 3px solid var(--accent-red);
+}
+
+.sub-info { font-size: 0.7rem; color: #888; margin-top: 2px; }
+
+/* 右下：プレイヤーステータス & フェイズ */
+#player-status-container {
+    position: absolute;
+    bottom: calc(130px + env(safe-area-inset-bottom)); /* 手札の上 */
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.player-status {
+    text-align: right;
+    background: var(--bg-panel);
+    padding: 8px 15px;
+    border-radius: 8px;
+    border-right: 3px solid var(--accent-blue);
+    min-width: 120px;
+}
 
 .lp-value {
-    display: block;
-    font-size: 1.5rem;
-    color: var(--accent-blue);
-    text-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+    font-size: 1.6rem;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 8px currentColor;
+}
+.opponent-status .lp-value { color: var(--accent-red); }
+.player-status .lp-value { color: var(--accent-blue); }
+
+#next-phase-btn {
+    background: linear-gradient(90deg, #222, #444);
+    border: 1px solid var(--accent-blue);
+    color: white;
+    padding: 8px 20px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+}
+#current-phase-display { font-size: 0.9rem; font-weight: bold; }
+.btn-sub { font-size: 0.6rem; color: #aaa; }
+
+#surrender-btn {
+    position: absolute;
+    top: calc(10px + env(safe-area-inset-top));
+    right: 150px; /* 相手ステータスの左 */
+    background: rgba(255, 50, 50, 0.2);
+    border: 1px solid var(--accent-red);
+    color: #fff;
+    font-size: 0.7rem;
+    padding: 4px 8px;
+    border-radius: 4px;
 }
 
 /* ==========================================
-   3. 3Dフィールド演出
+   3. 3Dフィールド
    ========================================== */
 #field-perspective-wrapper {
     position: absolute;
@@ -117,240 +183,163 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    perspective: 1200px; /* 奥行きの強さ */
+    /* UIと手札のスペースを除外してセンタリング */
+    padding-top: 60px;
+    padding-bottom: 140px; 
+    perspective: 1000px;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
+    z-index: 50;
 }
 
 #field-surface {
     position: relative;
-    width: 90%;
-    height: 70%;
-    transform: rotateX(40deg); /* 傾き演出 */
+    width: 95%;
+    max-width: 400px; /* スマホ幅に最適化 */
+    transform: rotateX(35deg) scale(0.9); /* 少し引いて全体を見せる */
     transform-style: preserve-3d;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 20px;
+    gap: 15px;
 }
 
-/* 各ゾーンの共通設定 */
-.monster-zones, .magic-zones {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-}
+.field-gap { height: 20px; } /* 中央の境界線 */
 
-.zone {
-    width: 70px;
-    height: 100px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-    position: relative;
-    transition: background 0.3s;
-}
-
-.zone.monster-zone { border-color: rgba(255, 179, 71, 0.3); }
-.zone.magic-zone { border-color: rgba(0, 210, 255, 0.3); }
-
-/* サイドゾーン（デッキ・トラッシュ） */
-#side-zones {
-    position: absolute;
-    right: -10px;
-    height: 100%;
+.field-half {
     display: flex;
     flex-direction: column;
-    justify-content: space-around;
-    transform: translateZ(10px);
+    gap: 8px;
 }
 
-.deck-zone { background: rgba(100, 100, 100, 0.2); border-style: dashed; }
-.deck-count {
+.field-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* ゾーンスタイル */
+.zone {
+    width: var(--card-width);
+    height: var(--card-height);
+    max-width: var(--card-max-width);
+    max-height: var(--card-max-height);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--zone-border);
+    border-radius: 4px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+/* ゾーンの識別色 */
+.monster-zone { border-color: rgba(255, 166, 0, 0.2); }
+.magic-zone { border-color: rgba(0, 210, 255, 0.2); }
+.deck-zone, .trash-zone { border-style: dashed; opacity: 0.7; }
+
+/* ゾーン内のテキスト (Deck/Trash) */
+.zone span {
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.3);
+    transform: rotateX(-35deg); /* 3Dの中で文字を起こす */
+}
+
+/* バッジ (デッキ枚数など) */
+#ply-deck-count-badge {
     position: absolute;
-    bottom: -20px;
-    width: 100%;
-    text-align: center;
-    font-size: 0.8rem;
+    bottom: -10px;
+    background: #333;
+    border: 1px solid #666;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    color: #fff;
+    transform: rotateX(-35deg);
 }
 
 /* ==========================================
-   4. カード詳細表示（中央エリア）
+   4. 手札エリア
+   ========================================== */
+#player-hand-container {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 120px;
+    padding-bottom: env(safe-area-inset-bottom);
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 20%, transparent);
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#player-hand {
+    display: flex;
+    justify-content: center;
+    /* カードを少し重ねる */
+    margin-bottom: -10px; 
+}
+
+/* カード共通スタイル */
+.card-mini {
+    width: var(--card-width);
+    height: var(--card-height);
+    max-width: var(--card-max-width);
+    max-height: var(--card-max-height);
+    border-radius: 4px;
+    border: 1px solid #000;
+    background-size: cover;
+    box-shadow: 2px 4px 8px rgba(0,0,0,0.6);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+/* ==========================================
+   5. その他 (Detail Overlay, Menu)
    ========================================== */
 #card-detail-overlay {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -55%); /* 少し上に配置 */
-    width: 85%;
-    max-width: 320px;
-    background: var(--bg-panel);
-    border: 2px solid var(--accent-blue);
-    border-radius: 15px;
-    padding: 15px;
-    display: flex;
-    gap: 15px;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
-    opacity: 0; /* 初期は非表示 */
-    transition: opacity 0.3s;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    background: #222;
+    border: 1px solid #555;
+    border-radius: 10px;
+    padding: 20px;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    box-shadow: 0 0 50px rgba(0,0,0,0.9);
 }
 
-#detail-card-image {
-    width: 100px;
-    height: 140px;
-    background: #333;
-    border-radius: 5px;
-    flex-shrink: 0;
-}
-
-#detail-info { flex-grow: 1; font-size: 0.9rem; }
-#detail-name-row { font-weight: bold; border-bottom: 1px solid var(--gray-border); margin-bottom: 5px; padding-bottom: 2px; }
-#detail-text { font-size: 0.75rem; height: 60px; overflow-y: auto; margin: 5px 0; }
-#detail-stats { display: flex; justify-content: space-between; font-weight: bold; color: var(--accent-blue); }
-
-/* ==========================================
-   5. 手札・操作UI
-   ========================================== */
-#player-hand-container {
-    position: absolute;
-    bottom: -20px;
-    width: 100%;
-    height: 150px;
-    display: flex;
-    justify-content: center;
-    z-index: 110;
-}
-
-#player-hand {
-    display: flex;
-    gap: -10px;
-    padding: 10px;
-}
-
-/* 簡易表示カード（フィールド/手札用） */
-.card-mini {
-    width: 65px;
-    height: 91px;
-    border-radius: 3px;
-    position: relative;
-    border: 2px solid #000;
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
-    background-size: cover;
-}
-
-/* フェイズ進行ボタン */
-#phase-control {
-    position: absolute;
-    right: 15px;
-    bottom: 150px;
+/* メニュー画面はindex.htmlのクラスを使用 */
+#menu-screen {
+    background: radial-gradient(circle at center, #1a1a1a, #000);
     display: flex;
     flex-direction: column;
+    justify-content: center;
     align-items: center;
-    gap: 10px;
+    gap: 40px;
 }
+.menu-header { text-align: center; }
+.game-title { font-size: 3rem; color: #fff; letter-spacing: 5px; }
+.game-subtitle { color: var(--accent-blue); letter-spacing: 2px; }
 
-#current-phase-display {
-    background: var(--accent-red);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.7rem;
-    font-weight: bold;
-}
-
-.btn {
-    background: linear-gradient(135deg, #444, #222);
-    border: 1px solid var(--accent-blue);
-    color: white;
-    padding: 12px 15px;
+.menu-options { display: flex; flex-direction: column; gap: 15px; width: 260px; }
+.menu-btn {
+    background: #222;
+    border: 1px solid #444;
+    padding: 15px;
+    color: #fff;
+    display: flex;
+    align-items: center;
     border-radius: 8px;
-    font-family: 'Exo 2';
-    font-size: 0.8rem;
     cursor: pointer;
 }
-
-.btn:active { transform: scale(0.95); }
-
-/* ==========================================
-   6. メインメニューのデザイン
-   ========================================== */
-#menu-screen {
-    background: radial-gradient(circle at center, #222, #000);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-around;
-    text-align: center;
-}
-
-.menu-header {
-    margin-top: 50px;
-}
-
-.game-title {
-    font-size: 3.5rem;
-    letter-spacing: 8px;
-    color: var(--text-main);
-    text-shadow: 0 0 20px var(--accent-blue);
-}
-
-.menu-options {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    width: 80%;
-    max-width: 300px;
-}
-
-.menu-btn {
-    display: flex;
-    align-items: center;
-    background: linear-gradient(135deg, #333, #1a1a1a);
-    border: 1px solid var(--gray-border);
-    padding: 15px;
-    border-radius: 12px;
-    color: white;
-    text-decoration: none;
-    transition: all 0.3s;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-}
-
-.menu-btn:active {
-    transform: scale(0.95);
-    border-color: var(--accent-blue);
-}
-
-.menu-btn.disabled {
-    opacity: 0.5;
-    pointer-events: none;
-}
-
-.btn-icon {
-    font-size: 1.5rem;
-    margin-right: 15px;
-}
-
-.btn-text {
-    display: flex;
-    flex-direction: column;
-    text-align: left;
-    font-weight: bold;
-}
-
-.btn-text small {
-    font-size: 0.6rem;
-    color: #888;
-}
-
-#surrender-btn {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: rgba(255,0,0,0.2);
-    border: 1px solid var(--accent-red);
-    color: white;
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 0.7rem;
-    pointer-events: auto;
-}
+.menu-btn:active { background: #333; }
+.menu-btn.disabled { opacity: 0.4; }
+.btn-icon { font-size: 1.5rem; margin-right: 15px; }
