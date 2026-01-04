@@ -8,7 +8,7 @@
     --accent-blue: #00d2ff;
     --accent-red: #ff4b2b;
     --zone-border: rgba(255, 255, 255, 0.15);
-    
+
     /* カードサイズ計算 (画面幅基準) */
     --card-width: 14vw;
     --card-height: 19vw;
@@ -29,7 +29,7 @@ body {
     background-color: var(--bg-dark);
     color: var(--text-main);
     overflow: hidden;
-    height: 100vh;
+    height: 100dvh;
     width: 100vw;
     position: fixed;
     touch-action: none;
@@ -81,16 +81,21 @@ body {
     position: absolute;
     top: calc(10px + env(safe-area-inset-top));
     left: 10px;
-    width: 160px;
+    width: 260px;
+    /* あなたが変更した高さに合わせてここを調整してください */
+    height: 140px;
     background: var(--bg-panel);
-    backdrop-filter: blur(10px);
-    border-left: 3px solid var(--accent-blue);
-    border-radius: 0 8px 8px 0;
-    padding: 8px;
-    font-size: 0.8rem;
-    box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+    backdrop-filter: blur(20px);
+    border-left: 4px solid var(--accent-blue);
+    border-radius: 0 10px 10px 0;
+    padding: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    z-index: 500;
+    pointer-events: auto;
+    /* 内部を縦並びのレイアウトに設定 */
+    display: flex;
+    flex-direction: column;
 }
-
 .info-header {
     border-bottom: 1px solid rgba(255,255,255,0.2);
     padding-bottom: 4px;
@@ -100,93 +105,98 @@ body {
     font-weight: bold;
 }
 
-.info-body { font-size: 0.7rem; color: #ccc; }
-#info-stats { display: flex; gap: 10px; color: var(--accent-blue); margin-bottom: 4px; }
-#info-text { max-height: 40px; overflow: hidden; line-height: 1.2; }
-
-/* 右上：相手ステータス */
-.opponent-status {
-    position: absolute;
-    top: calc(10px + env(safe-area-inset-top));
-    right: 10px;
-    text-align: right;
-    background: var(--bg-panel);
-    padding: 8px 12px;
-    border-radius: 8px;
-    border-right: 3px solid var(--accent-red);
-}
-
-.sub-info { font-size: 0.7rem; color: #888; margin-top: 2px; }
-
-/* 右下：プレイヤーステータス & フェイズ */
-#player-status-container {
-    position: absolute;
-    bottom: calc(130px + env(safe-area-inset-bottom)); /* 手札の上 */
-    right: 10px;
+.info-body {
+    color: #ddd;
+    font-size: 0.75rem;
+    flex: 1;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    gap: 10px;
+    /* 親の140pxに合わせて縮小可能にする */
+    min-height: 0;
 }
-
-.player-status {
-    text-align: right;
-    background: var(--bg-panel);
-    padding: 8px 15px;
-    border-radius: 8px;
-    border-right: 3px solid var(--accent-blue);
-    min-width: 120px;
+#info-stats { display: flex; gap: 12px; color: var(--accent-blue); margin-bottom: 4px; font-weight: bold; }
+#info-text {
+    flex: 1;
+    line-height: 1.2;
+    overflow-y: auto;
+    white-space: normal;
+    word-break: break-all;
+    /* 内部でのスクロールを発火させる */
+    min-height: 0;
+    /* スマホでの縦スクロールを許可 */
+    touch-action: pan-y;
+    /* スクロールバー非表示 (Firefox, IE/Edge) */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
+/* スクロールバー非表示 (Chrome, Safari) */
+#info-text::-webkit-scrollbar {
+    display: none;
+}
+/* Redundant Info Styles Removed */
 
-.lp-value {
-    font-size: 1.6rem;
-    font-weight: bold;
+/* Status HUD styles are consolidated in .hud-stats section (Line 197) */
+
+#home-btn {
+    position: absolute;
+    top: calc(15px + env(safe-area-inset-top));
+    right: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255,255,255,0.3);
     color: #fff;
-    text-shadow: 0 0 8px currentColor;
+    font-size: 0.75rem;
+    padding: 8px 16px;
+    border-radius: 20px;
+    pointer-events: auto;
 }
-.opponent-status .lp-value { color: var(--accent-red); }
-.player-status .lp-value { color: var(--accent-blue); }
-
 #next-phase-btn {
-    background: linear-gradient(90deg, #222, #444);
+    position: absolute;
+    right: 10px;
+    top: 55%; /* フィールド中央の高さに合わせて調整 */
+    transform: translateY(-50%);
+    background: rgba(0,0,0,0.8);
     border: 1px solid var(--accent-blue);
     color: white;
-    padding: 8px 20px;
-    border-radius: 20px;
+    width: 90px;
+    height: 50px;
+    border-radius: 8px;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     align-items: center;
-    cursor: pointer;
-    box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+    pointer-events: auto;
+    z-index: 600;
 }
-#current-phase-display { font-size: 0.9rem; font-weight: bold; }
+#next-phase-display { font-size: 0.8rem; font-weight: bold; color: var(--accent-blue); }
+/* Old Button Style Removed */
 .btn-sub { font-size: 0.6rem; color: #aaa; }
-
-#surrender-btn {
-    position: absolute;
-    top: calc(10px + env(safe-area-inset-top));
-    right: 150px; /* 相手ステータスの左 */
-    background: rgba(255, 50, 50, 0.2);
-    border: 1px solid var(--accent-red);
-    color: #fff;
-    font-size: 0.7rem;
-    padding: 4px 8px;
-    border-radius: 4px;
-}
 
 /* ==========================================
    3. 3Dフィールド
    ========================================== */
+.status-zone {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.4) !important;
+    border: none !important;
+}
+.status-name { font-size: 0.5rem; color: #888; }
+.status-lp { font-size: 1.2rem; font-weight: bold; text-shadow: 0 0 10px var(--accent-blue); }
+.opt-status .status-lp { text-shadow: 0 0 10px var(--accent-red); }
+.status-hnd { font-size: 0.5rem; color: #666; }
+.empty-zone { border: none !important; background: transparent !important; }
 #field-perspective-wrapper {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    /* UIと手札のスペースを除外してセンタリング */
-    padding-top: 60px;
-    padding-bottom: 140px; 
-    perspective: 1000px;
+    padding-top: 210px;
+    padding-bottom: 140px;
+    perspective: 1200px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -197,19 +207,71 @@ body {
     position: relative;
     width: 95%;
     max-width: 400px; /* スマホ幅に最適化 */
-    transform: rotateX(35deg) scale(0.9); /* 少し引いて全体を見せる */
+    transform: rotateX(42deg) scale(1.0); /* 少し引いて全体を見せる */
     transform-style: preserve-3d;
     display: flex;
     flex-direction: column;
     gap: 15px;
 }
 
-.field-gap { height: 20px; } /* 中央の境界線 */
+.field-gap {
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+#phase-center-label {
+    font-family: 'Exo 2';
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 4px;
+    text-shadow: 0 0 10px rgba(255,255,255,0.2);
+    transform: rotateX(-42deg);
+}
+.hud-stats {
+    position: absolute;
+    z-index: 550;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+}
+.hud-stats.opt { top: 32%; right: 15px; text-align: right; }
+.hud-stats.ply { top: 62%; left: 15px; text-align: left; }
+.hud-label { font-size: 0.6rem; color: #888; letter-spacing: 1px; }
+.hud-lp {
+    font-size: 1.8rem;
+    font-weight: bold;
+    font-family: 'Exo 2';
+    line-height: 1;
+}
+.opt .hud-lp { color: var(--accent-red); text-shadow: 0 0 15px rgba(255, 75, 43, 0.4); }
+.ply .hud-lp { color: var(--accent-blue); text-shadow: 0 0 15px rgba(0, 210, 255, 0.4); }
+.hud-sub { font-size: 0.6rem; color: #666; }
 
 .field-half {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+.opponent-field {
+    /* レイアウト（並び順）は維持し、3D空間のみを定義 */
+    transform-style: preserve-3d;
+}
+
+/* 相手側の全コンテンツ（カード・文字・バッジ）を180度回転させて正対させる */
+.opponent-field .card-mini,
+.opponent-field .zone span,
+#opt-deck-count {
+    transform: rotateZ(180deg);
+}
+
+/* 3Dフィールド上で文字を見やすく起こすための共通補正（相手側） */
+.opponent-field .zone span,
+#opt-deck-count {
+    transform: rotateZ(180deg) rotateX(-35deg);
 }
 
 .field-row {
@@ -246,8 +308,13 @@ body {
     transform: rotateX(-35deg); /* 3Dの中で文字を起こす */
 }
 
+/* 相手側のゾーンテキスト(Deck/Trash)の向きを補正 */
+.opponent-field .zone span {
+    transform: rotateX(-35deg) rotateZ(180deg);
+}
+
 /* バッジ (デッキ枚数など) */
-#ply-deck-count-badge {
+#ply-deck-count-badge, #opt-deck-count {
     position: absolute;
     bottom: -10px;
     background: #333;
@@ -259,6 +326,11 @@ body {
     transform: rotateX(-35deg);
 }
 
+/* 相手側の枚数バッジの向きを補正 */
+#opt-deck-count {
+    transform: rotateX(-35deg) rotateZ(180deg);
+}
+
 /* ==========================================
    4. 手札エリア
    ========================================== */
@@ -266,8 +338,8 @@ body {
     position: absolute;
     bottom: 0;
     width: 100%;
-    height: 120px;
-    padding-bottom: env(safe-area-inset-bottom);
+    height: 160px;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 15px);
     background: linear-gradient(to top, rgba(0,0,0,0.9) 20%, transparent);
     z-index: 110;
     display: flex;
@@ -279,7 +351,7 @@ body {
     display: flex;
     justify-content: center;
     /* カードを少し重ねる */
-    margin-bottom: -10px; 
+    margin-bottom: -10px;
 }
 
 /* カード共通スタイル */
@@ -288,12 +360,21 @@ body {
     height: var(--card-height);
     max-width: var(--card-max-width);
     max-height: var(--card-max-height);
+    flex-shrink: 0;
+    position: relative;
     border-radius: 4px;
     border: 1px solid #000;
     background-size: cover;
     box-shadow: 2px 4px 8px rgba(0,0,0,0.6);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
+}
+
+/* ゾーン内では枠に100%フィットさせる */
+.zone .card-mini {
+    width: 100%;
+    height: 100%;
+    margin: 0;
 }
 
 /* ==========================================
@@ -343,3 +424,66 @@ body {
 .menu-btn:active { background: #333; }
 .menu-btn.disabled { opacity: 0.4; }
 .btn-icon { font-size: 1.5rem; margin-right: 15px; }
+
+/* ビューポートの安定化 */
+#game-viewport {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* カードの視認性向上 (背景色のフォールバック) */
+.card-mini {
+    background-color: #222;
+    /* 枠との干渉を防ぐため最小サイズ制限を解除し、3D平面を同期 */
+    transform-style: flat;
+}
+
+/* 浮遊アクションボタン */
+.floating-actions {
+    position: fixed;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: auto;
+    /* アニメーションを削除し、初期状態を非表示に設定 */
+    opacity: 0;
+    transition: opacity 0.1s ease;
+}
+@keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+.btn-action-float {
+    background: var(--accent-blue);
+    color: white;
+    border: 2px solid rgba(255,255,255,0.3);
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-weight: bold;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    white-space: nowrap;
+}
+.btn-action-float.attack { background: var(--accent-red); }
+
+/* スロットハイライト */
+.zone.highlight {
+    border: 3px solid #fff !important;
+    box-shadow: 0 0 20px #fff, inset 0 0 10px #fff !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    cursor: pointer;
+    animation: blink 1s infinite alternate;
+}
+@keyframes blink {
+    from { opacity: 0.6; } to { opacity: 1; }
+}
+
+/* 相手ターン中のUIロック */
+.disabled-ui {
+    filter: grayscale(0.8) brightness(0.7);
+    pointer-events: none !important;
+    opacity: 0.7;
+}

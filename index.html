@@ -20,15 +20,15 @@
             <div class="menu-options">
                 <button class="menu-btn" onclick="startSinglePlay()">
                     <span class="btn-icon">👤</span>
-                    <span class="btn-text">SOLO MODE<small>CPU対戦</small></span>
+                    <span class="btn-text">SOLO MODE - <small>CPU対戦</small></span>
                 </button>
                 <button class="menu-btn disabled">
                     <span class="btn-icon">🌐</span>
-                    <span class="btn-text">ONLINE MATCH<small>近日公開</small></span>
+                    <span class="btn-text">ROOM MATCH - <small>近日公開</small></span>
                 </button>
                 <button class="menu-btn" onclick="openDeckEditor()">
                     <span class="btn-icon">🃏</span>
-                    <span class="btn-text">DECK BUILD<small>デッキ編成</small></span>
+                    <span class="btn-text">DECK BUILD - <small>デッキ編成</small></span>
                 </button>
             </div>
 
@@ -39,9 +39,21 @@
 
         <div id="game-screen" class="screen">
             <div id="game-viewport">
-                
+
                 <div id="ui-layer" class="safe-area">
-                    
+
+                    <div id="hud-player-status" class="hud-stats ply">
+                        <div class="hud-label">YOU</div>
+                        <div class="hud-lp" id="player-lp-hud">5000</div>
+                    </div>
+
+
+                    <div id="hud-opponent-status" class="hud-stats opt">
+                        <div class="hud-label">OPPONENT</div>
+                        <div class="hud-lp" id="opponent-lp-hud">5000</div>
+                        <div class="hud-sub">HAND: <span id="opt-hand-hud">5</span></div>
+                    </div>
+
                     <div id="card-info-panel">
                         <div class="info-header">
                             <span id="info-name">No Selection</span>
@@ -56,74 +68,42 @@
                         </div>
                     </div>
 
-                    <div class="status-bar opponent-status">
-                        <span class="name">OPPONENT</span>
-                        <div class="status-row">
-                            <span class="lp-label">LP</span>
-                            <span class="lp-value" id="opponent-lp">4000</span>
-                        </div>
-                        <div class="sub-info">
-                            Deck: <span id="opt-deck-count">20</span> / Hand: <span id="opt-hand-count">5</span>
-                        </div>
-                    </div>
+                    <div id="floating-action-container"></div>
 
-                    <div id="card-detail-overlay">
-                        <div id="detail-card-image"></div>
-                        <div id="detail-info">
-                            <div id="detail-name-row">
-                                <span id="detail-name">---</span>
-                                <span id="detail-attribute"></span>
-                            </div>
-                            <div id="detail-level"></div>
-                            <div id="detail-text"></div>
-                            <div id="detail-stats">
-                                <span id="detail-cost"></span>
-                                <span id="detail-power"></span>
-                            </div>
-                        </div>
-                    </div>
+                    <button id="next-phase-btn">
+                        <span class="btn-sub">GO TO</span>
+                        <span id="next-phase-display">MAIN1</span>
+                    </button>
 
-                    <div id="player-status-container">
-                        <div class="status-bar player-status">
-                            <span class="name">YOU</span>
-                            <div class="status-row">
-                                <span class="lp-label">LP</span>
-                                <span class="lp-value" id="player-lp">4000</span>
-                            </div>
-                        </div>
-                        <button id="next-phase-btn" class="btn">
-                            <span id="current-phase-display">DRAW</span>
-                            <span class="btn-sub">NEXT &gt;</span>
-                        </button>
-                    </div>
-
-                    <button id="surrender-btn" onclick="backToMenu()">QUIT</button>
+                    <button id="home-btn" onclick="backToMenu()">HOME</button>
                 </div>
 
                 <div id="field-perspective-wrapper">
                     <div id="field-surface">
-                        
                         <div class="field-half opponent-field">
                             <div class="field-row back-row">
                                 <div class="zone trash-zone" id="opponent-trash-zone"><span>Trash</span></div>
                                 <div class="zone magic-zone" id="opt-magic-2"></div>
                                 <div class="zone magic-zone" id="opt-magic-1"></div>
                                 <div class="zone magic-zone" id="opt-magic-0"></div>
+                                <div class="zone empty-zone"></div>
                             </div>
                             <div class="field-row front-row">
-                                <div class="zone deck-zone" id="opponent-deck-zone">
-                                    <span>Deck</span>
-                                </div>
+                                <div class="zone deck-zone" id="opponent-deck-zone"><span>Deck</span><span id="opt-deck-count">20</span></div>
                                 <div class="zone monster-zone" id="opt-monster-2"></div>
                                 <div class="zone monster-zone" id="opt-monster-1"></div>
                                 <div class="zone monster-zone" id="opt-monster-0"></div>
+                                <div class="zone empty-zone"></div>
                             </div>
                         </div>
 
-                        <div class="field-gap"></div>
+                        <div class="field-gap">
+                            <div id="phase-center-label">DRAW PHASE</div>
+                        </div>
 
                         <div class="field-half player-field">
                             <div class="field-row front-row">
+                                <div class="zone empty-zone"></div>
                                 <div class="zone monster-zone" data-index="0" id="ply-monster-0"></div>
                                 <div class="zone monster-zone" data-index="1" id="ply-monster-1"></div>
                                 <div class="zone monster-zone" data-index="2" id="ply-monster-2"></div>
@@ -132,13 +112,13 @@
                                 </div>
                             </div>
                             <div class="field-row back-row">
+                                <div class="zone empty-zone"></div>
                                 <div class="zone magic-zone" data-index="0" id="ply-magic-0"></div>
                                 <div class="zone magic-zone" data-index="1" id="ply-magic-1"></div>
                                 <div class="zone magic-zone" data-index="2" id="ply-magic-2"></div>
                                 <div class="zone trash-zone" id="player-trash-zone"><span>Trash</span></div>
                             </div>
                         </div>
-
                     </div>
                 </div>
 
