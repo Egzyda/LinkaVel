@@ -13,6 +13,7 @@ const MASTER_CARDS = {
 
     "m001": {
         id: "m001",
+        image: "img/m001.webp",
         name: "フレイムタイガー",
         type: "monster",
         subType: "effect",
@@ -39,6 +40,7 @@ const MASTER_CARDS = {
 
     "m002": {
         id: "m002",
+        image: "img/m002.webp",
         name: "炎界の指揮官 モエス",
         type: "monster",
         subType: "effect",
@@ -66,6 +68,7 @@ const MASTER_CARDS = {
 
     "m003": {
         id: "m003",
+        image: "img/m003.webp",
         name: "炎界の鼠 チューチャン",
         type: "monster",
         subType: "normal",
@@ -84,6 +87,7 @@ const MASTER_CARDS = {
 
     "m004": {
         id: "m004",
+        image: "img/m004.webp",
         name: "炎界の戦士 ブレイズ",
         type: "monster",
         subType: "effect",
@@ -111,6 +115,7 @@ const MASTER_CARDS = {
 
     "m005": {
         id: "m005",
+        image: "img/m005.webp",
         name: "炎界王 ヴァルトガス",
         type: "monster",
         subType: "effect",
@@ -145,6 +150,7 @@ const MASTER_CARDS = {
 
     "m006": {
         id: "m006",
+        image: "img/m006.webp",
         name: "アクア・キャット",
         type: "monster",
         subType: "effect",
@@ -161,6 +167,7 @@ const MASTER_CARDS = {
 
     "m007": {
         id: "m007",
+        image: "img/m007.webp",
         name: "海界の稚魚 クリオ",
         type: "monster",
         subType: "effect",
@@ -177,6 +184,7 @@ const MASTER_CARDS = {
 
     "m008": {
         id: "m008",
+        image: "img/m008.webp",
         name: "海界の戦士 アトラス",
         type: "monster",
         subType: "normal",
@@ -193,6 +201,7 @@ const MASTER_CARDS = {
 
     "m009": {
         id: "m009",
+        image: "img/m009.webp",
         name: "海界の槍騎士 スピア",
         type: "monster",
         subType: "effect",
@@ -209,6 +218,7 @@ const MASTER_CARDS = {
 
     "m010": {
         id: "m010",
+        image: "img/m010.webp",
         name: "海界王 シータイド",
         type: "monster",
         subType: "effect",
@@ -229,6 +239,7 @@ const MASTER_CARDS = {
 
     "s001": {
         id: "s001",
+        image: "img/s001.webp",
         name: "炎界召集",
         type: "magic",
         subType: "normal",
@@ -252,6 +263,7 @@ const MASTER_CARDS = {
 
     "s002": {
         id: "s002",
+        image: "img/s002.webp",
         name: "炎界蘇生",
         type: "magic",
         subType: "normal",
@@ -273,6 +285,7 @@ const MASTER_CARDS = {
 
     "s003": {
         id: "s003",
+        image: "img/s003.webp",
         name: "フレイムラッシュ",
         type: "magic",
         subType: "normal",
@@ -294,6 +307,7 @@ const MASTER_CARDS = {
 
     "s004": {
         id: "s004",
+        image: "img/s004.webp",
         name: "海の突撃",
         type: "magic",
         subType: "normal",
@@ -308,6 +322,7 @@ const MASTER_CARDS = {
 
     "s005": {
         id: "s005",
+        image: "img/s005.webp",
         name: "海界への帰還",
         type: "magic",
         subType: "normal",
@@ -322,6 +337,7 @@ const MASTER_CARDS = {
 
     "s006": {
         id: "s006",
+        image: "img/s006.webp",
         name: "アクア・バリア",
         type: "magic",
         subType: "permanent",
