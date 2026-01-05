@@ -642,7 +642,7 @@ const MASTER_CARDS = {
     "m029": {
         id: "m029",
         image: "img/m029.webp",
-        name: "ブースト・エナジー",
+        name: "ブースター・メカ",
         type: "monster",
         subType: "effect",
         attribute: "無",
