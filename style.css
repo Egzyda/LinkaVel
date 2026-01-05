@@ -46,11 +46,13 @@ body {
 .screen {
     position: absolute;
     inset: 0;
-    display: none;
     z-index: 10;
+    /* 非表示状態：activeクラスがない時のみ消す */
+    display: none;
 }
 .screen.active {
-    display: block;
+    /* displayプロパティを指定しないことで、個別の設定(flex等)を活かす */
+    display: revert;
     animation: fadeIn 0.5s ease;
 }
 
@@ -81,40 +83,83 @@ body {
     position: absolute;
     top: calc(10px + env(safe-area-inset-top));
     left: 10px;
-    width: 260px;
-    /* あなたが変更した高さに合わせてここを調整してください */
-    height: 140px;
+    width: 280px;
+    height: 150px;
     background: var(--bg-panel);
     backdrop-filter: blur(20px);
     border-left: 4px solid var(--accent-blue);
     border-radius: 0 10px 10px 0;
-    padding: 10px;
+    padding: 8px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     z-index: 500;
     pointer-events: auto;
-    /* 内部を縦並びのレイアウトに設定 */
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+#info-visual-container {
+    flex: 0 0 95px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#info-visual-container .card-mini {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    pointer-events: none;
+}
+
+#info-text-container {
+    flex: 1;
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
+
 .info-header {
     border-bottom: 1px solid rgba(255,255,255,0.2);
-    padding-bottom: 4px;
+    padding-bottom: 2px;
     margin-bottom: 4px;
     display: flex;
     justify-content: space-between;
     font-weight: bold;
+    min-width: 0;
 }
+
+#info-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.85rem;
+}
+
+#info-attr { font-size: 0.75rem; flex-shrink: 0; }
 
 .info-body {
     color: #ddd;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     flex: 1;
     display: flex;
     flex-direction: column;
-    /* 親の140pxに合わせて縮小可能にする */
     min-height: 0;
 }
-#info-stats { display: flex; gap: 12px; color: var(--accent-blue); margin-bottom: 4px; font-weight: bold; }
+
+#info-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--accent-blue);
+    margin-bottom: 4px;
+    font-weight: bold;
+}
+
+#info-main-stats { display: flex; gap: 8px; }
+#info-extra-stats { color: #aaa; font-size: 0.65rem; }
 #info-text {
     flex: 1;
     line-height: 1.2;
@@ -306,6 +351,33 @@ body {
     font-size: 0.6rem;
     color: rgba(255,255,255,0.3);
     transform: rotateX(-35deg); /* 3Dの中で文字を起こす */
+    z-index: 10;
+    pointer-events: none;
+}
+
+.zone { overflow: visible !important; }
+
+/* カード背面の設定 */
+.card-back {
+    background-image: url('img/card.webp');
+    background-size: cover;
+    background-position: center;
+    border: 2px solid #444 !important;
+}
+
+/* 段階的な厚みの表現 (X軸のズレを0にして垂直に積み上げる) */
+.stack-stage-1 { box-shadow: 0 1px 0 #222; }
+.stack-stage-2 { box-shadow: 0 1px 0 #222, 0 2px 0 #151515, 0 3px 0 #000; }
+.stack-stage-3 { box-shadow: 0 1px 0 #222, 0 2px 0 #151515, 0 3px 0 #000, 0 4px 0 #000, 0 5px 0 #000; }
+
+/* 相手側は画面奥に向かって厚みを出す */
+.opponent-field .stack-stage-1 { box-shadow: 0 -1px 0 #222; }
+.opponent-field .stack-stage-2 { box-shadow: 0 -1px 0 #222, 0 -2px 0 #151515, 0 -3px 0 #000; }
+.opponent-field .stack-stage-3 { box-shadow: 0 -1px 0 #222, 0 -2px 0 #151515, 0 -3px 0 #000, 0 -4px 0 #000, 0 -5px 0 #000; }
+
+/* ゾーン内のカードは単体の影を消してスタックと一体化させる */
+.zone .card-mini {
+    box-shadow: none !important;
 }
 
 /* 相手側のゾーンテキスト(Deck/Trash)の向きを補正 */
@@ -363,11 +435,45 @@ body {
     flex-shrink: 0;
     position: relative;
     border-radius: 4px;
-    border: 1px solid #000;
-    background-size: cover;
+    border: 2px solid #666 !important;
     box-shadow: 2px 4px 8px rgba(0,0,0,0.6);
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s, margin-left 0.3s ease, opacity 0.3s ease;
+    /* overflow: hiddenを削除して3D表現を有効化 */
+    container-type: inline-size;
+    background-color: #1a1a1a;
+    transform-style: preserve-3d;
+}
+
+/* カードの表裏構造 */
+.card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    border-radius: 2px;
+}
+
+.card-front {
+    z-index: 2;
+    transform: rotateY(0deg);
+}
+
+.card-back {
+    z-index: 1;
+    transform: rotateY(180deg);
+    background-image: url('img/card.webp');
+    background-size: cover;
+    background-position: center;
+    background-color: #222;
+    border: 1px solid #444;
+}
+
+/* アニメーション用一時カード */
+.anim-drawing-card {
+    position: fixed;
+    z-index: 5000;
+    pointer-events: none;
+    transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 /* ゾーン内では枠に100%フィットさせる */
@@ -398,7 +504,7 @@ body {
 }
 
 /* メニュー画面はindex.htmlのクラスを使用 */
-#menu-screen {
+#menu-screen.active {
     background: radial-gradient(circle at center, #1a1a1a, #000);
     display: flex;
     flex-direction: column;
@@ -433,11 +539,65 @@ body {
     overflow: hidden;
 }
 
-/* カードの視認性向上 (背景色のフォールバック) */
-.card-mini {
-    background-color: #222;
-    /* 枠との干渉を防ぐため最小サイズ制限を解除し、3D平面を同期 */
-    transform-style: flat;
+/* カードタイプ別背景色・文字色 */
+.bg-normal { background: #ffeb3b; color: #000; } /* 通常モンスターは鮮やかな黄色 */
+.bg-effect { background: #ff9900; color: #000; } /* 効果モンスターはオレンジ */
+.bg-magic { background: #111111; color: #fff; }  /* 魔術カードは黒ベース */
+
+/* モンスター名の文字色を強制的に黒に固定 */
+.bg-normal .card-name-text,
+.bg-effect .card-name-text { color: #000 !important; }
+
+/* スケーラブル名称エリア */
+.card-name-box {
+    position: absolute;
+    top: 3%; left: 3%; width: 94%; height: 11%;
+    border: 1px solid rgba(0,0,0,0.2);
+    background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center; padding: 0 3%;
+    border-radius: 2px; z-index: 5;
+}
+.card-name-text {
+    font-size: 10cqi; font-weight: bold; white-space: nowrap;
+    line-height: 1;
+    text-align: center;
+}
+
+/* 固定画像エリア (正方形) */
+.card-img-frame {
+    position: absolute;
+    top: 17%; left: 8%; width: 84%; height: 50%;
+    border: 1px solid #555; background: #000;
+    overflow: hidden; z-index: 2;
+}
+.card-img-content { width: 100%; height: 100%; object-fit: cover; }
+
+/* 属性バッジ (左下隅) - 少し拡大 */
+.card-attribute-icon {
+    position: absolute;
+    bottom: 3%; left: 3%; width: 30%; height: 22%;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 5;
+}
+.card-attribute-icon img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ステータスクラスター (右下隅) */
+.card-status-cluster {
+    position: absolute;
+    bottom: 3%; right: 3%; width: 60%;
+    display: flex; flex-direction: column; align-items: flex-end;
+    line-height: 1.1; z-index: 5;
+}
+.card-lv-text {
+    font-size: 15cqi; font-weight: bold; color: #00d2ff;
+    text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
+.card-atk-text {
+    font-size: 18cqi; font-weight: bold; color: #00d2ff;
+    text-shadow: 1px 1px 1px #000, -1px -1px 1px #000, 1px -1px 1px #000, -1px 1px 1px #000;
+}
+.card-magic-type {
+    font-size: 13cqi; color: #fff; font-style: italic;
 }
 
 /* 浮遊アクションボタン */
@@ -468,6 +628,13 @@ body {
     white-space: nowrap;
 }
 .btn-action-float.attack { background: var(--accent-red); }
+.btn-action-float:disabled {
+    filter: grayscale(1);
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #444;
+    border-color: #666;
+}
 
 /* スロットハイライト */
 .zone.highlight {
@@ -481,9 +648,178 @@ body {
     from { opacity: 0.6; } to { opacity: 1; }
 }
 
+/* コスト選択ハイライト (黄色) */
+.zone.cost-highlight {
+    border: 3px solid #ffff00 !important;
+    box-shadow: 0 0 20px #ffff00, inset 0 0 10px #ffff00 !important;
+    background: rgba(255, 255, 0, 0.2) !important;
+    cursor: pointer;
+    animation: blink 1s infinite alternate;
+}
+.zone.cost-selected {
+    border: 3px solid #ffaa00 !important;
+    box-shadow: 0 0 25px #ffaa00 !important;
+    background: rgba(255, 170, 0, 0.3) !important;
+}
+
 /* 相手ターン中のUIロック */
 .disabled-ui {
     filter: grayscale(0.8) brightness(0.7);
     pointer-events: none !important;
     opacity: 0.7;
+}
+
+/* 手札選択時の強調表示 (浮き上がり演出) */
+#player-hand .card-mini.selected {
+    transform: translateY(-15px);
+    z-index: 999 !important;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.8), 0 0 15px var(--accent-blue);
+    border-color: var(--accent-blue) !important;
+}
+
+/* ==========================================
+   6. リザルトモーダル (Transparent Version)
+   ========================================== */
+#game-result-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent; /* 完全透明 */
+    display: none; /* JSでflexに切り替え */
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+    animation: fadeIn 0.5s ease forwards;
+}
+
+.result-modal-content {
+    background: transparent; /* 背景なし */
+    padding: 30px 40px;
+    text-align: center;
+    transform: scale(0.8);
+    opacity: 0;
+    animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.1s forwards;
+    /* 背景が透けるので、文字視認性確保のために強力な影を追加 */
+    text-shadow: 0 5px 20px rgba(0,0,0,1);
+}
+
+#result-title {
+    font-size: 3.5rem; /* より大きく強調 */
+    margin-bottom: 15px;
+    letter-spacing: 4px;
+    font-family: 'Exo 2';
+    font-weight: 800;
+}
+
+/* 勝利スタイル - テキスト発光のみ強化 */
+.result-win #result-title { color: var(--accent-blue); text-shadow: 0 0 30px rgba(0, 210, 255, 0.8), 0 5px 20px rgba(0,0,0,1); }
+
+/* 敗北スタイル - テキスト発光のみ強化 */
+.result-lose #result-title { color: var(--accent-red); text-shadow: 0 0 30px rgba(255, 75, 43, 0.8), 0 5px 20px rgba(0,0,0,1); }
+
+#result-message {
+    margin-bottom: 40px;
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.result-home-btn {
+    background: rgba(0,0,0,0.4); /* ボタン認識用にわずかに暗く */
+    border: 2px solid #fff;
+    color: #fff;
+    padding: 12px 40px;
+    border-radius: 40px;
+    font-weight: bold;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-shadow: none; /* ボタン内の文字影はリセット */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+
+.result-home-btn:hover { background: rgba(255, 255, 255, 0.2); color: var(--accent-blue); border-color: var(--accent-blue); }
+.result-home-btn:active { transform: scale(0.95); }
+
+@keyframes modalPop {
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* ==========================================
+   7. スタートモーダル (DUEL)
+   ========================================== */
+#game-start-overlay {
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 4000;
+    animation: fadeIn 0.5s ease forwards;
+}
+
+.start-modal-content {
+    background: transparent;
+    text-align: center;
+    transform: scale(0.8);
+    opacity: 0;
+    animation: modalPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    text-shadow: 0 5px 20px rgba(0,0,0,1);
+}
+
+#start-title {
+    font-size: 5rem;
+    color: #ffff00;
+    letter-spacing: 12px;
+    font-family: 'Exo 2';
+    font-weight: 900;
+    margin-bottom: 5px;
+    text-shadow: 0 0 20px rgba(255, 255, 0, 0.8), 0 0 40px rgba(255, 255, 0, 0.4), 0 5px 15px rgba(0,0,0,1);
+    animation: duelGlow 1.5s ease-in-out infinite alternate;
+}
+
+#start-message {
+    margin-bottom: 50px;
+    color: #fff;
+    font-size: 1.4rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.start-btn {
+    background: rgba(0,0,0,0.6);
+    border: 3px solid #ffff00;
+    color: #ffff00;
+    padding: 15px 60px;
+    border-radius: 50px;
+    font-weight: bold;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 0 20px rgba(255, 255, 0, 0.3);
+    text-transform: uppercase;
+}
+
+.start-btn:hover { background: #ffff00; color: #000; box-shadow: 0 0 40px rgba(255, 255, 0, 0.6); }
+.start-btn:active { transform: scale(0.9); }
+
+@keyframes duelGlow {
+    from { text-shadow: 0 0 20px rgba(255, 255, 0, 0.8), 0 5px 15px rgba(0,0,0,1); }
+    to { text-shadow: 0 0 40px rgba(255, 255, 0, 1), 0 0 60px rgba(255, 255, 0, 0.6), 0 5px 15px rgba(0,0,0,1); }
+}
+
+/* 選択モード中のフィールド制御 */
+.selecting-mode .card-mini {
+    pointer-events: none !important;
+}
+.selecting-mode .zone.highlight,
+.selecting-mode .zone.cost-highlight {
+    pointer-events: auto !important;
+    z-index: 1000;
+}
+
+/* ドロー演出用：スロット確保中の透明状態 */
+.card-mini.entering {
+    opacity: 0;
+    pointer-events: none;
 }

@@ -55,16 +55,25 @@
                     </div>
 
                     <div id="card-info-panel">
-                        <div class="info-header">
-                            <span id="info-name">No Selection</span>
-                            <span id="info-attr"></span>
-                        </div>
-                        <div class="info-body">
-                            <div id="info-stats">
-                                <span id="info-level"></span>
-                                <span id="info-power"></span>
+
+                        <div id="info-visual-container"></div>
+
+
+                        <div id="info-text-container">
+                            <div class="info-header">
+                                <span id="info-name">No Selection</span>
+                                <span id="info-attr"></span>
                             </div>
-                            <div id="info-text">カードをタップして詳細を表示</div>
+                            <div class="info-body">
+                                <div id="info-stats">
+                                    <div id="info-main-stats">
+                                        <span id="info-level"></span>
+                                        <span id="info-power"></span>
+                                    </div>
+                                    <div id="info-extra-stats"></div>
+                                </div>
+                                <div id="info-text">カードをタップして詳細を表示</div>
+                            </div>
                         </div>
                     </div>
 
@@ -82,14 +91,14 @@
                     <div id="field-surface">
                         <div class="field-half opponent-field">
                             <div class="field-row back-row">
-                                <div class="zone trash-zone" id="opponent-trash-zone"><span>Trash</span></div>
+                                <div class="zone trash-zone" id="opponent-trash-zone"></div>
                                 <div class="zone magic-zone" id="opt-magic-2"></div>
                                 <div class="zone magic-zone" id="opt-magic-1"></div>
                                 <div class="zone magic-zone" id="opt-magic-0"></div>
                                 <div class="zone empty-zone"></div>
                             </div>
                             <div class="field-row front-row">
-                                <div class="zone deck-zone" id="opponent-deck-zone"><span>Deck</span><span id="opt-deck-count">20</span></div>
+                                <div class="zone deck-zone" id="opponent-deck-zone"><span id="opt-deck-count">20</span></div>
                                 <div class="zone monster-zone" id="opt-monster-2"></div>
                                 <div class="zone monster-zone" id="opt-monster-1"></div>
                                 <div class="zone monster-zone" id="opt-monster-0"></div>
@@ -116,7 +125,7 @@
                                 <div class="zone magic-zone" data-index="0" id="ply-magic-0"></div>
                                 <div class="zone magic-zone" data-index="1" id="ply-magic-1"></div>
                                 <div class="zone magic-zone" data-index="2" id="ply-magic-2"></div>
-                                <div class="zone trash-zone" id="player-trash-zone"><span>Trash</span></div>
+                                <div class="zone trash-zone" id="player-trash-zone"></div>
                             </div>
                         </div>
                     </div>
@@ -124,6 +133,24 @@
 
                 <div id="player-hand-container">
                     <div id="player-hand"></div>
+                </div>
+            </div>
+
+
+
+            <div id="game-start-overlay">
+                <div class="start-modal-content">
+                    <h2 id="start-title">DUEL</h2>
+                    <p id="start-message">準備中...</p>
+                    <button class="start-btn" onclick="beginDuel()">START</button>
+                </div>
+            </div>
+
+            <div id="game-result-overlay">
+                <div class="result-modal-content">
+                    <h2 id="result-title">VICTORY</h2>
+                    <p id="result-message">相手のLPを0にしました</p>
+                    <button class="result-home-btn" onclick="backToMenu()">HOMEに戻る</button>
                 </div>
             </div>
         </div>
@@ -139,6 +166,7 @@
     </div>
 
     <script src="cards.js"></script>
+    <script src="effect_logic.js"></script>
     <script src="main.js"></script>
 </body>
 </html>
