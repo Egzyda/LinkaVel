@@ -28,10 +28,10 @@ const DeckBuilder = {
         console.log("DeckBuilder Initializing...");
         // MASTER_CARDSを配列化して保持
         this.allCards = Object.values(MASTER_CARDS);
-        
+
         // イベントリスナー設定
         this.setupEventListeners();
-        
+
         // 初回レンダリング
         this.renderLibrary();
         this.updateUI();
@@ -50,7 +50,7 @@ const DeckBuilder = {
 
         // 保存ボタン
         document.getElementById('builder-save-btn').addEventListener('click', () => this.saveDeck());
-        
+
         // 戻るボタン
         document.getElementById('builder-back-btn').addEventListener('click', () => {
             if (confirm("保存されていない変更は破棄されます。戻りますか？")) {
@@ -139,10 +139,17 @@ const DeckBuilder = {
             const count = inDeck ? inDeck.count : 0;
             if (count >= this.MAX_COPIES) el.classList.add('max-copy');
 
-            el.innerHTML = `
-                <img src="${card.image}" loading="lazy">
-                ${count > 0 ? `<div class="lib-count-badge">${count}</div>` : ''}
-            `;
+            // カード要素の生成 (画像ではなくリッチなカードコンポーネント)
+            const cardEl = this.createBuilderCard(card);
+            el.appendChild(cardEl);
+
+            if (count > 0) {
+                const badge = document.createElement('div');
+                badge.className = 'lib-count-badge';
+                badge.innerText = count;
+                el.appendChild(badge);
+            }
+
             el.onclick = () => this.selectCard(card.id);
             grid.appendChild(el);
         });
@@ -173,7 +180,7 @@ const DeckBuilder = {
         imgBox.innerHTML = `<img src="${card.image}">`;
 
         const isMonster = card.type === "monster";
-        const statsHtml = isMonster 
+        const statsHtml = isMonster
             ? `Lv.${card.level} / ATK ${card.power}`
             : `${card.subType === 'permanent' ? '永続魔術' : '通常魔術'}`;
 
@@ -298,7 +305,7 @@ const DeckBuilder = {
 
         const savedDecks = this.getSavedDecks();
         const deckId = this.currentDeck.id || `deck_${Date.now()}`;
-        
+
         // 保存用にID配列に展開
         const idList = [];
         this.currentDeck.cards.forEach(c => {
@@ -314,7 +321,7 @@ const DeckBuilder = {
 
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(savedDecks));
         this.showToast("デッキを保存しました");
-        
+
         // 少し待ってから戻る
         setTimeout(() => backToMenu(), 800);
     },
@@ -342,6 +349,59 @@ const DeckBuilder = {
         toast.innerText = msg;
         toast.classList.add('show');
         setTimeout(() => toast.classList.remove('show'), 2000);
+    },
+
+    /** ビルダー用カード要素生成 (main.jsのcreateCardElementを簡易再現) */
+    createBuilderCard(cardData) {
+        const el = document.createElement('div');
+        el.className = 'card-mini builder-card';
+
+        const isMonster = cardData.type === 'monster';
+        const isEffect = cardData.subType === 'effect';
+        let bgClass = isMonster ? (isEffect ? 'bg-effect' : 'bg-normal') : 'bg-magic';
+
+        const attrMap = { "火": "fire", "水": "water", "草": "leaf", "光": "light", "闇": "dark", "無": "neutral" };
+        const attrEn = attrMap[cardData.attribute] || "neutral";
+
+        el.innerHTML = `
+            <div class="card-face card-front ${bgClass}">
+                <div class="card-name-box">
+                    <span class="card-name-text">${cardData.name}</span>
+                </div>
+                <div class="card-img-frame">
+                    <img src="${cardData.image}" class="card-img-content" loading="lazy" draggable="false">
+                </div>
+                <div class="card-attribute-icon">
+                    <img src="img/${attrEn}.webp" alt="${cardData.attribute}">
+                </div>
+                <div class="card-status-cluster">
+                    ${isMonster ? `
+                        <div class="card-lv-text">Lv.${cardData.level}</div>
+                        <div class="card-atk-text">${cardData.power}</div>
+                    ` : `
+                        <div class="card-magic-type">${cardData.subType === 'permanent' ? '永続魔術' : '通常魔術'}</div>
+                    `}
+                </div>
+            </div>
+            <div class="card-face card-back"></div>
+        `;
+
+        // 名称圧縮ロジック (簡易版)
+        requestAnimationFrame(() => {
+            const nameBox = el.querySelector('.card-name-box');
+            const nameText = el.querySelector('.card-name-text');
+            if (nameBox && nameText) {
+                const maxWidth = nameBox.clientWidth * 0.9;
+                const currentWidth = nameText.scrollWidth;
+                if (currentWidth > maxWidth) {
+                    nameText.style.display = 'inline-block';
+                    nameText.style.transform = `scaleX(${maxWidth / currentWidth})`;
+                    nameText.style.transformOrigin = 'center';
+                }
+            }
+        });
+
+        return el;
     }
 };
 

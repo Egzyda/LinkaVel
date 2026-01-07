@@ -10,6 +10,9 @@
     color: #f0f0f0;
     overflow: hidden;
     position: relative;
+    /* セーフエリア対応 */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* --- 1. Header Area --- */
@@ -267,44 +270,62 @@
     overflow-y: auto;
     padding: 6px;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 6px;
+    /* カードの視認性を確保するため最小幅を設定 */
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 8px;
     align-content: start;
 }
 
 .lib-item {
     position: relative;
     width: 100%;
-    padding-bottom: 140%;
-    background: #111;
-    border-radius: 3px;
+    /* アスペクト比ハックを解除し、中身のカードに委ねる */
+    height: auto;
+    background: transparent;
+    border-radius: 4px;
     cursor: pointer;
-    border: 1px solid #333;
+    border: none;
+    display: flex;
+    justify-content: center;
 }
-.lib-item img {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    object-fit: cover;
-    border-radius: 2px;
+
+/* ビルダー用カードスタイルの上書き */
+.builder-card.card-mini {
+    width: 100% !important;
+    height: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    aspect-ratio: 14 / 19;
+    margin: 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
 }
-.lib-item.selected {
-    border-color: var(--accent-blue);
-    box-shadow: 0 0 8px var(--accent-blue);
+
+.lib-item.selected .builder-card {
+    border-color: var(--accent-blue) !important;
+    box-shadow: 0 0 10px var(--accent-blue);
+    transform: translateY(-2px);
 }
 /* 所持数バッジ */
 .lib-count-badge {
     position: absolute;
-    top: 2px; right: 2px;
-    background: rgba(0,0,0,0.8);
-    color: #fff;
-    font-size: 0.6rem;
-    width: 16px; height: 16px;
+    top: -4px; right: -4px;
+    background: var(--accent-blue);
+    color: #000;
+    font-weight: bold;
+    font-size: 0.7rem;
+    width: 20px; height: 20px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #666;
+    border: 2px solid #fff;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.lib-item.max-copy .builder-card {
+    filter: grayscale(1) brightness(0.6);
+    opacity: 0.7;
 }
 .lib-item.max-copy {
     opacity: 0.5;

@@ -233,8 +233,18 @@ function backToMenu() {
     showScreen('menu-screen');
 }
 
+let isDeckBuilderInitialized = false;
+
 function openDeckEditor() {
     showScreen('deck-screen');
+    if (typeof DeckBuilder !== 'undefined') {
+        if (!isDeckBuilderInitialized) {
+            DeckBuilder.init();
+            isDeckBuilderInitialized = true;
+        }
+        // 新規セッション開始
+        DeckBuilder.startSession();
+    }
 }
 
 // ==========================================

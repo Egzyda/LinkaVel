@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>LinkaVel Card Game</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="deck_builder.css">
     <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -193,16 +194,77 @@
         </div>
 
         <div id="deck-screen" class="screen">
-            <div class="safe-area">
-                <h2>DECK BUILDER</h2>
-                <p>Coming Soon...</p>
-                <button class="btn" onclick="backToMenu()">BACK</button>
+            <div id="deck-builder-view">
+                <!-- Header -->
+                <div class="builder-header">
+                    <div class="header-actions">
+                        <button id="builder-back-btn" class="builder-btn">BACK</button>
+                        <input type="text" id="builder-deck-name" class="deck-name-input" placeholder="デッキ名">
+                    </div>
+                    <div class="header-actions">
+                        <span id="deck-count-indicator" class="deck-count-indicator">0 / 30</span>
+                        <button id="builder-save-btn" class="builder-btn save" disabled>SAVE</button>
+                    </div>
+                </div>
+
+                <!-- Current Deck Area -->
+                <div class="current-deck-area">
+                    <div class="deck-stats-bar">
+                        <span>Main Deck</span>
+                        <span>Monster: <span id="stat-monster">0</span> / Magic: <span id="stat-magic">0</span></span>
+                    </div>
+                    <div id="builder-deck-grid" class="deck-grid-scroll"></div>
+                </div>
+
+                <!-- Detail Area -->
+                <div class="builder-detail-area">
+                    <div id="detail-img-box" class="detail-img-box"></div>
+                    <div id="detail-info-box" class="detail-info-box">
+                        <div style="color:#666; display:flex; align-items:center; justify-content:center; height:100%;">カードを選択してください</div>
+                    </div>
+                    <div id="detail-actions" class="detail-actions" style="display:none;">
+                        <button id="btn-add-card" class="action-btn add">+</button>
+                        <button id="btn-remove-card" class="action-btn remove">-</button>
+                    </div>
+                </div>
+
+                <!-- Library Area -->
+                <div class="library-area">
+                    <div class="library-filter-bar">
+                        <select id="filter-attr" class="filter-select">
+                            <option value="all">全属性</option>
+                            <option value="火">火</option>
+                            <option value="水">水</option>
+                            <option value="草">草</option>
+                            <option value="光">光</option>
+                            <option value="闇">闇</option>
+                            <option value="無">無</option>
+                        </select>
+                        <select id="filter-level" class="filter-select">
+                            <option value="all">全レベル</option>
+                            <option value="1">Lv.1</option>
+                            <option value="2">Lv.2</option>
+                            <option value="3">Lv.3</option>
+                            <option value="4">Lv.4</option>
+                        </select>
+                        <select id="filter-type" class="filter-select">
+                            <option value="all">全種別</option>
+                            <option value="monster">モンスター</option>
+                            <option value="magic">魔術</option>
+                        </select>
+                    </div>
+                    <div id="builder-library-grid" class="library-grid"></div>
+                </div>
+
+                <!-- Toast -->
+                <div id="builder-toast"></div>
             </div>
         </div>
 
     </div>
 
     <script src="cards.js"></script>
+    <script src="deck_builder.js"></script>
     <script src="effect_logic.js"></script>
     <script src="main.js"></script>
     <script src="cpu_logic.js"></script>
