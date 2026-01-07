@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Evolution Patcher Robust v1.3</title>
+    <style>
+        :root {
+            --primary: #ff4081;
+            --bg: #fff;
+            --text: #333;
+            --log-bg: #1e1e1e;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: var(--bg); color: var(--text); 
+            margin: 0; padding: 15px; 
+            font-size: 16px;
+        }
+        .container { width: 100%; max-width: 600px; margin: 0 auto; }
+        h1 { 
+            color: var(--primary); text-align: center; 
+            font-size: 1.4rem; margin: 10px 0; 
+        }
+        .step { 
+            margin-bottom: 15px; padding: 15px; 
+            background: #fdf2f8; border-radius: 12px; 
+            border: 1px solid #fbcfe8;
+        }
+        .step-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .step-title { 
+            font-weight: bold; color: #be185d; font-size: 0.9rem; 
+        }
+        .clear-btn {
+            background: #f472b6; color: white; border: none;
+            padding: 4px 12px; border-radius: 6px; font-size: 0.75rem;
+            cursor: pointer; font-weight: bold;
+        }
+        .clear-btn:active { background: #db2777; }
+        
+        textarea, input[type="file"] { 
+            width: 100%; border: 1px solid #f9a8d4; border-radius: 8px; 
+            padding: 12px; font-family: monospace; font-size: 14px; 
+            background: white;
+        }
+        textarea { height: 120px; }
+        
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .btn { 
+            background: var(--primary); color: white; border: none; 
+            padding: 16px; border-radius: 12px; cursor: pointer; 
+            width: 100%; font-size: 1rem; font-weight: bold; 
+            box-shadow: 0 4px 10px rgba(255, 64, 129, 0.3);
+            transition: transform 0.1s;
+        }
+        .btn.secondary { background: #6366f1; box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3); }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
+        
+        .log { 
+            margin-top: 15px; padding: 15px; background: var(--log-bg); 
+            color: #d4d4d4; border-radius: 10px; font-family: monospace; 
+            font-size: 11px; overflow-x: auto; white-space: pre-wrap; 
+            min-height: 80px; max-height: 200px;
+        }
+        .success { color: #4ade80; }
+        .error { color: #fb7185; font-weight: bold; }
+        .warning { color: #fbbf24; }
+        
+        #result-actions { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>💖 Evolution Patcher <small>Robust v1.3</small></h1>
+    <p style="font-size: 0.7rem; text-align: center; color: #999; margin-top: -10px;">For LoveLive! OCG Simulator Development</p>
+
+    <div class="step">
+        <label class="step-title">1. 対象ファイルを選択</label>
+        <input type="file" id="fileInput" accept=".js, .html, .css, text/javascript, text/plain">
+    </div>
+
+    <div class="step">
+        <div class="step-header">
+            <label class="step-title">2. パッチ(JSON)を貼り付け</label>
+            <button class="clear-btn" onclick="clearPatch()">クリア</button>
+        </div>
+        <textarea id="patchInput" placeholder='[{"action": "replace_text", "target": "old", "code": "new"}]' spellcheck="false"></textarea>
+    </div>
+
+    <button class="btn" onclick="processPatch()">パッチを適用する</button>
+
+    <div id="result-actions">
+        <div class="btn-group">
+            <button class="btn secondary" onclick="downloadFile()">ファイルを保存</button>
+            <button class="btn secondary" onclick="copyToClipboard()">コードをコピー</button>
+        </div>
+    </div>
+
+    <div id="log" class="log">ログ: 待機中...</div>
+</div>
+
+<script>
+    let patchedContent = "";
+    let targetFileName = "";
+    const logEl = document.getElementById('log');
+
+    /**
+     * 文字列の正規化
+     * 1. 改行コードを \n に統一
+     * 2. 行末の無駄なスペース・タブを削除
+     */
+    function normalizeContent(str) {
+        if (!str) return "";
+        return str
+            .replace(/\r\n|\r/g, "\n")      // 改行統一
+            .replace(/[ \t]+$/gm, "");      // 行末スペース削除
+    }
+
+    function addLog(msg, type = '') {
+        const div = document.createElement('div');
+        div.className = type;
+        div.textContent = `> ${msg}`;
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function clearPatch() {
+        document.getElementById('patchInput').value = '';
+        addLog("パッチ入力欄をクリアしました。");
+    }
+
+    async function processPatch() {
+        logEl.innerHTML = '';
+        const fileInput = document.getElementById('fileInput');
+        const fileFile = fileInput.files[0];
+        const patchText = document.getElementById('patchInput').value;
+
+        if (!fileInput.files.length || !patchText.trim()) {
+            addLog("ファイルとパッチを指定してください。", "error");
+            return;
+        }
+
+        try {
+            const patches = JSON.parse(patchText);
+            addLog(`${fileFile.name} 読み込み開始...`);
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                // 元ファイルの内容を正規化
+                let content = normalizeContent(reader.result);
+                let successCount = 0;
+
+                for (let i = 0; i < patches.length; i++) {
+                    const p = patches[i];
+                    const patchId = `P#${i + 1}`;
+
+                    if (p.action === 'replace_text') {
+                        // パッチ側のターゲットとコードも正規化して比較
+                        const normalizedTarget = normalizeContent(p.target);
+                        const normalizedReplacement = normalizeContent(p.code);
+
+                        if (content.includes(normalizedTarget)) {
+                            // split().join() による厳密かつ全置換
+                            content = content.split(normalizedTarget).join(normalizedReplacement);
+                            addLog(`${patchId}: 置換成功`, "success");
+                            successCount++;
+                        } else {
+                            addLog(`${patchId}: 失敗(Target不一致)`, "error");
+                            addLog("※改行と行末スペースは正規化済みです。コード自体の差異を確認してください。", "warning");
+                            return; // 一つでも失敗したら停止
+                        }
+                    } else if (p.action === 'append') {
+                        const normalizedAppend = normalizeContent(p.code);
+                        content = content.trimEnd() + "\n" + normalizedAppend;
+                        addLog(`${patchId}: 末尾追加完了`, "success");
+                        successCount++;
+                    }
+                }
+
+                patchedContent = content;
+                targetFileName = fileFile.name;
+                document.getElementById('result-actions').style.display = "block";
+                addLog(`完了！ ${successCount}件のパッチを適用しました。`, "success");
+            };
+            reader.readAsText(fileFile);
+
+        } catch (e) {
+            addLog("JSON解析エラー: " + e.message, "error");
+            addLog("パッチが正しいJSON形式 [{}, {}] であるか確認してください。", "warning");
+        }
+    }
+
+    function downloadFile() {
+        if (!patchedContent) return;
+        const blob = new Blob([patchedContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = targetFileName;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    async function copyToClipboard() {
+        if (!patchedContent) return;
+        try {
+            await navigator.clipboard.writeText(patchedContent);
+            addLog("クリップボードにコピーしました！", "success");
+        } catch (err) {
+            addLog("コピー失敗: " + err, "error");
+        }
+    }
+</script>
+
+</body>
+</html>
