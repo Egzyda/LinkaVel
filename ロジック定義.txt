@@ -1,0 +1,53 @@
+# LinkaVel Logic Specification Ver 1.3
+
+このドキュメントは、MASTER_CARDS の logic プロパティにおける共通規格を定義したものである。
+プログラム側（EffectLogic）は、以下の定数およびパラメータを読み取って処理を実行する。
+
+## 1. Trigger (発動条件)
+効果がスタックに積まれるタイミングの定義。
+
+- on_summon: 通常召喚・特殊召喚の着地成功時に発動。
+- on_activate: 通常魔術・永続魔術の発動宣言時に発動。
+- on_sent_to_trash: フィールドからトラッシュへ送られた瞬間に予約。
+- ignition: メインフェイズ中の「オープンな状態」でプレイヤーが任意に発動。
+- always: フィールドに存在する限り、常時計算に介入（永続・オーラ）。
+- after_combat: 戦闘（ダメージ計算）が終了したステップで発動。
+- on_lp_gain: プレイヤーのLPが回復した瞬間に割り込み発動。
+- on_other_sent_to_trash: 自分以外のカードがトラッシュに置かれた時に発動。
+
+## 2. Action Type (命令種別)
+実行される具体的なプログラム処理。
+
+- buff: 対象のパワーを数値分加算/減算する。
+- global_buff: フィールドの複数体（フィルタ合致者）のパワーを一括変更する。
+- special_summon: デッキ・トラッシュからモンスターをフィールドの空き枠に展開。
+- draw_card: デッキから指定枚数カードを手札に加える。
+- draw_and_discard: ドロー実行後、指定枚数を手札から選んで捨てる一連の処理。
+- mill: デッキトップから指定枚数をトラッシュへ移動する。
+- search: デッキから条件に合うカードを手札に加える（シャッフルを含む）。
+- salvage: トラッシュから条件に合うカードを手札に加える。
+- heal: プレイヤーのLP数値を増加させる。
+- destroy: 対象カードを破壊し、フィールドからトラッシュへ移動させる。
+- battle_protection: 戦闘破壊を無効化するフラグ（1ターンに1度等）を付与。
+- damage_reduction: プレイヤーが受ける戦闘ダメージを数値分軽減する。
+
+## 3. Parameter & Filter (詳細パラメータ)
+各アクションに付随する制御用の属性。
+
+- targetSide: self (自分) / opponent (相手)
+- targetSelect: random (システム自動) / manual (UI選択) / all (全体)
+- countLimit: once_per_turn (1ターンに1度) の制限管理。
+- optional: true (任意発動 - プレイヤーに確認) / false (強制発動)。
+- duration:
+    - until_end_turn: 発動したターンのエンドフェイズまで。
+    - until_opponent_end: 次の相手ターンのエンドフェイズまで。
+    - permanent_aura: そのカードが場に存在する限り継続。
+- condition:
+    - is_weakened: (現在のパワー < MASTER_CARDS.power) の場合のみ。
+    - is_opponent_turn: 相手ターンの間のみ。
+    - has_category_on_field: 特定の【カテゴリ】が自分フィールドに存在する場合。
+
+## 4. 解決シーケンス (Resolution Priority)
+1. 効果解決の開始: 配列内の Action をインデックス順にすべて実行（非同期割り込み禁止）。
+2. 誘発予約: 処理中に発生した「トラッシュ送り」等のイベントはすべてキューに溜める。
+3. 連鎖解決: 全ての Action が終了し、フィールドが静止した後にキュー内の誘発効果を開始する。
