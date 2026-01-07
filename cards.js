@@ -522,7 +522,7 @@ const MASTER_CARDS = {
         level: 3,
         power: 1300,
         categories: ["冥界"],
-        text: "このモンスターを召喚・特殊召喚した時、デッキの上から3枚トラッシュする。その後、トラッシュからレベル2以下の【冥界】1体をランダムに特殊召喚する。",
+        text: "このモンスターを召喚・特殊召喚した時、デッキの上から3枚トラッシュする。その後、トラッシュからレベル2以下の【冥界】モンスター1体をランダムに特殊召喚する。",
         summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
         logic: [
             { type: "mill", trigger: "on_summon", count: 3 },
