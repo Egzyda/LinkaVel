@@ -115,35 +115,106 @@ function startSinglePlay() {
 }
 
 /**
- * デッキ選択リストを動的に生成
+ * デッキ選択リストを動的に生成 (デュエル開始用)
  */
-function renderDeckSelection() {
+async function renderDeckSelection() {
     const container = document.getElementById('deck-list-container');
-    container.innerHTML = "";
+    container.innerHTML = "<div style='color:#fff;text-align:center;'>Loading...</div>";
 
+    // 1. スターターデッキ
+    let html = "";
     Object.keys(DECK_RECIPES).forEach(key => {
         const recipe = DECK_RECIPES[key];
-        const btn = document.createElement('button');
-        btn.className = 'menu-btn';
-        btn.innerHTML = `<span class="btn-text">${recipe.name}</span>`;
-        btn.onclick = () => confirmDeckSelection(key);
-        container.appendChild(btn);
+        html += createDeckItemHtml(key, recipe.name, "starter", true);
     });
+
+    // 2. ユーザーデッキ (Firestore)
+    if (typeof DeckBuilder !== 'undefined') {
+        const userDecks = await DeckBuilder.fetchUserDecks();
+        userDecks.forEach(deck => {
+            html += createDeckItemHtml(deck.id, deck.name, "user", true);
+        });
+    }
+
+    container.innerHTML = html;
+}
+
+/**
+ * デッキ管理画面の描画 (編集・削除・コピー)
+ */
+async function renderDeckManager() {
+    const container = document.getElementById('deck-list-container');
+    container.innerHTML = "<div style='color:#fff;text-align:center;'>Loading...</div>";
+
+    // 新規作成ボタン
+    let html = `
+        <button class="menu-btn" onclick="DeckBuilder.startSession(null); showScreen('deck-screen');">
+            <span class="btn-icon">＋</span>
+            <span class="btn-text">新規デッキ作成</span>
+        </button>
+        <hr style="border:0; border-top:1px solid #333; margin:10px 0; width:100%;">
+    `;
+
+    // ユーザーデッキ一覧
+    const userDecks = await DeckBuilder.fetchUserDecks();
+    if (userDecks.length === 0) {
+        html += `<div style="color:#666;text-align:center;padding:20px;">保存されたデッキはありません</div>`;
+    } else {
+        userDecks.forEach(deck => {
+            html += createDeckItemHtml(deck.id, deck.name, "user", false);
+        });
+    }
+
+    container.innerHTML = html;
+}
+
+function createDeckItemHtml(id, name, type, isDuelMode) {
+    const tagClass = type === 'starter' ? 'starter' : 'user';
+    const tagName = type === 'starter' ? 'STARTER' : 'USER';
+
+    if (isDuelMode) {
+        // デュエル開始モード: シンプルなボタン
+        return `
+            <button class="menu-btn custom-deck-item" onclick="confirmDeckSelection('${id}', '${type}')">
+                <span class="btn-text">${name} <small class="deck-manage-tag ${tagClass}">${tagName}</small></span>
+            </button>
+        `;
+    } else {
+        // 管理モード: 編集・コピー・削除ボタン付き
+        return `
+            <div class="deck-manage-item">
+                <div class="deck-manage-header">
+                    <span class="deck-manage-title">${name}</span>
+                    <span class="deck-manage-tag ${tagClass}">${tagName}</span>
+                </div>
+                <div class="deck-manage-actions">
+                    <button class="dm-btn primary" onclick="DeckBuilder.startSession('${id}'); showScreen('deck-screen');">編集</button>
+                    <button class="dm-btn" onclick="DeckBuilder.copyDeck('${id}')">コピー</button>
+                    <button class="dm-btn danger" onclick="deleteDeckAndReload('${id}')">削除</button>
+                </div>
+            </div>
+        `;
+    }
+}
+
+async function deleteDeckAndReload(id) {
+    const success = await DeckBuilder.deleteDeck(id);
+    if (success) renderDeckManager();
 }
 
 /**
  * デッキ確定後の初期化プロセス
  */
-function confirmDeckSelection(playerDeckKey) {
+async function confirmDeckSelection(deckId, type) {
     resetGameState();
 
     // プレイヤーのデッキを初期化
-    initDeck("player", playerDeckKey);
+    await initDeck("player", deckId, type);
 
-    // 相手のデッキをランダムに決定
+    // 相手のデッキをランダムに決定 (CPUはスターターから選ぶ)
     const allKeys = Object.keys(DECK_RECIPES);
     const randomKey = allKeys[Math.floor(Math.random() * allKeys.length)];
-    initDeck("opponent", randomKey);
+    await initDeck("opponent", randomKey, "starter");
 
     // 先行・後攻決定 (50%でランダム)
     const isPlayerFirst = Math.random() < 0.5;
@@ -204,14 +275,25 @@ function cleanFieldZones() {
     });
 }
 
-function initDeck(side, recipeKey) {
-    const recipe = DECK_RECIPES[recipeKey];
-    if (!recipe) {
-        console.error(`Deck Recipe not found: ${recipeKey}`);
+async function initDeck(side, deckId, type) {
+    let cardIds = [];
+
+    if (type === "starter") {
+        const recipe = DECK_RECIPES[deckId];
+        if (recipe) cardIds = recipe.cards;
+    } else if (type === "user") {
+        // Firestoreから取得
+        const deckData = await DeckBuilder.fetchDeckById(deckId);
+        if (deckData) cardIds = deckData.cards;
+    }
+
+    if (cardIds.length === 0) {
+        console.error(`Deck not found or empty: ${deckId}`);
         return;
     }
+
     // カードIDから実データを生成してシャッフル
-    const rawDeck = recipe.cards.map(id => getCardData(id)).filter(c => c !== null);
+    const rawDeck = cardIds.map(id => getCardData(id)).filter(c => c !== null);
 
     if (side === "player") {
         GAME_STATE.player.deck = shuffleArray(rawDeck);
@@ -236,14 +318,15 @@ function backToMenu() {
 let isDeckBuilderInitialized = false;
 
 function openDeckEditor() {
-    showScreen('deck-screen');
+    // デッキ管理画面（選択画面）を表示
+    showScreen('deck-select-screen');
     if (typeof DeckBuilder !== 'undefined') {
         if (!isDeckBuilderInitialized) {
             DeckBuilder.init();
             isDeckBuilderInitialized = true;
         }
-        // 新規セッション開始
-        DeckBuilder.startSession();
+        // デッキ一覧を描画 (管理モード)
+        renderDeckManager();
     }
 }
 

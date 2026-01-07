@@ -24,17 +24,23 @@ const DeckBuilder = {
     STORAGE_KEY: "linkavel_user_decks",
 
     /** 初期化 */
-    init() {
+    async init() {
         console.log("DeckBuilder Initializing...");
-        // MASTER_CARDSを配列化して保持
         this.allCards = Object.values(MASTER_CARDS);
-
-        // イベントリスナー設定
         this.setupEventListeners();
-
-        // 初回レンダリング
         this.renderLibrary();
         this.updateUI();
+
+        // Firebase Auth 匿名ログイン
+        if (window.auth) {
+            try {
+                const userCredential = await window.auth.signInAnonymously();
+                console.log("Signed in as:", userCredential.user.uid);
+            } catch (error) {
+                console.error("Auth Error:", error);
+                this.showToast("ログインエラー");
+            }
+        }
     },
 
     setupEventListeners() {
@@ -54,24 +60,33 @@ const DeckBuilder = {
         // 戻るボタン
         document.getElementById('builder-back-btn').addEventListener('click', () => {
             if (confirm("保存されていない変更は破棄されます。戻りますか？")) {
-                backToMenu();
+                openDeckEditor(); // 管理画面へ戻る
             }
         });
     },
 
     /** 新規作成・編集の開始 */
-    startSession(deckId = null) {
+    async startSession(deckId = null) {
+        this.showToast("読み込み中...");
+
         if (deckId) {
-            // 既存デッキの読み込み
-            const savedDecks = this.getSavedDecks();
-            const target = savedDecks[deckId];
-            if (target) {
-                // ID配列からオブジェクト配列へ変換してStateにセット
-                this.currentDeck = {
-                    id: deckId,
-                    name: target.name,
-                    cards: this.convertIdListToObjList(target.cards)
-                };
+            // Firestoreからデッキ取得
+            try {
+                const deckData = await this.fetchDeckById(deckId);
+                if (deckData) {
+                    this.currentDeck = {
+                        id: deckId,
+                        name: deckData.name,
+                        cards: this.convertIdListToObjList(deckData.cards)
+                    };
+                } else {
+                    this.showToast("デッキが見つかりません");
+                    return;
+                }
+            } catch (e) {
+                console.error(e);
+                this.showToast("読み込みエラー");
+                return;
             }
         } else {
             // 新規作成
@@ -87,6 +102,15 @@ const DeckBuilder = {
         document.getElementById('builder-deck-name').value = this.currentDeck.name;
         this.updateUI();
         this.renderDetail(null);
+    },
+
+    /** 指定IDのデッキをFirestoreから取得 */
+    async fetchDeckById(deckId) {
+        if (!window.db || !window.auth || !window.auth.currentUser) return null;
+        const uid = window.auth.currentUser.uid;
+        const docRef = window.db.collection('linkavel_users').doc(uid).collection('decks').doc(deckId);
+        const doc = await docRef.get();
+        return doc.exists ? doc.data() : null;
     },
 
     /** IDリスト ["m001", "m001"] を [{id:"m001", count:2}] に変換 */
@@ -245,35 +269,26 @@ const DeckBuilder = {
 
     /** 上段（構築中デッキ）とヘッダーの更新 */
     updateUI() {
-        // 1. ヘッダー枚数表示
         const total = this.getCurrentTotalCount();
         const indicator = document.getElementById('deck-count-indicator');
         indicator.innerText = `${total} / ${this.MAX_DECK_SIZE}`;
         indicator.className = `deck-count-indicator ${total === this.MAX_DECK_SIZE ? 'valid' : 'invalid'}`;
-
-        // 保存ボタンの状態
         document.getElementById('builder-save-btn').disabled = (total !== this.MAX_DECK_SIZE);
 
-        // 2. デッキグリッド描画
         const grid = document.getElementById('builder-deck-grid');
         grid.innerHTML = "";
 
-        // 表示用に展開してソート
         let displayList = [];
         this.currentDeck.cards.forEach(c => {
             const cardData = this.allCards.find(m => m.id === c.id);
-            if (cardData) {
-                displayList.push({ ...cardData, count: c.count });
-            }
+            if (cardData) displayList.push({ ...cardData, count: c.count });
         });
 
-        // ソート: モンスター > 魔術、レベル順
         displayList.sort((a, b) => {
             if (a.type !== b.type) return a.type === "monster" ? -1 : 1;
             return (a.level || 0) - (b.level || 0);
         });
 
-        // 統計
         let monsterCount = 0;
         let magicCount = 0;
 
@@ -283,10 +298,16 @@ const DeckBuilder = {
 
             const el = document.createElement('div');
             el.className = 'deck-thumb';
-            el.innerHTML = `
-                <img src="${card.image}">
-                <div class="count-badge">x${card.count}</div>
-            `;
+
+            // リッチなカード表示を使用
+            const cardEl = this.createBuilderCard(card);
+            el.appendChild(cardEl);
+
+            const badge = document.createElement('div');
+            badge.className = 'count-badge';
+            badge.innerText = card.count;
+            el.appendChild(badge);
+
             el.onclick = () => this.selectCard(card.id);
             grid.appendChild(el);
         });
@@ -295,52 +316,92 @@ const DeckBuilder = {
         document.getElementById('stat-magic').innerText = magicCount;
     },
 
-    /** デッキ保存 */
-    saveDeck() {
+    /** デッキ保存 (Firestore) */
+    async saveDeck() {
         const total = this.getCurrentTotalCount();
         if (total !== this.MAX_DECK_SIZE) {
             this.showToast("デッキは30枚にする必要があります");
             return;
         }
+        if (!window.db || !window.auth || !window.auth.currentUser) {
+            this.showToast("ログインしていません");
+            return;
+        }
 
-        const savedDecks = this.getSavedDecks();
-        const deckId = this.currentDeck.id || `deck_${Date.now()}`;
+        this.showToast("保存中...");
+        const uid = window.auth.currentUser.uid;
+        const decksRef = window.db.collection('linkavel_users').doc(uid).collection('decks');
 
-        // 保存用にID配列に展開
         const idList = [];
         this.currentDeck.cards.forEach(c => {
             for(let i=0; i<c.count; i++) idList.push(c.id);
         });
 
-        savedDecks[deckId] = {
-            id: deckId,
+        const saveData = {
             name: this.currentDeck.name || "無題のデッキ",
             cards: idList,
-            updatedAt: Date.now()
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(savedDecks));
-        this.showToast("デッキを保存しました");
-
-        // 少し待ってから戻る
-        setTimeout(() => backToMenu(), 800);
+        try {
+            if (this.currentDeck.id) {
+                await decksRef.doc(this.currentDeck.id).update(saveData);
+            } else {
+                await decksRef.add(saveData);
+            }
+            this.showToast("デッキを保存しました");
+            setTimeout(() => openDeckEditor(), 800); // 管理画面へ戻る
+        } catch (e) {
+            console.error(e);
+            this.showToast("保存エラー");
+        }
     },
 
-    /** 保存済みデッキ一覧の取得 */
-    getSavedDecks() {
-        const json = localStorage.getItem(this.STORAGE_KEY);
-        return json ? JSON.parse(json) : {};
+    /** Firestoreからユーザーデッキ一覧を取得 */
+    async fetchUserDecks() {
+        if (!window.db || !window.auth || !window.auth.currentUser) return [];
+        const uid = window.auth.currentUser.uid;
+        try {
+            const snapshot = await window.db.collection('linkavel_users').doc(uid).collection('decks').orderBy('updatedAt', 'desc').get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (e) {
+            console.error(e);
+            return [];
+        }
     },
 
     /** デッキ削除 */
-    deleteDeck(deckId) {
-        const savedDecks = this.getSavedDecks();
-        if (savedDecks[deckId]) {
-            delete savedDecks[deckId];
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(savedDecks));
+    async deleteDeck(deckId) {
+        if (!confirm("このデッキを削除しますか？")) return false;
+        if (!window.db || !window.auth || !window.auth.currentUser) return false;
+        const uid = window.auth.currentUser.uid;
+        try {
+            await window.db.collection('linkavel_users').doc(uid).collection('decks').doc(deckId).delete();
+            this.showToast("削除しました");
             return true;
+        } catch (e) {
+            console.error(e);
+            this.showToast("削除エラー");
+            return false;
         }
-        return false;
+    },
+
+    /** デッキコピー */
+    async copyDeck(deckId) {
+        const deck = await this.fetchDeckById(deckId);
+        if (!deck) return;
+
+        this.currentDeck = {
+            id: null,
+            name: deck.name + " のコピー",
+            cards: this.convertIdListToObjList(deck.cards)
+        };
+        // 編集画面へ遷移
+        showScreen('deck-screen');
+        this.selectedCardId = null;
+        document.getElementById('builder-deck-name').value = this.currentDeck.name;
+        this.updateUI();
+        this.renderDetail(null);
     },
 
     /** トースト表示 */
