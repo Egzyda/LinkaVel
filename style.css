@@ -572,20 +572,20 @@ body {
 }
 .card-img-content { width: 100%; height: 100%; object-fit: cover; }
 
-/* 属性バッジ (左下隅) - 少し拡大 */
+/* 属性バッジ (右下隅) */
 .card-attribute-icon {
     position: absolute;
-    bottom: 3%; left: 3%; width: 30%; height: 22%;
+    bottom: 3%; right: 3%; width: 30%; height: 22%;
     display: flex; align-items: center; justify-content: center;
     z-index: 5;
 }
 .card-attribute-icon img { width: 100%; height: 100%; object-fit: contain; }
 
-/* ステータスクラスター (右下隅) */
+/* ステータスクラスター (左下隅) */
 .card-status-cluster {
     position: absolute;
-    bottom: 3%; right: 3%; width: 60%;
-    display: flex; flex-direction: column; align-items: flex-end;
+    bottom: 3%; left: 3%; width: 60%;
+    display: flex; flex-direction: column; align-items: flex-start;
     line-height: 1.1; z-index: 5;
 }
 .card-lv-text {
@@ -822,4 +822,201 @@ body {
 .card-mini.entering {
     opacity: 0;
     pointer-events: none;
+}
+/* デッキ選択画面のレイアウト */
+#deck-select-screen.active {
+    background: radial-gradient(circle at center, #1a1a1a, #000);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+}
+
+/* ==========================================
+   8. トラッシュ閲覧モーダル
+   ========================================== */
+#trash-viewer-modal {
+    position: absolute;
+    inset: 0;
+    display: none; /* 初期状態は非表示 */
+    justify-content: center;
+    align-items: center;
+    z-index: 2500;
+    background: transparent;
+}
+
+#trash-viewer-modal .modal-content {
+    width: 98%;
+    max-width: 600px;
+    background: rgba(10, 10, 10, 0.98);
+    border: 1px solid var(--accent-blue);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.9);
+    pointer-events: auto;
+}
+
+#trash-viewer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    padding-bottom: 10px;
+}
+
+#trash-viewer-title {
+    font-weight: bold;
+    color: var(--accent-blue);
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.8rem;
+    cursor: pointer;
+    padding: 0 10px;
+    line-height: 1;
+}
+
+#trash-card-list {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 5px 2px;
+    min-height: auto;
+    /* 横スクロールを滑らかにする */
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* スクロールバーのカスタマイズ */
+#trash-card-list::-webkit-scrollbar {
+    height: 6px;
+}
+#trash-card-list::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+}
+#trash-card-list::-webkit-scrollbar-thumb {
+    background: var(--accent-blue);
+    border-radius: 3px;
+}
+
+/* モーダル内のカードは重ならないように固定 */
+#trash-card-list .card-mini {
+    flex: 0 0 var(--card-width);
+    width: var(--card-width);
+    height: var(--card-height);
+    max-width: var(--card-max-width);
+    max-height: var(--card-max-height);
+    margin: 0 !important;
+    transform: none !important;
+    cursor: pointer;
+    transition: filter 0.2s, border-color 0.2s;
+}
+
+#trash-card-list .card-mini:hover {
+    filter: brightness(1.2);
+    border-color: var(--accent-blue) !important;
+}
+
+/* フィールドのトラッシュゾーン内のカードはクリックを透過させ、ゾーンの閲覧イベントを優先させる */
+.trash-zone .card-mini,
+.trash-zone .card-mini * {
+    pointer-events: none !important;
+}
+.trash-zone {
+    pointer-events: auto !important;
+}
+
+/* トラッシュ枚数バッジのスタイル */
+#ply-trash-count-badge, #opt-trash-count-badge {
+    position: absolute;
+    bottom: -10px;
+    background: rgba(40, 40, 40, 0.9);
+    border: 1px solid #777;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    color: #fff;
+    transform: rotateX(-35deg);
+    z-index: 20;
+    pointer-events: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+
+#opt-trash-count-badge {
+    transform: rotateX(-35deg) rotateZ(180deg);
+}
+/* 手札選択モーダル専用スタイル */
+#selection-modal {
+    position: absolute;
+    inset: 0;
+    display: none;
+    background: transparent; /* 背景を暗くしない */
+    z-index: 3000;
+    justify-content: center;
+    align-items: flex-end; /* 下寄せ */
+    pointer-events: none; /* 背後のタップを阻害しないための設定（子要素で戻す） */
+}
+
+#selection-modal .modal-content {
+    width: 100%;
+    max-width: 650px;
+    border-top: 2px solid var(--accent-red);
+    background: rgba(5, 5, 5, 0.95); /* モーダル内の背景を濃く */
+    padding: 15px 15px calc(15px + env(safe-area-inset-bottom));
+    pointer-events: auto; /* タップを有効化 */
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
+}
+
+.horizontal-list {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 20px 0;
+    min-height: 120px;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+}
+
+#selection-card-list .card-mini {
+    flex: 0 0 75px;
+    height: 105px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+#selection-card-list .card-mini.selected {
+    transform: translateY(-10px);
+    box-shadow: 0 0 20px var(--accent-red);
+    border-color: var(--accent-red) !important;
+}
+
+.modal-footer {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+}
+
+#selection-confirm-btn {
+    width: 100%;
+    max-width: 300px;
+    justify-content: center;
+    background: var(--bg-dark);
+    border-color: var(--accent-red);
+    color: var(--accent-red);
+}
+
+#selection-confirm-btn.active {
+    background: var(--accent-red);
+    color: #fff;
+    box-shadow: 0 0 15px var(--accent-red);
+    cursor: pointer;
 }
