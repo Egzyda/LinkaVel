@@ -182,7 +182,7 @@ body {
 
 /* Status HUD styles are consolidated in .hud-stats section (Line 197) */
 
-#home-btn {
+#surrender-btn {
     position: absolute;
     top: calc(15px + env(safe-area-inset-top));
     right: 15px;
@@ -684,10 +684,16 @@ body {
     position: absolute;
     inset: 0;
     background: transparent; /* 完全透明 */
-    display: none; /* JSでflexに切り替え */
+    display: none;
     justify-content: center;
     align-items: center;
     z-index: 3000;
+    pointer-events: auto; /* モーダル表示中はここで入力をブロック */
+}
+
+/* クラス制御に変更 */
+#game-result-overlay.active {
+    display: flex;
     animation: fadeIn 0.5s ease forwards;
 }
 
@@ -697,9 +703,11 @@ body {
     text-align: center;
     transform: scale(0.8);
     opacity: 0;
-    animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.1s forwards;
-    /* 背景が透けるので、文字視認性確保のために強力な影を追加 */
     text-shadow: 0 5px 20px rgba(0,0,0,1);
+}
+
+#game-result-overlay.active .result-modal-content {
+    animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.1s forwards;
 }
 
 #result-title {
@@ -810,12 +818,22 @@ body {
 
 /* 選択モード中のフィールド制御 */
 .selecting-mode .card-mini {
-    pointer-events: none !important;
+    /* カードを透過させず、タップイベントがゾーンに届くように調整 */
+    pointer-events: auto;
 }
 .selecting-mode .zone.highlight,
 .selecting-mode .zone.cost-highlight {
     pointer-events: auto !important;
     z-index: 1000;
+}
+
+/* 選択モード中にフィールド全体を最前面へ昇格 */
+#field-perspective-wrapper:has(.selecting-mode) {
+    z-index: 2000 !important;
+    pointer-events: none; /* ラッパー自体は透過 */
+}
+#field-surface.selecting-mode {
+    pointer-events: auto; /* フィールド表面は入力を受け付ける */
 }
 
 /* ドロー演出用：スロット確保中の透明状態 */
@@ -1019,4 +1037,143 @@ body {
     color: #fff;
     box-shadow: 0 0 15px var(--accent-red);
     cursor: pointer;
+}
+
+/* Common Confirm Modal (System Overlay) */
+#common-confirm-modal {
+    position: absolute;
+    inset: 0;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 4500; /* Result Modal(3000)より上 */
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(2px);
+}
+#common-confirm-modal .modal-content {
+    width: 90%;
+    max-width: 400px;
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid var(--accent-blue);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+    text-align: center;
+    pointer-events: auto;
+    transform: scale(1);
+    animation: modalPop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* ==========================================
+   9. VFX & Animations (LinkaVel VFX System)
+   ========================================== */
+/* VFX Layer Constraint */
+.card-mini {
+    overflow: visible !important; /* エフェクトが枠外にはみ出るのを許可 */
+}
+
+/* 1. LP変動演出 */
+.hud-lp {
+    transition: color 0.2s;
+}
+.hud-lp.damage {
+    color: #ff4b2b !important;
+    text-shadow: 0 0 15px #ff0000, 0 0 30px #8b0000 !important;
+    transform: scale(1.1);
+}
+.hud-lp.heal {
+    color: #00d2ff !important;
+    text-shadow: 0 0 15px #00d2ff, 0 0 30px #005f73 !important;
+    transform: scale(1.1);
+}
+
+/* 2. 波紋エフェクト (Ripple) */
+.vfx-ripple {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.8;
+    pointer-events: none;
+    z-index: 100;
+    box-shadow: 0 0 10px currentColor;
+}
+.vfx-ripple.monster {
+    background: radial-gradient(circle, rgba(255,215,0,0) 30%, rgba(255,215,0,0.8) 50%, rgba(255,215,0,0) 70%);
+    color: #ffd700;
+    animation: ripple-expand 0.5s ease-out forwards;
+}
+.vfx-ripple.magic {
+    background: radial-gradient(circle, rgba(0,210,255,0) 30%, rgba(0,210,255,0.8) 50%, rgba(0,210,255,0) 70%);
+    color: #00d2ff;
+    animation: ripple-expand 0.5s ease-out forwards;
+}
+
+@keyframes ripple-expand {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0.8; }
+    100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+}
+
+/* 3. 召喚ランディング (Landing) */
+.vfx-landing-flash {
+    position: absolute;
+    inset: -10px;
+    border: 2px solid #fff;
+    border-radius: 6px;
+    box-shadow: 0 0 20px #fff, inset 0 0 20px #fff;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 50;
+    animation: landing-flash 0.4s ease-out forwards;
+}
+@keyframes landing-flash {
+    0% { opacity: 0; transform: scale(1.2); }
+    50% { opacity: 0.8; transform: scale(1.0); }
+    100% { opacity: 0; transform: scale(1.0); }
+}
+
+/* 4. 戦闘演出 (Attack & Damage) */
+/* 振動 */
+.shake-target {
+    animation: shake-anim 0.3s cubic-bezier(.36,.07,.19,.97) both;
+}
+@keyframes shake-anim {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+/* スラッシュ（斬撃） */
+.vfx-slash-line {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 120%; height: 4px;
+    background: #fff;
+    box-shadow: 0 0 10px #fff, 0 0 20px var(--accent-red);
+    transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 200;
+    animation: slash-anim 0.3s ease-out forwards;
+}
+@keyframes slash-anim {
+    0% { transform: translate(-50%, -50%) rotate(-45deg) scaleX(0); opacity: 0.5; }
+    50% { transform: translate(-50%, -50%) rotate(-45deg) scaleX(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) rotate(-45deg) scaleX(1.2); opacity: 0; }
+}
+
+/* 5. フライト演出用クラス (JSで動的に制御) */
+.card-mini.flying-effect {
+    position: fixed !important;
+    z-index: 5000 !important;
+    transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1.0) !important;
+    pointer-events: none !important;
+    transform-origin: center center;
+}
+.card-mini.fading-out {
+    transition: transform 0.5s ease, opacity 0.5s ease !important;
+    transform: scale(0.5) !important;
+    opacity: 0 !important;
 }

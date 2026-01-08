@@ -77,6 +77,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
+    // 降参ボタン
+    const surrenderBtn = document.getElementById('surrender-btn');
+    if (surrenderBtn) {
+        surrenderBtn.addEventListener('click', async () => {
+            if (await window.showCustomConfirm("本当に降参しますか？")) {
+                endGameSequence("opponent");
+            }
+        });
+    }
+
     // フェイズ進行ボタン
     const nextPhaseBtn = document.getElementById('next-phase-btn');
     if (nextPhaseBtn) {
@@ -206,8 +216,6 @@ async function deleteDeckAndReload(id) {
  * デッキ確定後の初期化プロセス
  */
 async function confirmDeckSelection(deckId, type) {
-    resetGameState();
-
     // プレイヤーのデッキを初期化
     await initDeck("player", deckId, type);
 
@@ -259,9 +267,30 @@ function resetGameState() {
     GAME_STATE.opponent.hand = [];
     GAME_STATE.opponent.trash = [];
     GAME_STATE.opponent.field.monsters = [null, null, null];
+    GAME_STATE.opponent.field.magics = [null, null, null];
 
     // UIクリーンアップ
     document.getElementById('player-hand').innerHTML = "";
+
+    // UIレイヤーのポインター操作を削除（副作用防止）
+    // CSSのデフォルト設定に委ねる
+
+    // 演出・選択モードのフラグをすべて強制リセット
+    GAME_STATE.isAnimating = false;
+    GAME_STATE.isSelectingSlot = false;
+    GAME_STATE.isSelectingTarget = false;
+    GAME_STATE.pendingCard = null;
+    GAME_STATE.attackerPending = null;
+
+    // リザルトオーバーレイの状態を完全にリセット（インラインスタイルとクラスを消去）
+    const overlay = document.getElementById('game-result-overlay');
+    if (overlay) {
+        overlay.removeAttribute('style');
+        overlay.classList.remove("active", "result-win", "result-lose");
+        // 強制リフロー（アニメーションのリセットを保証）
+        void overlay.offsetWidth;
+    }
+
     cleanFieldZones();
 }
 
@@ -312,6 +341,7 @@ function shuffleArray(array) {
 }
 
 function backToMenu() {
+    resetGameState();
     showScreen('menu-screen');
 }
 
@@ -641,6 +671,9 @@ async function finishMagicSlotSelection(slotIdx) {
     const cardData = GAME_STATE.pendingCard;
     const p = GAME_STATE.player;
 
+    // 効果解決（await）の前に選択モードを完全に終了させる
+    cancelMagicSlotSelection();
+
     // 1. 手札から削除
     const handIndex = p.hand.findIndex(c => c.id === cardData.id);
     if (handIndex !== -1) p.hand.splice(handIndex, 1);
@@ -768,8 +801,7 @@ function damagePlayer(side, amount) {
  * @param {string} winner - "player" | "opponent"
  */
 function endGameSequence(winner) {
-    // 操作を完全にロックして誤操作を防止
-    document.getElementById('ui-layer').style.pointerEvents = "none";
+    // UIレイヤーの操作ロックは行わない（副作用防止）
 
     // 1秒の「間（演出）」の後にモーダルを表示
     setTimeout(() => {
@@ -777,7 +809,9 @@ function endGameSequence(winner) {
         const title = document.getElementById('result-title');
         const msg = document.getElementById('result-message');
 
-        overlay.style.display = "flex";
+        // クラス付与で表示制御
+        overlay.classList.add('active');
+
         if (winner === "player") {
             overlay.classList.add("result-win");
             title.innerText = "VICTORY";
@@ -1015,6 +1049,25 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
         const targetIdx = slotIdx !== null ? slotIdx : GAME_STATE.opponent.field.monsters.indexOf(cardData);
         if (targetIdx !== -1) {
             finishAttackTargetSelection(targetIdx);
+            return;
+        }
+    }
+
+    // コスト選択モード中の処理
+    if (GAME_STATE.isSelectingCost && location === "ply-field") {
+        const targetIdx = slotIdx !== null ? slotIdx : GAME_STATE.player.field.monsters.indexOf(cardData);
+        if (targetIdx !== -1) {
+            toggleCostSelection({ card: cardData, slotIdx: targetIdx });
+            return;
+        }
+    }
+
+    // 召喚先選択モード中の処理（既存カードをタップして置換する場合など）
+    if (GAME_STATE.isSelectingSlot && location === "ply-field") {
+        const targetIdx = slotIdx !== null ? slotIdx : GAME_STATE.player.field.monsters.indexOf(cardData);
+        if (targetIdx !== -1) {
+            if (GAME_STATE.pendingCard.type === 'monster') finishSlotSelection(targetIdx);
+            else finishMagicSlotSelection(targetIdx);
             return;
         }
     }
@@ -1449,10 +1502,14 @@ async function selectTargetUI(side, type, filter = {}) {
             const card = GAME_STATE[side].field[type + "s"][i];
             if (card) {
                 zone.classList.add('highlight');
-                zone.onclick = (e) => {
+                // ゾーンとカード本体、どちらのクリックも拾えるようにする
+                const selectHandler = (e) => {
                     e.stopPropagation();
                     cleanup(i);
                 };
+                zone.onclick = selectHandler;
+                const cardEl = zone.querySelector('.card-mini');
+                if (cardEl) cardEl.onclick = selectHandler;
             }
         });
 
@@ -1605,3 +1662,45 @@ async function startEndPhaseProcess() {
         }
     }
 }
+
+/**
+ * 汎用確認モーダルを表示 (Promiseベース)
+ * @param {string} message - 表示するメッセージ
+ * @returns {Promise<boolean>} - はい: true, いいえ: false
+ */
+window.showCustomConfirm = function(message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('common-confirm-modal');
+        const msgEl = document.getElementById('common-confirm-message');
+        const btnOk = document.getElementById('common-confirm-ok');
+        const btnCancel = document.getElementById('common-confirm-cancel');
+
+        if (!modal || !msgEl || !btnOk || !btnCancel) {
+            console.error("Confirm modal elements missing.");
+            // エラー時は安全側に倒してfalse、または緊急用alertを出すなど検討
+            resolve(false);
+            return;
+        }
+
+        msgEl.innerText = message;
+        modal.style.display = 'flex';
+
+        // ハンドラ定義 (一度実行したらクリーンアップ)
+        const cleanup = (result) => {
+            modal.style.display = 'none';
+            resolve(result);
+        };
+
+        // { once: true } で自動的にリスナー解除されるが、
+        // キャンセル時にOKボタンのリスナーが残る(逆も然り)のを防ぐため、
+        // クローン要素への置換でリスナーを一掃するのが最も安全かつ手軽
+        const newBtnOk = btnOk.cloneNode(true);
+        const newBtnCancel = btnCancel.cloneNode(true);
+
+        btnOk.parentNode.replaceChild(newBtnOk, btnOk);
+        btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
+
+        newBtnOk.addEventListener('click', () => cleanup(true));
+        newBtnCancel.addEventListener('click', () => cleanup(false));
+    });
+};

@@ -16,8 +16,23 @@ const EffectLogic = {
 
         console.log(`EffectLogic: Resolving [${triggerFilter || "All"}] logic for ${cardData.name}`);
 
-        for (const action of cardData.logic) {
+        for (let i = 0; i < cardData.logic.length; i++) {
+            const action = cardData.logic[i];
             if (triggerFilter && action.trigger !== triggerFilter) continue;
+
+            // 1ターンに1度の制限チェック (インデックスで管理)
+            if (action.countLimit === "once_per_turn") {
+                cardData._usedLimits = cardData._usedLimits || {};
+                const limitKey = `action_${i}`;
+                // 現在のターンですでに使用済みならスキップ
+                if (cardData._usedLimits[limitKey] === GAME_STATE.turnCount) {
+                    console.log(`Effect Limit Reached: ${cardData.name} (Action ${i})`);
+                    continue;
+                }
+                // 使用済みフラグを立てる
+                cardData._usedLimits[limitKey] = GAME_STATE.turnCount;
+            }
+
             await this.executeAction(action, side, cardData);
         }
     },
@@ -38,9 +53,9 @@ const EffectLogic = {
             case "buff": await this.applyBuff(action, side, sourceCard); break;
             case "destroy": await this.applyDestroy(action, side); break;
             case "draw_and_discard": await this.applyDrawAndDiscard(action, side); break;
-            case "special_summon": this.applySpecialSummon(action, side); break;
-            case "search": this.applySearch(action, side); break;
-            case "salvage": this.applySalvage(action, side); break;
+            case "special_summon": await this.applySpecialSummon(action, side); break;
+            case "search": await this.applySearch(action, side); break;
+            case "salvage": await this.applySalvage(action, side); break;
             case "global_buff": await this.applyGlobalBuff(action, side, sourceCard); break;
             case "apply_combat_effect": await this.applyCombatEffect(action, side, sourceCard); break;
             case "battle_protection":
@@ -90,7 +105,9 @@ const EffectLogic = {
                 }
             }
 
-            p.trash.push(p.deck.pop());
+            const card = p.deck.pop();
+            p.trash.push(card);
+            await this.resolveEffects(card, side, "on_sent_to_trash");
             remaining--;
         }
         console.log(`${side} milled ${count} cards.`);
@@ -160,16 +177,37 @@ const EffectLogic = {
 
         if (candidates.length === 0) return [];
 
-        if (select === "manual" && side === "player") {
-            const results = [];
-            for (let i = 0; i < count; i++) {
-                if (candidates.length === 0) break;
-                const slot = await selectTargetUI(targetSide, "monster", filter);
-                if (slot === null) break;
-                const cIdx = candidates.findIndex(c => c.slotIdx === slot);
-                if (cIdx !== -1) results.push(candidates.splice(cIdx, 1)[0]);
+        if (select === "manual") {
+            if (side === "player") {
+                const results = [];
+                for (let i = 0; i < count; i++) {
+                    if (candidates.length === 0) break;
+                    const slot = await selectTargetUI(targetSide, "monster", filter);
+                    if (slot === null) break;
+                    const cIdx = candidates.findIndex(c => c.slotIdx === slot);
+                    if (cIdx !== -1) results.push(candidates.splice(cIdx, 1)[0]);
+                }
+                return results;
+            } else {
+                // CPUのインテリジェンス選択 (s014等の対応)
+                const results = [];
+                for (let i = 0; i < count; i++) {
+                    if (candidates.length === 0) break;
+                    candidates.sort((a, b) => {
+                        const pA = this.getCurrentPower(a.card, a.side, a.slotIdx);
+                        const pB = this.getCurrentPower(b.card, b.side, b.slotIdx);
+                        const hasTrashEff = (c) => c.logic && c.logic.some(l => l.trigger === "on_sent_to_trash");
+
+                        if (a.side === "opponent") { // 自分を破壊する場合: 弱い、または墓地効果持ちを優先
+                            return (hasTrashEff(b.card) - hasTrashEff(a.card)) || (pA - pB);
+                        } else { // 相手を破壊する場合: 強いモンスターを優先
+                            return pB - pA;
+                        }
+                    });
+                    results.push(candidates.shift());
+                }
+                return results;
             }
-            return results;
         } else {
             const results = [];
             for (let i = 0; i < count; i++) {
@@ -198,16 +236,32 @@ const EffectLogic = {
             // プレイヤーが自分で選ぶ
             const targets = await selectHandCardsUI(discardCount);
             // インデックスのズレを防ぐため降順で削除
-            targets.sort((a, b) => b - a).forEach(idx => {
+            const sortedTargets = targets.sort((a, b) => b - a);
+            for (const idx of sortedTargets) {
                 const card = p.hand.splice(idx, 1)[0];
                 p.trash.push(card);
-            });
+                await this.resolveEffects(card, side, "on_sent_to_trash");
+            }
         } else {
-            // CPUまたは自動：古い順（先頭）から捨てる
+            // CPU戦略的ディスカード: 墓地利用・高Lvを優先し、Lv1や汎用魔術を残す
             for (let i = 0; i < discardCount; i++) {
-                if (p.hand.length > 0) {
-                    p.trash.push(p.hand.shift());
-                }
+                if (p.hand.length === 0) break;
+
+                p.hand.sort((a, b) => {
+                    const getScore = (c) => {
+                        let score = 0;
+                        if (c.logic && c.logic.some(l => l.trigger === "on_sent_to_trash")) score += 100;
+                        if (c.type === "monster" && c.level >= 4) score += 50;
+                        if (c.type === "monster" && c.level === 1) score -= 30; // 召喚コスト用に保持
+                        if (c.type === "magic") score -= 20;
+                        return score;
+                    };
+                    return getScore(b) - getScore(a); // スコア高い順（捨てたい順）
+                });
+
+                const card = p.hand.shift();
+                p.trash.push(card);
+                await this.resolveEffects(card, side, "on_sent_to_trash");
             }
         }
         console.log(`${side} discarded ${discardCount} cards.`);
@@ -215,7 +269,7 @@ const EffectLogic = {
     },
 
     /** 特殊召喚処理 */
-    applySpecialSummon: function(action, side) {
+    applySpecialSummon: async function(action, side) {
         const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
         const count = action.count || 1;
         const source = action.source; // deck / trash / choice_deck_or_trash
@@ -271,12 +325,12 @@ const EffectLogic = {
             }
 
             // 連鎖：特殊召喚も「召喚成功時」として扱う (ロジック定義1.3準拠)
-            this.resolveEffects(targetCard, side, "on_summon");
+            await this.resolveEffects(targetCard, side, "on_summon");
         }
     },
 
     /** サーチ処理 (デッキから手札) */
-    applySearch: function(action, side) {
+    applySearch: async function(action, side) {
         const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
         const count = action.count || 1;
         const filter = action.filter || {};
@@ -299,7 +353,7 @@ const EffectLogic = {
     },
 
     /** サルベージ処理 (トラッシュから手札) */
-    applySalvage: function(action, side) {
+    applySalvage: async function(action, side) {
         const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
         const count = action.count || 1;
         const filter = action.filter || {};
@@ -431,8 +485,14 @@ const EffectLogic = {
                         if (isSelf || isGlobalMatch) {
                             // 1ターンに1度の制限チェック
                             if (action.countLimit === "once_per_turn") {
-                                if (source._usedProtectionTurn === GAME_STATE.turnCount) return;
-                                source._usedProtectionTurn = GAME_STATE.turnCount;
+                                // 修正: 耐性付与元(source)ではなく、守られる側(card)にフラグを持たせる
+                                card._usedProtections = card._usedProtections || {};
+                                const protectionKey = `prot_${source.id}_${action.type}`; // sourceIDと効果タイプで識別
+
+                                if (card._usedProtections[protectionKey] === GAME_STATE.turnCount) return;
+
+                                // 適用時にフラグを立てる
+                                card._usedProtections[protectionKey] = GAME_STATE.turnCount;
                             }
                             isProtected = true;
                         }
@@ -487,15 +547,38 @@ const EffectLogic = {
             if (action.type === "mill" || action.type === "draw_and_discard") return true;
             if (cardData.id === "s013") return true;
 
+            // s014: 冥界からの迎え (自分と相手の場にモンスターが必要)
+            if (cardData.id === "s014") {
+                const p = GAME_STATE[side];
+                const opp = GAME_STATE[side === "player" ? "opponent" : "player"];
+                const hasSelf = p.field.monsters.some(m => m !== null);
+                const hasOpp = opp.field.monsters.some(m => m !== null);
+                return hasSelf && hasOpp;
+            }
+
             const targetSide = (action.targetSide === "opponent") ? (side === "player" ? "opponent" : "player") : side;
             const p = GAME_STATE[targetSide];
 
             switch (action.type) {
                 case "buff":
+                    return p.field.monsters.some((m, i) => {
+                        if (!m || !this._checkFilter(m, action.filter || {})) return false;
+                        // デバフの場合、既にパワー0なら発動不可
+                        if (action.value < 0 && this.getCurrentPower(m, targetSide, i) <= 0) return false;
+                        return true;
+                    });
                 case "destroy":
+                    return p.field.monsters.some((m, i) => {
+                        if (!m || !this._checkFilter(m, action.filter || {})) return false;
+                        // 条件(is_weakened等)のチェック
+                        if (action.condition === "is_weakened" && this.getCurrentPower(m, targetSide, i) >= m.power) return false;
+                        return true;
+                    });
                 case "apply_combat_effect":
                     return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}));
                 case "special_summon":
+                    // フィールドに空きがない場合は発動不可
+                    if (!p.field.monsters.includes(null)) return false;
                     if (action.source === "deck") return p.deck.some(c => this._checkFilter(c, action.filter || {}));
                     if (action.source === "trash") return p.trash.some(c => this._checkFilter(c, action.filter || {}));
                     if (action.source === "choice_deck_or_trash") {
@@ -533,6 +616,12 @@ const EffectLogic = {
                             e.duration--;
                             return e.duration > 0;
                         });
+                    }
+
+                    // 1ターンに1度の制限リセット (ターン終了時など必要に応じて)
+                    if (GAME_STATE.phase === "end_phase") {
+                        m._usedLimits = {};
+                        m._usedProtections = {};
                     }
                 }
             });

@@ -277,7 +277,7 @@ const MASTER_CARDS = {
     },
     "m014": {
         id: "m014",
-        image: "img/m013.webp",
+        image: "img/m014.webp",
         name: "森界の剣闘士 クジャシ",
         type: "monster",
         subType: "effect",
@@ -285,7 +285,7 @@ const MASTER_CARDS = {
         level: 3,
         power: 1400,
         categories: ["森界"],
-        text: "1ターンに1度、デッキ から【森界】魔術を1枚ランダムに手札に加える。",
+        text: "1ターンに1度、デッキから【森界】魔術を1枚ランダムに手札に加える。",
         summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
         logic: [{ type: "search", trigger: "ignition", countLimit: "once_per_turn", count: 1, filter: { category: "森界", type: "magic" }, targetSelect: "random" }]
     },
@@ -360,13 +360,13 @@ const MASTER_CARDS = {
     "m017": {
         id: "m017",
         image: "img/m017.webp",
-        name: "聖域の盾兵 シルディン",
+        name: "聖界の盾兵 シルディン",
         type: "monster",
         subType: "effect",
         attribute: "光",
         level: 1,
         power: 500,
-        categories: [],
+        categories: ["聖界"],
         text: "このモンスターは1ターンに1度だけ、戦闘では破壊されない。",
         summonRequirement: { type: "normal", costCount: 0, costFilter: null },
         logic: [{ type: "battle_protection", trigger: "always", countLimit: "once_per_turn", target: "self" }]
@@ -508,7 +508,7 @@ const MASTER_CARDS = {
         level: 4,
         power: 2000,
         categories: ["冥界"],
-        text: "1ターンに1度、自分のトラッシュから闇属性モンスター1体をランダムに特殊召喚する。。",
+        text: "1ターンに1度、自分のトラッシュから闇属性モンスター1体をランダムに特殊召喚する。",
         summonRequirement: { type: "normal", costCount: 3, costFilter: { minLevel: 1 } },
         logic: [{ type: "special_summon", trigger: "ignition", source: "trash", count: 1, filter: { attribute: "闇", type: "monster" }, targetSelect: "random", optional: true, countLimit: "once_per_turn" }]
     },

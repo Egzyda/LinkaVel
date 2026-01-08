@@ -26,8 +26,9 @@ const DeckBuilder = {
     /** 初期化 */
     async init() {
         console.log("DeckBuilder Initializing...");
-        this.allCards = Object.values(MASTER_CARDS);
+        // リスナー登録を最優先で実行
         this.setupEventListeners();
+        this.allCards = Object.values(MASTER_CARDS);
         this.renderLibrary();
         this.updateUI();
 
@@ -44,25 +45,44 @@ const DeckBuilder = {
     },
 
     setupEventListeners() {
+        // 戻るボタン (優先的に登録)
+        const backBtn = document.getElementById('builder-back-btn');
+        if (backBtn) {
+            // 多重登録防止のためクローンして置換
+            const newBtn = backBtn.cloneNode(true);
+            backBtn.parentNode.replaceChild(newBtn, backBtn);
+
+            newBtn.addEventListener('click', async () => {
+                if (await showCustomConfirm("保存されていない変更は破棄されます。戻りますか？")) {
+                    if (typeof window.openDeckEditor === 'function') {
+                        window.openDeckEditor();
+                    } else {
+                        console.error("Error: openDeckEditor is not defined.");
+                        if(typeof openDeckEditor === 'function') openDeckEditor();
+                    }
+                }
+            });
+        }
+
+        // 保存ボタン
+        const saveBtn = document.getElementById('builder-save-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.saveDeck());
+        }
+
         // フィルタ変更
         ['filter-attr', 'filter-level', 'filter-type'].forEach(id => {
-            document.getElementById(id).addEventListener('change', () => this.applyFilters());
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', () => this.applyFilters());
         });
 
         // デッキ名入力
-        document.getElementById('builder-deck-name').addEventListener('input', (e) => {
-            this.currentDeck.name = e.target.value;
-        });
-
-        // 保存ボタン
-        document.getElementById('builder-save-btn').addEventListener('click', () => this.saveDeck());
-
-        // 戻るボタン
-        document.getElementById('builder-back-btn').addEventListener('click', () => {
-            if (confirm("保存されていない変更は破棄されます。戻りますか？")) {
-                openDeckEditor(); // 管理画面へ戻る
-            }
-        });
+        const nameInput = document.getElementById('builder-deck-name');
+        if (nameInput) {
+            nameInput.addEventListener('input', (e) => {
+                this.currentDeck.name = e.target.value;
+            });
+        }
     },
 
     /** 新規作成・編集の開始 */
@@ -372,7 +392,7 @@ const DeckBuilder = {
 
     /** デッキ削除 */
     async deleteDeck(deckId) {
-        if (!confirm("このデッキを削除しますか？")) return false;
+        if (!await showCustomConfirm("このデッキを削除しますか？")) return false;
         if (!window.db || !window.auth || !window.auth.currentUser) return false;
         const uid = window.auth.currentUser.uid;
         try {

@@ -85,7 +85,7 @@
                         <span id="next-phase-display">MAIN1</span>
                     </button>
 
-                    <button id="home-btn" onclick="backToMenu()">HOME</button>
+                    <button id="surrender-btn">降参</button>
                 </div>
 
                 <div id="field-perspective-wrapper">
@@ -190,6 +190,20 @@
             </div>
             <div class="menu-footer">
                 <button class="menu-btn" onclick="backToMenu()">BACK</button>
+            </div>
+        </div>
+
+
+        <div id="common-confirm-modal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span id="common-confirm-title" style="color:var(--accent-blue); font-weight:bold;">確認</span>
+                </div>
+                <div id="common-confirm-message" style="padding: 20px 0; color: #fff;"></div>
+                <div class="modal-footer" style="display:flex; gap:10px; justify-content:center;">
+                    <button id="common-confirm-cancel" class="menu-btn" style="flex:1;">いいえ</button>
+                    <button id="common-confirm-ok" class="menu-btn" style="flex:1; border-color: var(--accent-blue); color: var(--accent-blue);">はい</button>
+                </div>
             </div>
         </div>
 
