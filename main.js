@@ -305,7 +305,7 @@ function cleanFieldZones() {
         const ids = [`ply-monster-${i}`, `opt-monster-${i}`, `ply-magic-${i}`, `opt-magic-${i}`];
         ids.forEach(id => {
             const el = document.getElementById(id);
-            if(el) el.innerHTML = "";
+            if (el) el.innerHTML = "";
         });
     });
 }
@@ -375,7 +375,7 @@ function startTurnProcess() {
     GAME_STATE.hasNormalSummoned = false;
     // ターン開始時に全モンスターの攻撃済みフラグをリセット (ルール5.3)
     const allFieldMonsters = [...GAME_STATE.player.field.monsters, ...GAME_STATE.opponent.field.monsters];
-    allFieldMonsters.forEach(m => { if(m) m._hasAttacked = false; });
+    allFieldMonsters.forEach(m => { if (m) m._hasAttacked = false; });
 
     // ターン開始時に各プレイヤーのリフレッシュ回数をリセット (ルール1.1)
     GAME_STATE.player.refreshCount = 0;
@@ -659,17 +659,264 @@ function startMagicSlotSelection(cardData) {
     GAME_STATE.isSelectingSlot = true;
     GAME_STATE.pendingCard = cardData;
 
+    // イベントデリゲーション: 個別のonclickは設定せず、全体で監視する
     [0, 1, 2].forEach(i => {
         const zone = document.getElementById(`ply-magic-${i}`);
         if (GAME_STATE.player.field.magics[i] === null) {
             zone.classList.add('highlight');
-            zone.onclick = (e) => {
-                e.stopPropagation();
-                finishMagicSlotSelection(i);
-            };
+            // zone.onclick = ... (削除)
         }
     });
-    setTimeout(() => { document.body.onclick = cancelMagicSlotSelection; }, 10);
+}
+
+/**
+ * 共通ヒットテスト関数 (幾何学的判定含む)
+ * @param {MouseEvent} e - クリックイベント
+ * @param {string} idPrefix - 判定対象のID接頭辞 (例: 'ply-monster', 'opt-monster')
+ * @param {number} count - スロット数
+ * @param {boolean} requireHighlight - '.highlight' クラスを必須とするか
+ * @returns {number} ヒットしたインデックス (-1はヒットなし)
+ */
+function detectHitSlot(e, idPrefix, count = 3, requireHighlight = true) {
+    let hitSlotIdx = -1;
+
+    // 1. DOM探索 (e.target.closest)
+    const targetZone = e.target.closest('.zone');
+    if (targetZone) {
+        if (!requireHighlight || targetZone.classList.contains('highlight')) {
+            // IDチェック (指定されたprefixを含んでいるか)
+            if (targetZone.id.startsWith(idPrefix)) {
+                const parts = targetZone.id.split('-');
+                hitSlotIdx = parseInt(parts[parts.length - 1], 10);
+            }
+        }
+    }
+
+    // 2. 幾何学的判定 (バックアップ)
+    if (hitSlotIdx === -1) {
+        for (let i = 0; i < count; i++) {
+            const el = document.getElementById(`${idPrefix}-${i}`);
+            if (el) {
+                if (requireHighlight && !el.classList.contains('highlight')) continue;
+
+                const rect = el.getBoundingClientRect();
+                const margin = 20; // マージン（指の太さ考慮）
+                if (e.clientX >= rect.left - margin && e.clientX <= rect.right + margin &&
+                    e.clientY >= rect.top - margin && e.clientY <= rect.bottom + margin) {
+                    hitSlotIdx = i;
+                    console.log(`DEBUG: Geometric hit (${idPrefix}-${i})`);
+                    break;
+                }
+            }
+        }
+    }
+
+    return hitSlotIdx;
+}
+
+/**
+ * グローバルクリックハンドラ
+ * 全てのクリックイベントをここで受け取り、状態に応じて振り分ける
+ */
+function handleGlobalInteract(e) {
+    // UI要素やオーバーレイへのクリックはパススルー（それぞれの制御に任せる）
+    if (e.target.closest('#card-detail-overlay') ||
+        e.target.closest('.floating-actions') ||
+        e.target.closest('.modal-content') ||
+        e.target.closest('.card-mini.entering') ||
+        e.target.closest('.btn-sub') || // フェイズボタン等
+        e.target.closest('#next-phase-btn')) {
+        return;
+    }
+
+    // 手札のクリック判定
+    const handCard = e.target.closest('#player-hand .card-mini');
+
+    if (handCard) {
+        // IDから手札情報を特定して詳細表示
+        const cardId = handCard.dataset.id;
+        const cardData = GAME_STATE.player.hand.find(c => c.id === cardId);
+        if (cardData) {
+            showCardDetail(cardData, 'hand', e, null);
+            return;
+        }
+    }
+
+    // モード別ディスパッチ
+    if (GAME_STATE.isSelectingSlot) {
+        handleSelectionClick(e);
+    } else if (GAME_STATE.isSelectingTarget) {
+        handleAttackSelectionClick(e);
+    } else if (GAME_STATE.isSelectingCost) {
+        handleCostSelectionClick(e);
+    } else {
+        // 通常モード（詳細表示 / アクションメニュー）
+        handleNormalInteraction(e);
+    }
+}
+
+/** コスト選択中のクリックハンドラ */
+function handleCostSelectionClick(e) {
+    if (!GAME_STATE.isSelectingCost || !GAME_STATE.pendingCard) return;
+
+    // 手札タップ時の救済（コスト選択中は手札に戻る＝キャンセルで良い）
+    if (e.target.closest('#player-hand')) {
+        cancelCostSelection();
+        return;
+    }
+
+    // コストは「自分のモンスター」が対象
+    // ハイライト判定(第4引数)をfalseにし、実際のクラス(cost-highlight)をここで確認する
+    const hitIdx = detectHitSlot(e, 'ply-monster', 3, false);
+
+    if (hitIdx !== -1) {
+        const zone = document.getElementById(`ply-monster-${hitIdx}`);
+        if (!zone || !zone.classList.contains('cost-highlight')) return;
+
+        // validMonstersに含まれているか確認
+        // (UI上の .cost-highlight クラスで判定しても良いが、念のためデータで確認)
+        const monster = GAME_STATE.player.field.monsters[hitIdx];
+        const req = GAME_STATE.pendingCard.summonRequirement;
+        const filter = req ? req.costFilter : null;
+
+        // 簡易フィルタチェック (getValidCosterMonstersと同じロジック)
+        let isValid = false;
+        if (monster) {
+            if (!filter) isValid = true;
+            else if (!filter.minLevel || monster.level >= filter.minLevel) isValid = true;
+        }
+
+        if (isValid) {
+            e.stopPropagation();
+            toggleCostSelection({ card: monster, slotIdx: hitIdx });
+            return;
+        }
+    }
+
+    // キャンセル判定
+    if (checkGlobalCancel(e)) {
+        cancelCostSelection();
+    }
+}
+
+/**
+ * 通常時のインタラクション (幾何学的判定付き)
+ */
+function handleNormalInteraction(e) {
+    // 自分のモンスターゾーン
+    let idx = detectHitSlot(e, 'ply-monster', 3, false);
+    if (idx !== -1) {
+        const card = GAME_STATE.player.field.monsters[idx];
+        if (card) showCardDetail(card, 'ply-field', e, idx);
+        return;
+    }
+
+    // 自分の魔術ゾーン
+    idx = detectHitSlot(e, 'ply-magic', 3, false);
+    if (idx !== -1) {
+        const card = GAME_STATE.player.field.magics[idx];
+        if (card) showCardDetail(card, 'ply-field', e, idx); // locationはply-fieldで統合
+        return;
+    }
+
+    // 相手のモンスターゾーン
+    idx = detectHitSlot(e, 'opt-monster', 3, false);
+    if (idx !== -1) {
+        const card = GAME_STATE.opponent.field.monsters[idx];
+        if (card) showCardDetail(card, 'opt-field', e, idx);
+        return;
+    }
+
+    // 相手の魔術ゾーン
+    idx = detectHitSlot(e, 'opt-magic', 3, false);
+    if (idx !== -1) {
+        const card = GAME_STATE.opponent.field.magics[idx];
+        if (card) showCardDetail(card, 'opt-field', e, idx);
+        return;
+    }
+
+    // 追加: トラッシュゾーンの幾何判定 (DOMイベントが親要素に吸われた場合の救済)
+    // 相手側は正常に動作しているため、プレイヤー側のみ対象とする
+    const trashZones = [
+        { id: 'player-trash-zone', side: 'player' }
+    ];
+
+    for (const tz of trashZones) {
+        const el = document.getElementById(tz.id);
+        if (el) {
+            const rect = el.getBoundingClientRect();
+            const margin = 10; // 判定のあそび
+            // すでにtargetが自分自身や内部要素ならinlineハンドラが動くはずだが、
+            // ここでは「親要素がクリックされたが座標は合っている」ケースを救う
+            if (e.clientX >= rect.left - margin && e.clientX <= rect.right + margin &&
+                e.clientY >= rect.top - margin && e.clientY <= rect.bottom + margin) {
+                console.log(`[DEBUG] Trash Geometric Hit: ${tz.side}`);
+                openTrashViewer(tz.side);
+                return;
+            }
+        }
+    }
+
+    // 何もない場所をクリック -> メニューなどを閉じる
+    // ただし、誤タップで閉じすぎるのも良くないので、明示的な背景クリックのみ？
+    // いったんfloating-action等は冒頭のガードで除外されているので、ここに来るのはフィールド背景のみ
+    hideCardDetail();
+}
+
+/** 背景クリック等による共通キャンセル判定 */
+function checkGlobalCancel(e) {
+    // ビューポート、フィールド表面、遠近ラッパーをクリックでキャンセル
+    const cancelTargets = ['game-viewport', 'field-perspective-wrapper', 'field-surface'];
+    if (cancelTargets.includes(e.target.id)) return true;
+    return false;
+}
+
+function handleSelectionClick(e) {
+    if (!GAME_STATE.isSelectingSlot || !GAME_STATE.pendingCard) return;
+
+    // 誤って手札をタップした場合 -> キャンセルしてその手札を選択したことにする
+    if (e.target.closest('#player-hand')) {
+        console.log("Switching selection to hand card");
+        if (GAME_STATE.pendingCard.type === 'monster') cancelSlotSelection();
+        else cancelMagicSlotSelection();
+        return;
+        // 備考: ここでreturnすると今回のイベントは消費される。
+        // ユーザーは「キャンセルされた」状態になるので、もう一度タップすれば詳細が開く。
+        // それで十分親切（反応しないよりマシ）。
+    }
+
+    const typePrefix = GAME_STATE.pendingCard.type === 'monster' ? 'ply-monster' : 'ply-magic';
+    const hitIdx = detectHitSlot(e, typePrefix, 3, true);
+
+    if (hitIdx !== -1) {
+        e.stopPropagation();
+        if (GAME_STATE.pendingCard.type === 'monster') finishSlotSelection(hitIdx);
+        else finishMagicSlotSelection(hitIdx);
+        return;
+    }
+
+    if (checkGlobalCancel(e)) {
+        console.log("Selection Cancelled by background click");
+        if (GAME_STATE.pendingCard.type === 'monster') cancelSlotSelection();
+        else cancelMagicSlotSelection();
+    }
+}
+
+/** 攻撃対象選択中のクリックハンドラ */
+function handleAttackSelectionClick(e) {
+    if (!GAME_STATE.isSelectingTarget) return;
+
+    const hitIdx = detectHitSlot(e, 'opt-monster', 3, true);
+
+    if (hitIdx !== -1) {
+        e.stopPropagation();
+        finishAttackTargetSelection(hitIdx);
+        return;
+    }
+
+    if (checkGlobalCancel(e)) {
+        cancelAttackTargetSelection();
+    }
 }
 
 /** 魔術発動の完了 */
@@ -715,12 +962,16 @@ function cancelMagicSlotSelection() {
     document.getElementById('game-viewport').classList.remove('field-selecting');
     GAME_STATE.isSelectingSlot = false;
     GAME_STATE.pendingCard = null;
+
+    // イベントリスナ削除
+    document.removeEventListener('click', handleSelectionClick);
+
     [0, 1, 2].forEach(i => {
         const zone = document.getElementById(`ply-magic-${i}`);
         zone.classList.remove('highlight');
-        zone.onclick = null;
+        // zone.onclick = null; (不要)
     });
-    document.body.onclick = () => hideCardDetail();
+    // body.onclick = ... (不要)
 }
 
 // ==========================================
@@ -862,7 +1113,7 @@ async function destroyMonster(side, slotIdx, reason = "effect") {
         // UIクリア
         const prefix = (side === "player") ? "ply" : "opt";
         const el = document.getElementById(`${prefix}-monster-${slotIdx}`);
-        if(el) el.innerHTML = "";
+        if (el) el.innerHTML = "";
     }
 }
 
@@ -887,7 +1138,7 @@ function updateUI() {
 
     // フェイズ中央表示
     const phaseLabel = document.getElementById('phase-center-label');
-    if(phaseLabel) phaseLabel.innerText = `${GAME_STATE.phase} PHASE`;
+    if (phaseLabel) phaseLabel.innerText = `${GAME_STATE.phase} PHASE`;
 
     // 次のフェイズ予測表示
     const nextPhaseDisplay = document.getElementById('next-phase-display');
@@ -1025,13 +1276,7 @@ function createCardElement(cardData, location, slotIdx = null) {
         }
     });
 
-    // トラッシュ内のカードには詳細表示イベントを付けない（ゾーンのクリックを優先）
-    if (location && !location.includes('trash')) {
-        el.onclick = (e) => {
-            e.stopPropagation();
-            showCardDetail(cardData, location, e, slotIdx);
-        };
-    }
+
 
     return el;
 }
@@ -1043,11 +1288,29 @@ function createCardElement(cardData, location, slotIdx = null) {
 function showCardDetail(cardData, location, event, slotIdx = null) {
     updateInfoPanel(cardData, location);
 
+    // 対象要素の解決
+    let targetEl = null;
+    if (location === "hand") {
+        // 手札の場合はDOMからID等で探すか、選択状態クラスの制御のみなら
+        // infoPanel更新だけで十分かも知れないが、ハイライト処理は必要
+        // 手札の場合はevent.targetから遡れる (.card-mini)
+        targetEl = event ? event.target.closest('.card-mini') : null;
+    } else {
+        // フィールドの場合はIDから特定
+        const prefix = (location === "ply-field" || location === "opt-field")
+            ? (location === "ply-field" ? "ply" : "opt")
+            : null;
+        if (prefix && slotIdx !== null) {
+            const type = cardData.type === 'monster' ? 'monster' : 'magic';
+            targetEl = document.getElementById(`${prefix}-${type}-${slotIdx}`);
+        }
+    }
+
     // 手札の強調表示（浮き上がり）制御
     const handCards = document.querySelectorAll('#player-hand .card-mini');
     handCards.forEach(c => c.classList.remove('selected'));
-    if (location === "hand" && event) {
-        event.currentTarget.classList.add('selected');
+    if (location === "hand" && targetEl) {
+        targetEl.classList.add('selected');
     }
 
     // ターゲット選択モード中の処理
@@ -1100,11 +1363,13 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
         const menu = document.createElement('div');
         menu.className = 'floating-actions';
 
-        const rect = event.currentTarget.getBoundingClientRect();
-        menu.style.left = `${rect.left + rect.width/2}px`;
-        menu.style.top = `${rect.top - 20}px`;
-        menu.style.transform = 'translateX(-50%) translateY(-100%)';
-        menu.style.opacity = "1";
+        if (targetEl) {
+            const rect = targetEl.getBoundingClientRect();
+            menu.style.left = `${rect.left + rect.width / 2}px`;
+            menu.style.top = `${rect.top - 20}px`;
+            menu.style.transform = 'translateX(-50%) translateY(-100%)';
+            menu.style.opacity = "1";
+        }
 
         const btn = document.createElement('button');
         btn.className = 'btn-action-float';
@@ -1195,9 +1460,9 @@ function updateInfoPanel(cardData, location = null) {
         // 詳細パネルでもバフを反映（場所が特定できる場合のみ）
         let displayPower = cardData.power;
         if (location === "ply-field" || location === "opt-field") {
-             const side = (location === "ply-field") ? "player" : "opponent";
-             const slotIdx = GAME_STATE[side].field.monsters.indexOf(cardData);
-             displayPower = EffectLogic.getCurrentPower(cardData, side, slotIdx);
+            const side = (location === "ply-field") ? "player" : "opponent";
+            const slotIdx = GAME_STATE[side].field.monsters.indexOf(cardData);
+            displayPower = EffectLogic.getCurrentPower(cardData, side, slotIdx);
         }
         powerEl.innerText = `ATK: ${displayPower}`;
 
@@ -1253,17 +1518,8 @@ function startSlotSelection(cardData) {
         // 「元々空」または「コストでいなくなる」場所をハイライト
         if (GAME_STATE.player.field.monsters[i] === null || costIndices.includes(i)) {
             zone.classList.add('highlight');
-            zone.onclick = (e) => {
-                e.stopPropagation();
-                finishSlotSelection(i);
-            };
         }
     });
-
-    // キャンセル用に背景クリックイベントを一時的に貼る
-    setTimeout(() => {
-        document.body.onclick = cancelSlotSelection;
-    }, 10);
 }
 
 async function finishSlotSelection(slotIdx) {
@@ -1285,12 +1541,11 @@ function cancelSlotSelection() {
     GAME_STATE.isSelectingSlot = false;
     GAME_STATE.pendingCard = null;
     GAME_STATE.selectedCosts = [];
+
     [0, 1, 2].forEach(i => {
         const zone = document.getElementById(`ply-monster-${i}`);
         zone.classList.remove('highlight', 'cost-highlight', 'cost-selected');
-        zone.onclick = null;
     });
-    document.body.onclick = () => hideCardDetail();
 }
 
 function hideCardDetail() {
@@ -1312,17 +1567,8 @@ function startAttackTargetSelection(attackerCard, attackerSlotIdx) {
         const zone = document.getElementById(`opt-monster-${i}`);
         if (GAME_STATE.opponent.field.monsters[i] !== null) {
             zone.classList.add('highlight');
-            zone.onclick = (e) => {
-                e.stopPropagation();
-                finishAttackTargetSelection(i);
-            };
         }
     });
-
-    // キャンセル用に背景クリックイベントを一時的に貼る
-    setTimeout(() => {
-        document.body.onclick = cancelAttackTargetSelection;
-    }, 10);
 }
 
 function finishAttackTargetSelection(targetSlotIdx) {
@@ -1341,9 +1587,8 @@ function cancelAttackTargetSelection() {
     [0, 1, 2].forEach(i => {
         const zone = document.getElementById(`opt-monster-${i}`);
         zone.classList.remove('highlight');
-        zone.onclick = null;
     });
-    document.body.onclick = () => hideCardDetail();
+    hideCardDetail();
 }
 
 /**
@@ -1448,14 +1693,10 @@ function startCostSelection(cardData) {
     validMonsters.forEach(obj => {
         const zone = document.getElementById(`ply-monster-${obj.slotIdx}`);
         zone.classList.add('cost-highlight');
-        zone.onclick = (e) => {
-            e.stopPropagation();
-            toggleCostSelection(obj);
-        };
+        // zone.onclick = ... (削除: グローバルハンドラ移行)
     });
-
-    setTimeout(() => { document.body.onclick = cancelCostSelection; }, 10);
 }
+
 
 function toggleCostSelection(monsterObj) {
     const idx = GAME_STATE.selectedCosts.findIndex(c => c.slotIdx === monsterObj.slotIdx);
@@ -1682,7 +1923,7 @@ async function startEndPhaseProcess() {
  * @param {string} message - 表示するメッセージ
  * @returns {Promise<boolean>} - はい: true, いいえ: false
  */
-window.showCustomConfirm = function(message) {
+window.showCustomConfirm = function (message) {
     return new Promise((resolve) => {
         const modal = document.getElementById('common-confirm-modal');
         const msgEl = document.getElementById('common-confirm-message');
@@ -1718,3 +1959,9 @@ window.showCustomConfirm = function(message) {
         newBtnCancel.addEventListener('click', () => cleanup(false));
     });
 };
+
+// グローバルクリックハンドラの登録 (初期化時)
+setTimeout(() => {
+    document.addEventListener('click', handleGlobalInteract);
+    console.log("Global Interaction Handler Attached.");
+}, 100);
