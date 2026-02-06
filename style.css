@@ -827,13 +827,33 @@ body {
     z-index: 1000;
 }
 
-/* 選択モード中にフィールド全体を最前面へ昇格 */
+/*
+ * 選択モード中にフィールドを最前面へ昇格し、
+ * 手札やUIの干渉を遮断するグローバルクラス。
+ * JS側で #game-viewport に .field-selecting を付与して使う。
+ */
+#game-viewport.field-selecting #field-perspective-wrapper {
+    z-index: 2000 !important;
+    pointer-events: none;
+}
+#game-viewport.field-selecting #field-surface {
+    pointer-events: auto;
+}
+#game-viewport.field-selecting #player-hand-container {
+    pointer-events: none !important;
+    opacity: 0.4;
+}
+#game-viewport.field-selecting #ui-layer > * {
+    pointer-events: none !important;
+}
+
+/* :has() 対応ブラウザ向けのフォールバックも維持 */
 #field-perspective-wrapper:has(.selecting-mode) {
     z-index: 2000 !important;
-    pointer-events: none; /* ラッパー自体は透過 */
+    pointer-events: none;
 }
 #field-surface.selecting-mode {
-    pointer-events: auto; /* フィールド表面は入力を受け付ける */
+    pointer-events: auto;
 }
 
 /* ドロー演出用：スロット確保中の透明状態 */
@@ -1176,4 +1196,21 @@ body {
     transition: transform 0.5s ease, opacity 0.5s ease !important;
     transform: scale(0.5) !important;
     opacity: 0 !important;
+}
+
+/* ==========================================
+   10. PC対応レイアウト
+   ========================================== */
+@media (min-width: 481px) {
+    /* ゲーム画面をモバイル幅に制限して中央配置 */
+    #game-screen.active {
+        display: flex !important;
+        justify-content: center;
+        background: radial-gradient(circle at center, #0a0a0a 0%, #000000 100%);
+    }
+    #game-viewport {
+        max-width: 480px;
+        border-left: 1px solid rgba(255,255,255,0.08);
+        border-right: 1px solid rgba(255,255,255,0.08);
+    }
 }

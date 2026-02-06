@@ -101,7 +101,7 @@ function setupEventListeners() {
     // 詳細表示を閉じる（背景タップ）
     document.body.addEventListener('click', (e) => {
         // カード要素やボタンなどをクリックした場合は閉じない
-        if (!e.target.closest('.card-mini') && !e.target.closest('#card-detail-overlay') && !e.target.closest('.btn-action')) {
+        if (!e.target.closest('.card-mini') && !e.target.closest('#card-detail-overlay') && !e.target.closest('.btn-action-float') && !e.target.closest('.floating-actions')) {
             hideCardDetail();
         }
     });
@@ -279,8 +279,14 @@ function resetGameState() {
     GAME_STATE.isAnimating = false;
     GAME_STATE.isSelectingSlot = false;
     GAME_STATE.isSelectingTarget = false;
+    GAME_STATE.isSelectingCost = false;
     GAME_STATE.pendingCard = null;
     GAME_STATE.attackerPending = null;
+    GAME_STATE.selectedCosts = [];
+
+    // 選択モード用CSSクラスのクリーンアップ
+    document.getElementById('game-viewport').classList.remove('field-selecting');
+    document.getElementById('field-surface').classList.remove('selecting-mode');
 
     // リザルトオーバーレイの状態を完全にリセット（インラインスタイルとクラスを消去）
     const overlay = document.getElementById('game-result-overlay');
@@ -649,6 +655,7 @@ function tryActivateMagic(cardData) {
 function startMagicSlotSelection(cardData) {
     document.getElementById('floating-action-container').innerHTML = "";
     document.getElementById('field-surface').classList.add('selecting-mode');
+    document.getElementById('game-viewport').classList.add('field-selecting');
     GAME_STATE.isSelectingSlot = true;
     GAME_STATE.pendingCard = cardData;
 
@@ -699,13 +706,13 @@ async function finishMagicSlotSelection(slotIdx) {
         updateUI();
     }
 
-    cancelMagicSlotSelection();
     console.log(`Magic Played: ${cardData.name}`);
 }
 
 /** 魔術選択のキャンセル */
 function cancelMagicSlotSelection() {
     document.getElementById('field-surface').classList.remove('selecting-mode');
+    document.getElementById('game-viewport').classList.remove('field-selecting');
     GAME_STATE.isSelectingSlot = false;
     GAME_STATE.pendingCard = null;
     [0, 1, 2].forEach(i => {
@@ -1233,6 +1240,7 @@ function updateInfoPanel(cardData, location = null) {
 function startSlotSelection(cardData) {
     document.getElementById('floating-action-container').innerHTML = "";
     document.getElementById('field-surface').classList.add('selecting-mode');
+    document.getElementById('game-viewport').classList.add('field-selecting');
     GAME_STATE.isSelectingSlot = true;
     GAME_STATE.pendingCard = cardData;
 
@@ -1273,6 +1281,7 @@ async function finishSlotSelection(slotIdx) {
 
 function cancelSlotSelection() {
     document.getElementById('field-surface').classList.remove('selecting-mode');
+    document.getElementById('game-viewport').classList.remove('field-selecting');
     GAME_STATE.isSelectingSlot = false;
     GAME_STATE.pendingCard = null;
     GAME_STATE.selectedCosts = [];
@@ -1294,6 +1303,7 @@ function hideCardDetail() {
 /** 攻撃対象選択モードの開始 */
 function startAttackTargetSelection(attackerCard, attackerSlotIdx) {
     document.getElementById('floating-action-container').innerHTML = "";
+    document.getElementById('game-viewport').classList.add('field-selecting');
     GAME_STATE.isSelectingTarget = true;
     GAME_STATE.attackerPending = { card: attackerCard, slotIdx: attackerSlotIdx };
 
@@ -1325,6 +1335,7 @@ function finishAttackTargetSelection(targetSlotIdx) {
 }
 
 function cancelAttackTargetSelection() {
+    document.getElementById('game-viewport').classList.remove('field-selecting');
     GAME_STATE.isSelectingTarget = false;
     GAME_STATE.attackerPending = null;
     [0, 1, 2].forEach(i => {
@@ -1427,6 +1438,7 @@ function getValidCosterMonsters(filter) {
 function startCostSelection(cardData) {
     hideCardDetail();
     document.getElementById('field-surface').classList.add('selecting-mode');
+    document.getElementById('game-viewport').classList.add('field-selecting');
     GAME_STATE.isSelectingCost = true;
     GAME_STATE.pendingCard = cardData;
     GAME_STATE.selectedCosts = [];
@@ -1494,6 +1506,7 @@ async function selectTargetUI(side, type, filter = {}) {
     return new Promise((resolve) => {
         const prefix = (side === "player") ? "ply" : "opt";
         document.getElementById('field-surface').classList.add('selecting-mode');
+        document.getElementById('game-viewport').classList.add('field-selecting');
 
         const zones = [0, 1, 2].map(i => document.getElementById(`${prefix}-${type}-${i}`));
         let resolved = false;
@@ -1528,6 +1541,7 @@ async function selectTargetUI(side, type, filter = {}) {
                 z.onclick = null;
             });
             document.getElementById('field-surface').classList.remove('selecting-mode');
+            document.getElementById('game-viewport').classList.remove('field-selecting');
             resolve(result);
         }
     });
