@@ -618,11 +618,9 @@ const EffectLogic = {
                         });
                     }
 
-                    // 1ターンに1度の制限リセット (ターン終了時など必要に応じて)
-                    if (GAME_STATE.phase === "end_phase") {
-                        m._usedLimits = {};
-                        m._usedProtections = {};
-                    }
+                    // 1ターンに1度の制限リセット (ターン開始時にクリーニング)
+                    if (m._usedLimits) m._usedLimits = {};
+                    if (m._usedProtections) m._usedProtections = {};
                 }
             });
         });
