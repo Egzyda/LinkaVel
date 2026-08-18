@@ -17,11 +17,13 @@ const DeckBuilder = {
         level: "all",
         type: "all"
     },
+    sortBy: "attribute",
 
     // Constants
     MAX_DECK_SIZE: 30,
     MAX_COPIES: 3,
     STORAGE_KEY: "linkavel_user_decks",
+    ATTR_ORDER: ["火", "水", "草", "光", "闇", "無"],
 
     /** 初期化 */
     async init() {
@@ -65,11 +67,15 @@ const DeckBuilder = {
             saveBtn.addEventListener('click', () => this.saveDeck());
         }
 
-        // フィルタ変更
-        ['filter-attr', 'filter-level', 'filter-type'].forEach(id => {
+        // フィルタ・ソート変更
+        ['filter-attr', 'filter-level', 'filter-type', 'filter-sort'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', () => this.applyFilters());
         });
+
+        // 絞り込みリセット
+        const resetBtn = document.getElementById('filter-reset-btn');
+        if (resetBtn) resetBtn.addEventListener('click', () => this.resetFilters());
 
         // デッキ名入力
         const nameInput = document.getElementById('builder-deck-name');
@@ -112,11 +118,12 @@ const DeckBuilder = {
             };
         }
 
-        // UIリセット
+        // UIリセット（絞り込み・並び替えもここで初期状態に戻す）
         this.selectedCardId = null;
         document.getElementById('builder-deck-name').value = this.currentDeck.name;
         this.updateUI();
         this.renderDetail(null);
+        this.resetFilters();
     },
 
     /** 指定IDのデッキをFirestoreから取得 */
@@ -143,7 +150,49 @@ const DeckBuilder = {
         this.filters.attribute = document.getElementById('filter-attr').value;
         this.filters.level = document.getElementById('filter-level').value;
         this.filters.type = document.getElementById('filter-type').value;
+        this.sortBy = document.getElementById('filter-sort').value;
         this.renderLibrary();
+    },
+
+    /** 絞り込み・並び替えを初期状態に戻す */
+    resetFilters() {
+        this.filters = { attribute: "all", level: "all", type: "all" };
+        this.sortBy = "attribute";
+        document.getElementById('filter-attr').value = "all";
+        document.getElementById('filter-level').value = "all";
+        document.getElementById('filter-type').value = "all";
+        document.getElementById('filter-sort').value = "attribute";
+        this.renderLibrary();
+    },
+
+    /** ライブラリの並び替え。this.sortBy に応じてキーを切り替える */
+    compareCards(a, b) {
+        switch (this.sortBy) {
+            case "id":
+                return a.id.localeCompare(b.id);
+            case "power": {
+                // モンスター以外（魔術）はパワーを持たないので末尾に回す
+                const ap = (a.type === "monster") ? a.power : -1;
+                const bp = (b.type === "monster") ? b.power : -1;
+                if (ap !== bp) return bp - ap; // 高い順
+                return a.id.localeCompare(b.id);
+            }
+            case "level": {
+                const al = (a.type === "monster") ? a.level : 99;
+                const bl = (b.type === "monster") ? b.level : 99;
+                if (al !== bl) return al - bl; // 低い順
+                return a.id.localeCompare(b.id);
+            }
+            case "attribute":
+            default: {
+                const ai = this.ATTR_ORDER.indexOf(a.attribute);
+                const bi = this.ATTR_ORDER.indexOf(b.attribute);
+                if (ai !== bi) return ai - bi;
+                if (a.type !== b.type) return a.type === "monster" ? -1 : 1;
+                if ((a.level || 0) !== (b.level || 0)) return (a.level || 0) - (b.level || 0);
+                return a.id.localeCompare(b.id);
+            }
+        }
     },
 
     /** ライブラリ（カードプール）の描画 */
@@ -162,12 +211,7 @@ const DeckBuilder = {
             return true;
         });
 
-        // ソート: モンスター > 魔術、レベル順、ID順
-        filtered.sort((a, b) => {
-            if (a.type !== b.type) return a.type === "monster" ? -1 : 1;
-            if (a.level !== b.level) return (a.level || 0) - (b.level || 0);
-            return a.id.localeCompare(b.id);
-        });
+        filtered.sort((a, b) => this.compareCards(a, b));
 
         filtered.forEach(card => {
             const el = document.createElement('div');
@@ -259,7 +303,7 @@ const DeckBuilder = {
         }
 
         actions.style.display = "flex";
-        imgBox.innerHTML = `<img src="${card.image}" data-icon="${card.icon || ''}" onerror="showCardArtFallback(this)">`;
+        imgBox.innerHTML = `<img src="${card.image}" data-icon="${card.icon || ''}" data-attr="${card.attribute}" onerror="showCardArtFallback(this)">`;
 
         const isMonster = card.type === "monster";
         const statsHtml = isMonster
@@ -488,7 +532,7 @@ const DeckBuilder = {
                     <span class="card-name-text">${cardData.name}</span>
                 </div>
                 <div class="card-img-frame">
-                    <img src="${cardData.image}" class="card-img-content" data-icon="${cardData.icon || ''}" onerror="showCardArtFallback(this)" loading="lazy" draggable="false">
+                    <img src="${cardData.image}" class="card-img-content" data-icon="${cardData.icon || ''}" data-attr="${cardData.attribute}" onerror="showCardArtFallback(this)" loading="lazy" draggable="false">
                 </div>
                 <div class="card-attribute-icon">
                     <img src="img/${attrEn}.webp" alt="${cardData.attribute}">
@@ -501,6 +545,7 @@ const DeckBuilder = {
                         <div class="card-magic-type">${getMagicTypeLabel(cardData.subType)}</div>
                     `}
                 </div>
+                <div class="card-id-tag">${cardData.id}</div>
             </div>
             <div class="card-face card-back"></div>
         `;

@@ -382,6 +382,10 @@
                             <li>デッキは30枚固定。同名カードは3枚まで。</li>
                             <li>メニューの「DECK BUILD」から編集できる。</li>
                         </ul>
+                        <h3>クレジット</h3>
+                        <ul class="tut-list">
+                            <li>イラスト未作成のカードのアイコン: <a href="https://game-icons.net/" target="_blank" rel="noopener">Game-icons.net</a>（CC BY 3.0）</li>
+                        </ul>
                     </section>
 
                 </div>
@@ -462,6 +466,13 @@
                             <option value="magic">魔術</option>
                             <option value="trap">罠魔術</option>
                         </select>
+                        <select id="filter-sort" class="filter-select">
+                            <option value="attribute">属性順</option>
+                            <option value="id">No.順</option>
+                            <option value="power">パワー順</option>
+                            <option value="level">レベル順</option>
+                        </select>
+                        <button id="filter-reset-btn" class="filter-select filter-reset-btn" type="button">絞り込みリセット</button>
                     </div>
                     <div id="builder-library-grid" class="library-grid"></div>
                 </div>
@@ -479,6 +490,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="firebase_config.js"></script>
 
+    <script src="img/game_icons.js"></script>
     <script src="cards.js"></script>
     <script src="deck_builder.js"></script>
     <script src="effect_logic.js"></script>
