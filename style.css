@@ -1409,22 +1409,43 @@ body {
     pointer-events: none;
 }
 
-/* デッキ選択画面のレイアウト */
+/* デッキ選択画面のレイアウト
+ * 画面自体はスクロールさせない。デッキ一覧だけをスクロール領域にすることで、
+ * デッキが増えてもタイトルが押し上げられて画面外に消えることがなくなる。 */
 #deck-select-screen.active {
     background: radial-gradient(circle at center, #1a1a1a, #000);
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
-    gap: 20px;
-    padding: 20px 0;
-    overflow-y: auto;
-    touch-action: pan-y;
+    gap: 16px;
+    padding: calc(env(safe-area-inset-top) + 20px) 0 calc(env(safe-area-inset-bottom) + 16px);
+    overflow: hidden;
+}
+
+#deck-select-screen .menu-header {
+    flex-shrink: 0;
+    padding: 0 10px;
+}
+
+/* 「Opponent Deck」でも1行に収まる大きさにして、一覧の高さを稼ぐ */
+#deck-select-screen .game-title {
+    font-size: 1.9rem;
+    letter-spacing: 2px;
+}
+
+#deck-select-screen .game-subtitle {
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+}
+
+#deck-select-screen .menu-footer {
+    flex-shrink: 0;
 }
 
 /* デッキ一覧が画面に収まらない場合にスクロールさせる */
 #deck-select-screen #deck-list-container {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     touch-action: pan-y;
@@ -2139,7 +2160,7 @@ body {
     box-shadow: 0 0 18px #ffd700, inset 0 0 14px rgba(255, 215, 0, 0.6);
     pointer-events: none;
     z-index: 60;
-    animation: effect-burst 0.65s ease-out forwards;
+    animation: effect-burst 1s ease-out forwards;
 }
 
 @keyframes effect-burst {
@@ -2148,29 +2169,86 @@ body {
     100% { opacity: 0; transform: scale(1.05); }
 }
 
-/* 発動したカード名を短く出す */
-.vfx-effect-label {
-    position: absolute;
-    left: 50%;
-    top: -18px;
-    transform: translateX(-50%) rotateX(-42deg);
-    background: rgba(0, 0, 0, 0.9);
-    border: 1px solid #ffd700;
-    color: #ffd700;
-    font-size: 0.5rem;
+/* 被ダメージの数値。各プレイヤーの手札あたりに出してLP表示へ飛ばす */
+.vfx-damage-number {
+    position: fixed;
+    transform: translate(-50%, -50%);
+    color: var(--accent-red);
+    font-size: 2rem;
     font-weight: bold;
-    padding: 2px 6px;
-    border-radius: 8px;
-    white-space: nowrap;
+    text-shadow: 0 0 10px rgba(255, 75, 43, 0.9), 0 2px 4px #000;
     pointer-events: none;
-    z-index: 61;
-    animation: effect-label 0.65s ease-out forwards;
+    z-index: 4200;
+    white-space: nowrap;
+    transition: left 0.55s cubic-bezier(0.4, 0, 0.6, 1),
+                top 0.55s cubic-bezier(0.4, 0, 0.6, 1),
+                opacity 0.45s ease-in,
+                font-size 0.55s ease-in;
 }
 
-@keyframes effect-label {
-    0% { opacity: 0; }
-    25% { opacity: 1; }
-    100% { opacity: 0; }
+/* 回復はLPが増えるので色を変える */
+.vfx-damage-number.heal {
+    color: #4ade80;
+    text-shadow: 0 0 10px rgba(74, 222, 128, 0.9), 0 2px 4px #000;
+}
+
+@keyframes damage-pop {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    45% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.vfx-damage-number.pop {
+    animation: damage-pop 0.3s ease-out;
+}
+
+/* LPが減った時の画面揺れ */
+@keyframes viewport-shake {
+    0%, 100% { transform: translate(0, 0); }
+    15% { transform: translate(-5px, 3px); }
+    30% { transform: translate(5px, -3px); }
+    45% { transform: translate(-4px, -2px); }
+    60% { transform: translate(4px, 2px); }
+    80% { transform: translate(-2px, 1px); }
+}
+#game-viewport.lp-shake {
+    animation: viewport-shake 0.4s ease-out;
+}
+
+/* LP数値そのものも一瞬赤く光らせる */
+@keyframes lp-flash {
+    0%, 100% { color: inherit; transform: scale(1); }
+    35% { color: var(--accent-red); transform: scale(1.2); }
+}
+.hud-lp.lp-hit {
+    animation: lp-flash 0.45s ease-out;
+}
+
+/* モンスター破壊の演出。いきなり消えたように見せない */
+.vfx-destroy-burst {
+    position: absolute;
+    inset: -6px;
+    border-radius: 8px;
+    background: radial-gradient(circle at 50% 50%, rgba(255, 220, 120, 0.95) 0%, rgba(255, 90, 40, 0.75) 40%, rgba(255, 60, 0, 0) 72%);
+    pointer-events: none;
+    z-index: 70;
+    animation: destroy-burst 0.45s ease-out forwards;
+}
+
+@keyframes destroy-burst {
+    0% { opacity: 0; transform: scale(0.5); }
+    30% { opacity: 1; transform: scale(1.15); }
+    100% { opacity: 0; transform: scale(1.5); }
+}
+
+/* 破壊されるカード本体が砕けて落ちる */
+@keyframes destroy-card {
+    0% { opacity: 1; transform: scale(1) rotate(0deg); filter: brightness(1); }
+    25% { opacity: 1; transform: scale(1.06) rotate(-3deg); filter: brightness(2.2); }
+    100% { opacity: 0; transform: scale(0.72) rotate(9deg) translateY(14px); filter: brightness(0.4); }
+}
+.card-mini.destroying {
+    animation: destroy-card 0.45s ease-in forwards;
+    pointer-events: none;
 }
 
 /* 攻撃の矢印（誰が誰を攻撃したか） */
@@ -2182,7 +2260,7 @@ body {
     box-shadow: 0 0 12px var(--accent-red);
     pointer-events: none;
     z-index: 4000;
-    animation: attack-arrow 0.52s ease-out forwards;
+    animation: attack-arrow 0.9s ease-out forwards;
 }
 
 /* 矢じり */
@@ -2210,6 +2288,98 @@ body {
     z-index: 4500;
     pointer-events: none;
     transition: left 0.26s ease-in, top 0.26s ease-in, opacity 0.26s ease-in, transform 0.26s ease-in;
+}
+
+/* ==========================================
+   相手の場と詳細エリアの間の帯
+   相手の手札（裏向き）と、効果発動トーストをここに出す
+   ========================================== */
+#opponent-band {
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 166px);
+    left: 0;
+    width: 100%;
+    height: 42px;
+    z-index: 400;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 相手の手札（裏向き） */
+#opponent-hand {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    pointer-events: none;
+}
+
+.opp-hand-card {
+    width: 26px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 3px;
+    border: 1px solid #6a6a80;
+    background:
+        repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.06) 0 3px, transparent 3px 6px),
+        linear-gradient(160deg, #33334a, #17172333);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7), -1px 0 0 rgba(0, 0, 0, 0.5);
+}
+
+/* 少し重ねつつ、1枚1枚の輪郭は分かるようにする */
+.opp-hand-card:not(:first-child) {
+    margin-left: -4px;
+}
+
+/* 新しく引いたカードだけ軽く差し込む */
+@keyframes oppHandDeal {
+    from { transform: translateY(-10px) scale(0.85); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+}
+.opp-hand-card.dealt {
+    animation: oppHandDeal 0.25s ease-out;
+}
+
+/* 効果発動トースト（手札の上に重ねて出す） */
+#effect-toast {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    padding: 4px 14px;
+    border-radius: 14px;
+    background: rgba(8, 12, 22, 0.92);
+    border: 1px solid var(--accent-blue);
+    box-shadow: 0 0 14px rgba(0, 210, 255, 0.45);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: bold;
+    white-space: nowrap;
+    max-width: 92%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+#effect-toast.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+#effect-toast .toast-owner {
+    color: var(--accent-blue);
+    margin-right: 6px;
+}
+#effect-toast.opponent {
+    border-color: var(--accent-red);
+    box-shadow: 0 0 14px rgba(255, 75, 43, 0.45);
+}
+#effect-toast.opponent .toast-owner {
+    color: var(--accent-red);
 }
 
 /* 画像未作成カードの代替表示（Game-icons.net アイコン） */
@@ -2328,5 +2498,15 @@ body {
 
     #player-hand-container {
         height: 130px;
+    }
+
+    #opponent-band {
+        top: calc(env(safe-area-inset-top) + 134px);
+        height: 34px;
+    }
+
+    .opp-hand-card {
+        width: 22px;
+        height: 30px;
     }
 }

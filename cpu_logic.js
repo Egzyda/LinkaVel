@@ -33,22 +33,24 @@ const CpuLogic = {
      * メインフェイズの行動ロジック
      */
     async executeMainPhase() {
-        await this.delay(1000);
+        // 何もしないフェイズ（特にMAIN2）で待たされると間延びして見えるので、
+        // 実際に行動したときだけ「考えている間」を挟む。
+        let acted = false;
 
-        // 1. 起動効果の使用 (追加)
-        await this.tryCpuIgnition();
+        // 1. 起動効果の使用
+        if (await this.tryCpuIgnition()) acted = true;
 
         // 2. モンスターの召喚 (レベルの高い順に優先順位付け)
         if (!GAME_STATE.hasNormalSummoned) {
-            await this.tryCpuSummon();
+            if (await this.tryCpuSummon()) acted = true;
         }
 
-        await this.delay(800);
+        if (acted) await this.delay(500);
 
         // 3. 魔術の発動 (発動条件を厳密にチェック)
-        await this.tryCpuMagic();
+        if (await this.tryCpuMagic()) acted = true;
 
-        await this.delay(1000);
+        await this.delay(acted ? 600 : 150);
 
         if (GAME_STATE.turnPlayer === "opponent" && !GAME_STATE.isGameOver) {
             advancePhase();
@@ -135,7 +137,7 @@ const CpuLogic = {
         return { costs, slotIndex };
     },
 
-    /** CPUの召喚試行 */
+    /** CPUの召喚試行。実際に召喚したら true */
     async tryCpuSummon() {
         const hand = GAME_STATE.opponent.hand;
         // レベルの高い順、同レベルならパワーの高い順にソート
@@ -151,7 +153,7 @@ const CpuLogic = {
             if (costCount === 0) {
                 if (emptySlots.length > 0) {
                     await executeSummon("opponent", card, emptySlots[0]);
-                    return;
+                    return true;
                 }
                 continue;
             }
@@ -160,12 +162,14 @@ const CpuLogic = {
             if (!plan) continue;
 
             await executeSummon("opponent", card, plan.slotIndex, plan.costs);
-            return;
+            return true;
         }
+        return false;
     },
 
-    /** CPUの魔術発動 */
+    /** CPUの魔術発動。1枚でも発動・セットしたら true */
     async tryCpuMagic() {
+        let acted = false;
         const hand = GAME_STATE.opponent.hand;
         // 発動優先度: 1.墓地肥やし(s013, s018) 2.除去(s014) 3.蘇生(s015, s012)
         const priority = {"s013": 10, "s018": 9, "s014": 5, "s015": 1, "s012": 1};
@@ -194,6 +198,7 @@ const CpuLogic = {
                 field[emptySlot] = card;
                 console.log(`CPU set a trap: ${card.name}`);
 
+                acted = true;
                 updateUI();
                 await this.delay(500);
                 continue;
@@ -204,6 +209,17 @@ const CpuLogic = {
 
             // コンボ・状況判断ロジック
             if (shouldActivate) {
+                // 0. 引いて捨てる系（マインド・リサーチ等）は、手札を入れ替えて
+                //    初めて意味がある。この魔術しか手札に無い状態で撃つと、
+                //    引いた2枚をそのまま捨てて手札0になるだけで損しかしない。
+                const filterAction = card.logic.find(l => l.type === "draw_and_discard");
+                if (filterAction) {
+                    const otherHand = hand.filter(c => c !== card).length;
+                    const drawCount = filterAction.drawCount || 0;
+                    const discardCount = filterAction.discardCount || 0;
+                    // 捨てる枚数のほうが多いなら、余剰の手札があるときだけ使う
+                    if (otherHand + drawCount <= discardCount) shouldActivate = false;
+                }
                 // 1. 蘇生札(s015等)は、トラッシュに「召喚時効果」を持つLv2がいれば優先、いなければ温存
                 if (card.id === "s015" || card.id === "s012") {
                     const highValue = GAME_STATE.opponent.trash.some(c => c.type === "monster" && c.level === 2 && c.subType === "effect");
@@ -250,15 +266,18 @@ const CpuLogic = {
                     GAME_STATE.opponent.field.magics[emptySlot] = null;
                     sendCardToTrash("opponent", card);
                 }
+                acted = true;
                 updateUI();
                 await this.delay(500);
-                if (GAME_STATE.isGameOver) return;
+                if (GAME_STATE.isGameOver) return acted;
             }
         }
+        return acted;
     },
 
-    /** CPUの起動効果発動 (新規) */
+    /** CPUの起動効果発動。1つでも使ったら true */
     async tryCpuIgnition() {
+        let acted = false;
         const field = GAME_STATE.opponent.field.monsters;
         for (let i = 0; i < field.length; i++) {
             const card = field[i];
@@ -273,11 +292,13 @@ const CpuLogic = {
             if (!isUsed && EffectLogic.isEffectActivatable(card, "opponent", "ignition")) {
                 console.log(`CPU Activating Ignition: ${card.name}`);
                 await EffectLogic.resolveEffects(card, "opponent", "ignition");
-                await this.delay(800);
+                acted = true;
+                await this.delay(500);
                 updateUI();
-                if (GAME_STATE.isGameOver) return;
+                if (GAME_STATE.isGameOver) return acted;
             }
         }
+        return acted;
     },
 
     /**
@@ -301,11 +322,12 @@ const CpuLogic = {
                 }))
                 .filter(obj => obj.m !== null);
 
-            await this.delay(800);
+            // 先に攻撃先を決めてから間を置く。攻撃しないモンスターの分まで
+            // 待たされると、何も起きないのに時間だけ過ぎて間延びして見える。
+            let target = null; // { m, idx } / ダイレクトアタックは "direct"
 
             if (targets.length === 0) {
-                // ダイレクトアタック
-                await resolveBattle(attacker, null, i, -1);
+                target = "direct";
             } else {
                 // リーサルチェック: 攻撃可能な全パワーの合計が相手LP以上か？
                 // (スロット番号は元のフィールド添字を使う。filter後の添字ではズレる)
@@ -323,23 +345,32 @@ const CpuLogic = {
                 if (totalPotential >= GAME_STATE.player.lp && killable.length === 0) {
                     // 邪魔なモンスターがいなければリーサルだが、守備がいる場合は排除優先
                     // ここでは最も弱い敵を排除して道を空ける思考
-                    const weakest = targets.sort((a, b) => a.pwr - b.pwr)[0];
-                    await resolveBattle(attacker, weakest.m, i, weakest.idx);
+                    target = targets.slice().sort((a, b) => a.pwr - b.pwr)[0];
                 } else if (killable.length > 0) {
-                    await resolveBattle(attacker, killable[0].m, i, killable[0].idx);
+                    target = killable[0];
                 } else if (equal.length > 0 && (attacker.logic?.some(l => l.trigger === "on_sent_to_trash") || equal[0].pwr >= 1000)) {
-                    await resolveBattle(attacker, equal[0].m, i, equal[0].idx);
-                } else if (targets.length > 0 && totalPotential >= GAME_STATE.player.lp) {
+                    target = equal[0];
+                } else if (totalPotential >= GAME_STATE.player.lp) {
                     // リーサル圏内の時は多少の損害を覚悟してでも攻撃
-                    await resolveBattle(attacker, targets[0].m, i, targets[0].idx);
-                } else {
-                    console.log(`CPU: ${attacker.name} stays on defense.`);
+                    target = targets[0];
                 }
+            }
+
+            if (!target) {
+                console.log(`CPU: ${attacker.name} stays on defense.`);
+                continue;
+            }
+
+            await this.delay(600);
+            if (target === "direct") {
+                await resolveBattle(attacker, null, i, -1);
+            } else {
+                await resolveBattle(attacker, target.m, i, target.idx);
             }
             updateUI();
         }
 
-        await this.delay(1000);
+        await this.delay(400);
         if (GAME_STATE.turnPlayer === "opponent" && !GAME_STATE.isGameOver) advancePhase();
     }
 };
@@ -363,6 +394,6 @@ async function handleCpuEndPhase() {
         }
         console.log(`CPU discarded ${discardCount} cards.`);
     }
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 400));
     endTurn();
 }
