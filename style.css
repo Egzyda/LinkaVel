@@ -603,7 +603,14 @@ body {
     border: 2px solid #666 !important;
     box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.6);
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s, margin-left 0.3s ease, opacity 0.3s ease;
+    /*
+     * margin-left はトランジションさせない。
+     * renderHand() は毎回カードを作り直したうえで、実寸を測ってから
+     * margin-left で重なり量を決めるため、遷移を付けると描画のたびに
+     * 手札全体が 0 → 目的値へスライドし直して揺れて見える。
+     * （ドロー演出中は飛び先の座標もずれる）
+     */
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s ease;
     /* overflow: hiddenを削除して3D表現を有効化 */
     container-type: inline-size;
     background-color: #1a1a1a;
@@ -1015,6 +1022,18 @@ body {
     z-index: 5;
 }
 
+/*
+ * 操作用フローティングUIの土台。
+ * 選択モード中はフィールドが z-index:2000 まで上がるため、それより上に置く。
+ * 全面を覆うので、コンテナ自体はクリックを透過させ、子要素だけが受け取る。
+ */
+#floating-action-container {
+    position: absolute;
+    inset: 0;
+    z-index: 2500;
+    pointer-events: none;
+}
+
 .cost-select-bar {
     position: fixed;
     left: 50%;
@@ -1098,7 +1117,8 @@ body {
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.15s;
-    z-index: 2200;
+    /* フィールド(選択中 z-index:2000)より上に出す。#game-viewport 直下に置いている */
+    z-index: 2600;
     display: flex;
     flex-direction: column;
     align-items: center;

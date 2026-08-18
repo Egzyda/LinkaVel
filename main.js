@@ -613,11 +613,25 @@ async function drawCard(side, count) {
 
     if (side === "player") {
         renderHand();
+
+        // 飛び先の座標は描画直後にまとめて確定させる。
+        // 演出の途中で手札を作り直すと座標がぶれるうえ、
+        // 遅れて始まるアニメーションが参照する要素が差し替わってしまう。
+        const targetRects = drawQueue.map(card => {
+            const el = findHandCardElement(p, card);
+            return el ? el.getBoundingClientRect() : null;
+        });
+
         const animPromises = drawQueue.map(async (card, idx) => {
             await new Promise(r => setTimeout(r, idx * 80));
-            await animateDrawCard(card, idx);
+            await animateDrawCard(card, targetRects[idx], idx);
+
+            // 着地したカードだけを表に出す。
+            // ここで renderHand() をすると手札全体が作り直され、
+            // カードが左右に揺れて見えるため、対象1枚のクラスだけ外す。
             delete card.isNew;
-            renderHand();
+            const el = findHandCardElement(p, card);
+            if (el) el.classList.remove('entering');
         });
         await Promise.all(animPromises);
         GAME_STATE.isAnimating = false;
@@ -627,24 +641,28 @@ async function drawCard(side, count) {
 }
 
 /**
+ * 手札のDOM要素を「手札内の位置」で特定する。
+ * 同名カードを3枚積めるゲームなので、カードIDで探すと別の1枚に当たってしまう。
+ */
+function findHandCardElement(playerState, card) {
+    const handIdx = playerState.hand.indexOf(card);
+    if (handIdx === -1) return null;
+    return document.querySelector(`#player-hand .card-mini[data-hand-index="${handIdx}"]`);
+}
+
+/**
  * ドロー演出：デッキから手札へ
  */
-function animateDrawCard(cardData, sequenceIdx = 0) {
+function animateDrawCard(cardData, targetRect, sequenceIdx = 0) {
     return new Promise(resolve => {
         const deckEl = document.getElementById('player-deck-zone');
-        const handContainer = document.getElementById('player-hand');
 
-        // DOM上の「透明な実体」を探す
-        const realCards = handContainer.querySelectorAll('.card-mini');
-        const targetEl = Array.from(realCards).find(el => el.dataset.id === cardData.id && el.classList.contains('entering'));
-
-        if (!targetEl) {
+        if (!targetRect || !deckEl) {
             resolve();
             return;
         }
 
         const startRect = deckEl.getBoundingClientRect();
-        const targetRect = targetEl.getBoundingClientRect();
 
         // アニメーション用要素作成
         const animCard = createCardElement(cardData, 'animation');

@@ -87,10 +87,6 @@
                         </div>
                     </div>
 
-                    <div id="floating-action-container"></div>
-
-                    <div id="selection-prompt"></div>
-
                     <button id="next-phase-btn">
                         <span class="btn-sub">GO TO</span>
                         <span id="next-phase-display">MAIN1</span>
@@ -146,6 +142,15 @@
                 <div id="player-hand-container">
                     <div id="player-hand"></div>
                 </div>
+
+                <!--
+                  操作用のフローティングUI。
+                  #ui-layer の中に置くと、#ui-layer(z-index:100)が作る重ね合わせ文脈に
+                  閉じ込められ、選択モード中に z-index:2000 へ昇格するフィールドの下に
+                  潜ってボタンが押せなくなるため、#game-viewport 直下に置く。
+                -->
+                <div id="floating-action-container"></div>
+                <div id="selection-prompt"></div>
             </div>
 
 
