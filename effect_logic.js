@@ -171,9 +171,8 @@ const EffectLogic = {
         }
         if (typeof cond.attackerWeakenedBy === "number") {
             if (!ctx.attacker) return false;
-            // 「元々のパワーよりNダウン」= 掛けられたデバフの合計で判定する
-            // (is_weakened と同じ基準。常時オーラによる増減は数えない)
-            const downBy = -this.getTempBuffDelta(ctx.attacker);
+            // 「元々のパワーよりNダウン」= 印刷値と現在の実数値（オーラ込み）の差
+            const downBy = this.getPowerDrop(ctx.attacker, ctx.attackerSide, ctx.attackerSlot);
             if (downBy < cond.attackerWeakenedBy) return false;
         }
         return true;
@@ -453,7 +452,7 @@ const EffectLogic = {
         p.field.monsters.forEach((m, i) => {
             if (m && this._checkFilter(m, filter)) {
                 // 条件判定: is_weakened (森界の怒り等)
-                if (action.condition === "is_weakened" && !this.isWeakened(m)) return;
+                if (action.condition === "is_weakened" && !this.isWeakened(m, targetSide, i)) return;
                 candidates.push({ card: m, side: targetSide, slotIdx: i });
             }
         });
@@ -696,26 +695,20 @@ const EffectLogic = {
     },
 
     /**
-     * 「パワーが元々の数値より低下している」判定 (森界の怒り s007 等)
-     *
-     * 常時オーラ(always)による低下は含めない。
-     * 含めてしまうと「森界の門」を1枚置くだけで相手全員が常に条件を満たし、
-     * s007 が無条件除去になってしまうため、
-     * 個別に掛けられた一時的なデバフ(_tempBuffs)のみを見る。
+     * 元々のパワー（印刷値）から現在何ダウンしているかを返す。
+     * getCurrentPower は常時オーラ・一時バフをすべて含めた実数値なので、
+     * ここも同様に「今フィールドに出ている状態」をそのまま比較する。
+     * 例: 自身に+300の常時オーラを持つモンスターは、-300のデバフを受けても
+     * 差し引き0（印刷値と同じ）なので「弱体化」扱いにはならない。
      */
-    isWeakened: function(card) {
-        return this.getTempBuffDelta(card) < 0;
+    getPowerDrop: function(card, side, slotIdx) {
+        if (!card) return 0;
+        return card.power - this.getCurrentPower(card, side, slotIdx);
     },
 
-    /**
-     * 個別に掛けられた一時バフ／デバフの合計値を返す（マイナスなら弱体化）
-     * 常時オーラ(always)は含めない。
-     * 含めると「森界の門」1枚で相手全員が常時弱体化扱いになり、
-     * 弱体化を条件とするカード（森界の怒り・森界の壁）が無条件化してしまう。
-     */
-    getTempBuffDelta: function(card) {
-        if (!card || !card._tempBuffs || card._tempBuffs.length === 0) return 0;
-        return card._tempBuffs.reduce((sum, b) => sum + (b.value || 0), 0);
+    /** 「パワーが元々の数値より低下している」判定 (森界の怒り s007 等) */
+    isWeakened: function(card, side, slotIdx) {
+        return this.getPowerDrop(card, side, slotIdx) > 0;
     },
 
     /** 対象選択時にプレイヤーへ出す案内文 */
@@ -931,7 +924,7 @@ const EffectLogic = {
                     return p.field.monsters.some((m, i) => {
                         if (!m || !this._checkFilter(m, action.filter || {})) return false;
                         // 条件(is_weakened等)のチェック
-                        if (action.condition === "is_weakened" && !this.isWeakened(m)) return false;
+                        if (action.condition === "is_weakened" && !this.isWeakened(m, targetSide, i)) return false;
                         return true;
                     });
                 case "apply_combat_effect":
