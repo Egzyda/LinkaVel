@@ -1595,7 +1595,7 @@ function createCardElement(cardData, location, slotIdx = null) {
                 <span class="card-name-text">${cardData.name}</span>
             </div>
             <div class="card-img-frame">
-                <img src="${cardData.image}" class="card-img-content" data-icon="${cardData.icon || ''}" onerror="showCardArtFallback(this)" draggable="false">
+                <img src="${cardData.image}" class="card-img-content" data-icon="${cardData.icon || ''}" data-attr="${cardData.attribute}" onerror="showCardArtFallback(this)" draggable="false">
             </div>
             <div class="card-attribute-icon">
                 <img src="img/${attrEn}.webp" alt="${cardData.attribute}">
@@ -1956,13 +1956,19 @@ function showHiddenCardInfo() {
 
 /**
  * カード画像が用意されていない場合の差し替え表示。
- * カードごとに違う絵文字（icon）を出して、見分けがつくようにする。
+ * Game-icons.net のSVG（img/game_icons.js）をカードごとに出し分けて、見分けがつくようにする。
+ * 属性ごとに色分けする。画像枠いっぱいに正方形のタイルとして表示する。
  */
+const ART_FALLBACK_ATTR_TINT = { "火": "#ff6b4a", "水": "#38b6ff", "草": "#7ed957", "光": "#ffd23f", "闇": "#c17dff", "無": "#9fb4c7" };
 function showCardArtFallback(img) {
     const frame = img.parentElement;
     if (!frame) return;
-    const icon = img.dataset.icon || '❔';
-    frame.innerHTML = `<span class="card-art-fallback">${icon}</span>`;
+    const iconPath = (window.GAME_ICONS && window.GAME_ICONS[img.dataset.icon]) || null;
+    const tint = ART_FALLBACK_ATTR_TINT[img.dataset.attr] || "#9fb4c7";
+    const inner = iconPath
+        ? `<svg class="card-art-fallback-svg" viewBox="0 0 512 512"><path d="${iconPath}"/></svg>`
+        : `<span class="card-art-fallback-glyph">❔</span>`;
+    frame.innerHTML = `<span class="card-art-fallback"><span class="card-art-fallback-inner" style="color:${tint}">${inner}</span></span>`;
 }
 window.showCardArtFallback = showCardArtFallback;
 
