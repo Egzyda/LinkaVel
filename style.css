@@ -138,13 +138,22 @@ body {
     justify-content: space-between;
     font-weight: bold;
     min-width: 0;
+    /* 名前を縮める前の一瞬だけはみ出すので、ここで隠す */
+    overflow: hidden;
 }
 
+/*
+ * 長い名前は「…」で切らず、JS(fitTextToWidth)が scaleX で横に縮めて収める。
+ * そのため要素側では overflow / text-overflow を指定しない
+ * （指定すると先に省略記号が確定してしまい、縮めても切れたままになる）。
+ */
 #info-name {
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     font-size: 0.85rem;
+    flex: 1;
+    min-width: 0;
+    display: inline-block;
+    transform-origin: left center;
 }
 
 #info-attr {
@@ -1034,22 +1043,34 @@ body {
     pointer-events: none;
 }
 
+/*
+ * コスト選択バーは画面上部に置く。
+ * フィールドの上（padding-top:210px より上）なので、どの画面サイズでも
+ * 場のモンスターに被らない。下寄せにすると画面が低い端末や PC 表示で
+ * フィールドを覆ってしまい、コストにするモンスターが選べなくなる。
+ * 選択中は代わりにカード情報パネルを隠して場所を空ける。
+ */
 .cost-select-bar {
-    position: fixed;
+    position: absolute;
     left: 50%;
-    bottom: calc(env(safe-area-inset-bottom) + 175px);
+    top: calc(env(safe-area-inset-top) + 10px);
     transform: translateX(-50%);
-    width: min(420px, calc(100% - 24px));
-    background: rgba(10, 10, 14, 0.95);
+    width: min(420px, calc(100% - 20px));
+    background: rgba(10, 10, 14, 0.96);
     border: 1px solid var(--accent-blue);
     border-radius: 10px;
     padding: 10px 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.85);
     pointer-events: auto;
-    z-index: 2100;
+}
+
+/* コスト選択中はカード情報パネルを隠し、上部をバーに明け渡す */
+#game-viewport.cost-selecting #card-info-panel {
+    opacity: 0;
+    pointer-events: none;
 }
 
 .cost-select-info {
@@ -2103,6 +2124,109 @@ body {
     }
 }
 
+/* 6. 効果発動・攻撃の演出 */
+/* 効果を発動したカードを一瞬光らせる */
+.vfx-effect-burst {
+    position: absolute;
+    inset: -8px;
+    border: 2px solid #ffd700;
+    border-radius: 8px;
+    box-shadow: 0 0 18px #ffd700, inset 0 0 14px rgba(255, 215, 0, 0.6);
+    pointer-events: none;
+    z-index: 60;
+    animation: effect-burst 0.65s ease-out forwards;
+}
+
+@keyframes effect-burst {
+    0% { opacity: 0; transform: scale(1.3); }
+    25% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.05); }
+}
+
+/* 発動したカード名を短く出す */
+.vfx-effect-label {
+    position: absolute;
+    left: 50%;
+    top: -18px;
+    transform: translateX(-50%) rotateX(-42deg);
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid #ffd700;
+    color: #ffd700;
+    font-size: 0.5rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 8px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 61;
+    animation: effect-label 0.65s ease-out forwards;
+}
+
+@keyframes effect-label {
+    0% { opacity: 0; }
+    25% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* 攻撃の矢印（誰が誰を攻撃したか） */
+.vfx-attack-arrow {
+    position: fixed;
+    height: 4px;
+    transform-origin: 0 50%;
+    background: linear-gradient(to right, rgba(255, 75, 43, 0.15), var(--accent-red));
+    box-shadow: 0 0 12px var(--accent-red);
+    pointer-events: none;
+    z-index: 4000;
+    animation: attack-arrow 0.52s ease-out forwards;
+}
+
+/* 矢じり */
+.vfx-attack-arrow::after {
+    content: '';
+    position: absolute;
+    right: -2px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-left: 14px solid var(--accent-red);
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    filter: drop-shadow(0 0 6px var(--accent-red));
+}
+
+@keyframes attack-arrow {
+    0% { opacity: 0; clip-path: inset(0 100% 0 0); }
+    35% { opacity: 1; clip-path: inset(0 0 0 0); }
+    100% { opacity: 0; clip-path: inset(0 0 0 0); }
+}
+
+/* デッキ→トラッシュへ落ちるカード */
+.anim-milling-card {
+    position: fixed;
+    z-index: 4500;
+    pointer-events: none;
+    transition: left 0.26s ease-in, top 0.26s ease-in, opacity 0.26s ease-in, transform 0.26s ease-in;
+}
+
+/* 画像未作成カードの代替表示（絵文字） */
+.card-art-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 42cqi;
+    line-height: 1;
+    background: radial-gradient(circle at 50% 40%, #2a2a35, #0d0d12);
+    user-select: none;
+}
+
+/* デッキビルダーの詳細欄では固定サイズで出す */
+.detail-img-box .card-art-fallback {
+    font-size: 2.4rem;
+    border-radius: 4px;
+    border: 1px solid #555;
+}
+
 /* 5. フライト演出用クラス (JSで動的に制御) */
 .card-mini.flying-effect {
     position: fixed !important;
@@ -2174,9 +2298,5 @@ body {
 
     #player-hand-container {
         height: 130px;
-    }
-
-    .cost-select-bar {
-        bottom: calc(env(safe-area-inset-bottom) + 145px);
     }
 }

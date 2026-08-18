@@ -697,6 +697,7 @@ const MASTER_CARDS = {
     "s019": {
         id: "s019",
         image: "img/s019.webp",
+        icon: "✨",
         name: "奇跡の復活",
         type: "magic",
         subType: "normal",
@@ -709,6 +710,7 @@ const MASTER_CARDS = {
     "s020": {
         id: "s020",
         image: "img/s020.webp",
+        icon: "🌀",
         name: "スモール・スプリング",
         type: "magic",
         subType: "trap",
@@ -727,6 +729,7 @@ const MASTER_CARDS = {
     "s021": {
         id: "s021",
         image: "img/s021.webp",
+        icon: "😨",
         name: "威圧の罠",
         type: "magic",
         subType: "trap",
@@ -746,6 +749,7 @@ const MASTER_CARDS = {
     "s022": {
         id: "s022",
         image: "img/s022.webp",
+        icon: "🛡️",
         name: "炎界の加護",
         type: "magic",
         subType: "trap",
@@ -765,6 +769,7 @@ const MASTER_CARDS = {
     "s023": {
         id: "s023",
         image: "img/s023.webp",
+        icon: "🌊",
         name: "海界の奇跡",
         type: "magic",
         subType: "trap",
@@ -782,6 +787,7 @@ const MASTER_CARDS = {
     "s024": {
         id: "s024",
         image: "img/s024.webp",
+        icon: "🌳",
         name: "森界の壁",
         type: "magic",
         subType: "trap",
@@ -799,6 +805,7 @@ const MASTER_CARDS = {
     "s025": {
         id: "s025",
         image: "img/s025.webp",
+        icon: "💧",
         name: "聖界の雫",
         type: "magic",
         subType: "trap",
@@ -811,6 +818,7 @@ const MASTER_CARDS = {
     "s026": {
         id: "s026",
         image: "img/s026.webp",
+        icon: "🕳️",
         name: "冥界の歪み",
         type: "magic",
         subType: "trap",
@@ -819,6 +827,233 @@ const MASTER_CARDS = {
         text: "相手がモンスターを召喚・特殊召喚した時に発動する。自分のデッキの上から5枚をトラッシュする。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "mill", trigger: "on_opponent_summon", count: 5 }]
+    },
+
+    // =================================================================
+    // 拡張セット: 各カテゴリのレベル2・3を補強するモンスター
+    // 画像未作成のカードには icon を設定してある（card_art_fallback で表示）
+    // =================================================================
+
+    // --- 無属性（機械） ---
+    "m032": {
+        id: "m032",
+        image: "img/m032.webp",
+        icon: "🐕‍🦺",
+        name: "セキュリティ・ハウンド",
+        type: "monster",
+        subType: "effect",
+        attribute: "無",
+        level: 1,
+        power: 300,
+        categories: [],
+        text: "1ターンに1度、自分の手札を1枚トラッシュに送って発動できる。相手の魔術ゾーンのカード1枚を選んで破壊する。伏せられたカードも選べる。",
+        summonRequirement: { type: "normal", costCount: 0, costFilter: null },
+        logic: [{
+            type: "destroy_magic",
+            trigger: "ignition",
+            countLimit: "once_per_turn",
+            targetSide: "opponent",
+            targetSelect: "manual",
+            count: 1,
+            cost: { discardHand: 1 }
+        }]
+    },
+
+    // --- 火属性（炎界） ---
+    "m033": {
+        id: "m033",
+        image: "img/m033.webp",
+        icon: "📯",
+        name: "炎界の伝令 フレアス",
+        type: "monster",
+        subType: "effect",
+        attribute: "火",
+        level: 2,
+        power: 700,
+        categories: ["炎界"],
+        text: "このモンスターを召喚・特殊召喚した時、自分のデッキから【炎界】魔術を1枚ランダムに手札に加える。",
+        summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
+        logic: [{ type: "search", trigger: "on_summon", count: 1, filter: { category: "炎界", type: "magic" }, targetSelect: "random" }]
+    },
+    "m034": {
+        id: "m034",
+        image: "img/m034.webp",
+        icon: "💥",
+        name: "炎界の砲手 ドラグバレル",
+        type: "monster",
+        subType: "effect",
+        attribute: "火",
+        level: 3,
+        power: 1300,
+        categories: ["炎界"],
+        text: "このモンスターが戦闘で相手モンスターを破壊した時、相手に400ダメージを与える。",
+        summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
+        logic: [{ type: "damage", trigger: "on_battle_destroy", targetSide: "opponent", value: 400 }]
+    },
+
+    // --- 水属性（海界） ---
+    "m035": {
+        id: "m035",
+        image: "img/m035.webp",
+        icon: "🔱",
+        name: "海界の潮騎士 タイダル",
+        type: "monster",
+        subType: "effect",
+        attribute: "水",
+        level: 3,
+        power: 1200,
+        categories: ["海界"],
+        text: "①このモンスターを召喚・特殊召喚した時、自分のデッキの上から2枚をトラッシュする。\n②このモンスターがトラッシュに送られた時、自分のトラッシュから【海界】モンスター1体をランダムに特殊召喚する。",
+        summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
+        logic: [
+            { type: "mill", trigger: "on_summon", count: 2 },
+            { type: "special_summon", trigger: "on_sent_to_trash", source: "trash", count: 1, filter: { category: "海界" }, targetSelect: "random" }
+        ]
+    },
+    "m036": {
+        id: "m036",
+        image: "img/m036.webp",
+        icon: "🧭",
+        name: "海界の羅針 ナビス",
+        type: "monster",
+        subType: "effect",
+        attribute: "水",
+        level: 2,
+        power: 700,
+        categories: ["海界"],
+        text: "このモンスターを召喚・特殊召喚した時、自分のデッキの上から3枚をトラッシュする。",
+        summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
+        logic: [{ type: "mill", trigger: "on_summon", count: 3 }]
+    },
+
+    // --- 草属性（森界） ---
+    "m037": {
+        id: "m037",
+        image: "img/m037.webp",
+        icon: "🕸️",
+        name: "森界の罠師 ヴァイン",
+        type: "monster",
+        subType: "effect",
+        attribute: "草",
+        level: 2,
+        power: 700,
+        categories: ["森界"],
+        text: "このモンスターを召喚・特殊召喚した時、自分のデッキから罠魔術を1枚ランダムに手札に加える。",
+        summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
+        logic: [{ type: "search", trigger: "on_summon", count: 1, filter: { type: "magic", subType: "trap" }, targetSelect: "random" }]
+    },
+    "m038": {
+        id: "m038",
+        image: "img/m038.webp",
+        icon: "🌲",
+        name: "森界の巨木 エルドラント",
+        type: "monster",
+        subType: "effect",
+        attribute: "草",
+        level: 3,
+        power: 1000,
+        categories: ["森界"],
+        text: "このモンスターを召喚・特殊召喚した時、相手モンスター全てのパワーをターン終了時まで300ダウンする。その後、パワーが元々の数値より低下している相手モンスター1体を選んで破壊する。",
+        summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
+        logic: [
+            { type: "global_buff", trigger: "on_summon", targetSide: "opponent", value: -300, duration: "until_end_turn" },
+            { type: "destroy", trigger: "on_summon", targetSide: "opponent", targetSelect: "manual", condition: "is_weakened", count: 1 }
+        ]
+    },
+
+    // --- 光属性（聖界） ---
+    "m039": {
+        id: "m039",
+        image: "img/m039.webp",
+        icon: "💫",
+        name: "聖界の癒し手 ルミナ",
+        type: "monster",
+        subType: "effect",
+        attribute: "光",
+        level: 2,
+        power: 700,
+        categories: ["聖界"],
+        text: "①このモンスターを召喚・特殊召喚した時、自分のLPを400回復する。\n②1ターンに1度、自分のLPが回復した時、自分のデッキから【聖界】カードを1枚ランダムに手札に加える。",
+        summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
+        logic: [
+            { type: "heal", trigger: "on_summon", value: 400 },
+            { type: "search", trigger: "on_lp_gain", count: 1, filter: { category: "聖界" }, targetSelect: "random", countLimit: "once_per_turn" }
+        ]
+    },
+    "m040": {
+        id: "m040",
+        image: "img/m040.webp",
+        icon: "⚖️",
+        name: "聖界の審判者 セラフィム",
+        type: "monster",
+        subType: "effect",
+        attribute: "光",
+        level: 3,
+        power: 1200,
+        categories: ["聖界"],
+        text: "①このモンスターを召喚・特殊召喚した時、自分のLPを800回復する。\n②このモンスターがフィールドに存在する限り、自分が受ける戦闘ダメージは300ダウンする。",
+        summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
+        logic: [
+            { type: "heal", trigger: "on_summon", value: 800 },
+            { type: "damage_reduction", trigger: "always", value: 300 }
+        ]
+    },
+
+    // --- 闇属性（冥界） ---
+    "m041": {
+        id: "m041",
+        image: "img/m041.webp",
+        icon: "⚰️",
+        name: "冥界の墓守 グレイヴ",
+        type: "monster",
+        subType: "effect",
+        attribute: "闇",
+        level: 2,
+        power: 700,
+        categories: ["冥界"],
+        text: "このモンスターを召喚・特殊召喚した時、自分のデッキの上から3枚をトラッシュする。その後、自分のトラッシュから【冥界】魔術を1枚ランダムに手札に加える。",
+        summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
+        logic: [
+            { type: "mill", trigger: "on_summon", count: 3 },
+            { type: "salvage", trigger: "on_summon", count: 1, filter: { category: "冥界", type: "magic" }, targetSelect: "random" }
+        ]
+    },
+    "m042": {
+        id: "m042",
+        image: "img/m042.webp",
+        icon: "💀",
+        name: "冥界の骸兵長 ネクロス",
+        type: "monster",
+        subType: "effect",
+        attribute: "闇",
+        level: 3,
+        power: 1100,
+        categories: ["冥界"],
+        text: "このモンスターを召喚・特殊召喚した時、自分のトラッシュのカード3枚を除外して発動できる。相手モンスター1体を選んで破壊する。",
+        summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
+        logic: [{
+            type: "destroy",
+            trigger: "on_summon",
+            targetSide: "opponent",
+            targetSelect: "manual",
+            count: 1,
+            cost: { banishTrash: 3 }
+        }]
+    },
+
+    // --- 汎用魔術 ---
+    "s027": {
+        id: "s027",
+        image: "img/s027.webp",
+        icon: "🪝",
+        name: "トラップ・サルベージ",
+        type: "magic",
+        subType: "normal",
+        attribute: "無",
+        categories: [],
+        text: "自分のトラッシュから罠魔術を1枚ランダムに手札に加える。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{ type: "salvage", trigger: "on_activate", count: 1, filter: { type: "magic", subType: "trap" }, targetSelect: "random" }]
     }
 };
 
@@ -899,6 +1134,91 @@ const DECK_RECIPES = {
             "s013", "s013", "s013", // 闇の生贄
             "s014", "s014", "s014", // 冥界からの迎え
             "s015", "s015", "s015"  // 冥界の呼び声
+        ]
+    },
+
+    // =================================================================
+    // 上級デッキ（拡張セット込み・強めの構成）
+    // 従来のスターターは残したまま、選択肢として追加する
+    // =================================================================
+    "advanced_fire": {
+        name: "灼熱の炎界王",
+        cards: [
+            "m003", "m003", "m003", // 炎界の鼠 チューチャン (Lv1/500)
+            "m001", "m001", "m001", // フレイムタイガー (Lv1/相手ターン800)
+            "m002", "m002", "m002", // 炎界の指揮官 モエス (召喚時デッキからLv1)
+            "m033", "m033", "m033", // 炎界の伝令 フレアス (炎界魔術サーチ)
+            "m004", "m004", "m004", // 炎界の戦士 ブレイズ (トラッシュからLv1×2)
+            "m034", "m034",         // 炎界の砲手 ドラグバレル (戦闘破壊で400ダメージ)
+            "m005", "m005",         // 炎界王 ヴァルトガス
+            "s001", "s001", "s001", // 炎界召集
+            "s002", "s002",         // 炎界蘇生
+            "s022", "s022", "s022", // 炎界の加護 (罠)
+            "s003", "s003", "s003"  // フレイムラッシュ
+        ]
+    },
+    "advanced_water": {
+        name: "深淵の海界王",
+        cards: [
+            "m007", "m007", "m007", // 海界の稚魚 クリオ (墓地送りで展開)
+            "m006", "m006", "m006", // アクア・キャット (墓地送りで2ドロー)
+            "m036", "m036", "m036", // 海界の羅針 ナビス (召喚時3枚墓地)
+            "m009", "m009", "m009", // 海界の槍騎士 スピア (墓地送りで魔術回収)
+            "m035", "m035", "m035", // 海界の潮騎士 タイダル (2枚墓地/墓地送りで蘇生)
+            "m010", "m010",         // 海界王 シータイド
+            "s005", "s005", "s005", // 海界への帰還
+            "s006", "s006",         // アクア・サルベージ
+            "s023", "s023", "s023", // 海界の奇跡 (罠)
+            "s019", "s019",         // 奇跡の復活
+            "s004", "s004", "s004"  // 海の突撃
+        ]
+    },
+    "advanced_grass": {
+        name: "深緑の森界王",
+        cards: [
+            "m011", "m011", "m011", // グリーン・リザード (Lv1/500)
+            "m012", "m012", "m012", // 森界の弓兵 モリファス (召喚時-400)
+            "m013", "m013", "m013", // 森界の番人 ボルフ (召喚時 全体-400)
+            "m037", "m037", "m037", // 森界の罠師 ヴァイン (罠サーチ)
+            "m014", "m014",         // 森界の剣闘士 クジャシ (森界魔術サーチ)
+            "m038", "m038", "m038", // 森界の巨木 エルドラント (全体-300→除去)
+            "m015", "m015",         // 森界王 シルヴァス
+            "s009", "s009",         // 森界の門
+            "s007", "s007", "s007", // 森界の怒り
+            "s024", "s024", "s024", // 森界の壁 (罠)
+            "s008", "s008", "s008"  // 新緑召集
+        ]
+    },
+    "advanced_light": {
+        name: "聖光の聖界王",
+        cards: [
+            "m016", "m016", "m016", // 聖界の精霊 ピック (召喚時500回復)
+            "m017", "m017", "m017", // 聖界の盾兵 シルディン (戦闘破壊耐性)
+            "m030", "m030", "m030", // 聖界の祈祷師 ウラーウェス (毎ターン600回復)
+            "m039", "m039", "m039", // 聖界の癒し手 ルミナ (回復で聖界サーチ)
+            "m018", "m018",         // 聖界の騎士 ジャスティス (光属性に耐性付与)
+            "m040", "m040", "m040", // 聖界の審判者 セラフィム (800回復/ダメージ軽減)
+            "m019", "m019",         // 聖界王 レオニダス
+            "s010", "s010", "s010", // 聖なる祈り
+            "s011", "s011",         // 聖界の結界
+            "s025", "s025", "s025", // 聖界の雫 (罠)
+            "s012", "s012", "s012"  // 光の導き
+        ]
+    },
+    "advanced_dark": {
+        name: "冥闇の冥界王",
+        cards: [
+            "m021", "m021", "m021", // 冥界騎士 ゾグドルゴス (冥界魔術回収)
+            "m020", "m020", "m020", // 冥界の番犬 ボスディ (召喚時3枚墓地)
+            "m022", "m022", "m022", // 冥界の魔術師 ソルン (毎ターン3枚墓地)
+            "m041", "m041", "m041", // 冥界の墓守 グレイヴ (3枚墓地→魔術回収)
+            "m031", "m031", "m031", // 冥界の亡霊 ソルゴス (墓地肥やし→蘇生)
+            "m042", "m042",         // 冥界の骸兵長 ネクロス (トラッシュ3枚除外→除去)
+            "m023", "m023",         // 冥界王 ハイヤデスード
+            "s013", "s013", "s013", // 闇の生贄
+            "s015", "s015", "s015", // 冥界の呼び声
+            "s026", "s026",         // 冥界の歪み (罠)
+            "s014", "s014", "s014"  // 冥界からの迎え
         ]
     }
 };
