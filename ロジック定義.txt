@@ -1,4 +1,4 @@
-# LinkaVel Logic Specification Ver 1.4
+# LinkaVel Logic Specification Ver 1.5
 
 このドキュメントは、MASTER_CARDS の logic プロパティにおける共通規格を定義したものである。
 プログラム側（EffectLogic）は、以下の定数およびパラメータを読み取って処理を実行する。
@@ -19,6 +19,14 @@
     発動元と同じ側のプレイヤーのカードが送られた場合のみ反応し、
     action.filter に合致するカードでなければ発動しない（相手の破壊では誘発しない）。
 
+### 1-2. 罠魔術のトリガー
+セットされた罠魔術のみが使用する。条件を満たすと強制的に自動発動する。
+
+- on_opponent_summon: 相手がモンスターを召喚・特殊召喚した時。
+    複数体が同時に特殊召喚された場合も、まとめて1回だけ判定する。
+- on_opponent_attack: 相手が攻撃を宣言した時。ダメージ計算より前に解決する。
+- on_own_monster_destroyed: 自分のモンスターが破壊されトラッシュへ送られた時。
+
 ## 2. Action Type (命令種別)
 実行される具体的なプログラム処理。
 
@@ -34,12 +42,19 @@
 - destroy: 対象カードを破壊し、フィールドからトラッシュへ移動させる。
 - battle_protection: 戦闘破壊を無効化するフラグ（1ターンに1度等）を付与。
 - damage_reduction: プレイヤーが受ける戦闘ダメージを数値分軽減する。
+- bounce: 対象のモンスターを持ち主の手札へ戻す。
 
 ## 3. Parameter & Filter (詳細パラメータ)
 各アクションに付随する制御用の属性。
 
 - targetSide: self (自分) / opponent (相手)
 - targetSelect: random (システム自動) / manual (UI選択) / all (全体)
+    罠魔術では「誘発元」を対象にできる:
+    - event: 誘発の原因になったカード（召喚されたモンスター／破壊されたモンスター）
+    - event_attacker: 攻撃してきた相手モンスター
+    - event_defender: 攻撃対象になった自分のモンスター
+- source: deck / trash / choice_deck_or_trash / event
+    event は「誘発元になったそのカード」を指す（破壊されたモンスターの蘇生など）。
 - countLimit: once_per_turn (1ターンに1度) の制限管理。
 - optional: true (任意発動 - プレイヤーに確認) / false (強制発動)。
 - duration:
@@ -52,6 +67,16 @@
         含めると、オーラ1枚で相手全員が常に条件を満たし、除去が無条件化してしまうため。
     - is_opponent_turn: 相手ターンの間のみ。
     - has_category_on_field: 特定の【カテゴリ】が自分フィールドに存在する場合。
+
+- condition (オブジェクト形式 / 罠魔術の誘発条件):
+    文字列ではなくオブジェクトを渡すと、誘発元の情報に対する条件として扱われる。
+    すべてのキーを満たした場合のみ発動する。
+    - summonedFilter:  召喚されたモンスターに1体でも合致するか（filter と同じ書式）
+    - attackerFilter:  攻撃モンスターが合致するか
+    - defenderFilter:  攻撃対象の自分モンスターが合致するか
+    - destroyedFilter: 破壊されたモンスターが合致するか
+    - attackerWeakenedBy: 攻撃モンスターに掛かったデバフ合計が N 以上か
+        is_weakened と同じ基準で、常時オーラによる増減は数えない。
 
 ## 4. 解決シーケンス (Resolution Priority)
 1. 効果解決の開始: 配列内の Action をインデックス順にすべて実行（非同期割り込み禁止）。
@@ -82,3 +107,15 @@
   選択可能になる。条件外のカードは選べず、選んで不発になることがない。
 - countLimit: once_per_turn の使用済み判定は EffectLogic の _usedLimits に一本化されている。
   UI・CPU は EffectLogic.isIgnitionUsed(card) で参照すること（独自フラグを持たせない）。
+
+## 7. 罠魔術の実装メモ
+
+- セットされたカードは `_isSet: true` と `_setTurnSerial`（伏せた手番の通し番号）を持つ。
+  `GAME_STATE.turnSerial` は手番交代のたびに必ず +1 される。
+  `_setTurnSerial === GAME_STATE.turnSerial` の間は発動できない（伏せたターンは使えない）。
+- 誘発点は main.js から以下の3つを呼ぶ。追加したイベントで罠を反応させたい場合はここに足す。
+    - EffectLogic.notifySummon(side, cards)                      … 召喚・特殊召喚の直後
+    - EffectLogic.notifyAttackDeclared(side, atk, i, def, j)     … 攻撃宣言時（true が返ったら戦闘を中止する）
+    - EffectLogic.notifyMonsterDestroyed(side, card)             … 破壊されてトラッシュへ送られた直後
+- 解決中は EffectLogic._eventContext に誘発元の情報が入る。
+  targetSelect: "event*" と source: "event" はここを参照する。

@@ -177,6 +177,28 @@ const CpuLogic = {
             const emptySlot = field.indexOf(null);
             if (emptySlot === -1) break;
 
+            // 罠魔術は伏せる（条件成立時に自動発動する）
+            if (card.subType === "trap") {
+                const freeSlots = field.filter(m => m === null).length;
+                const hasOtherPlayableMagic = hand.some(c =>
+                    c !== card && c.type === "magic" && c.subType !== "trap");
+                // 最後の1枠は通常魔術のために空けておく
+                if (freeSlots <= 1 && hasOtherPlayableMagic) continue;
+
+                const hIdx = GAME_STATE.opponent.hand.indexOf(card);
+                if (hIdx === -1) continue;
+                GAME_STATE.opponent.hand.splice(hIdx, 1);
+
+                card._isSet = true;
+                card._setTurnSerial = GAME_STATE.turnSerial;
+                field[emptySlot] = card;
+                console.log(`CPU set a trap: ${card.name}`);
+
+                updateUI();
+                await this.delay(500);
+                continue;
+            }
+
             // 戦略的発動判定
             let shouldActivate = EffectLogic.isEffectActivatable(card, "opponent", "on_activate");
 

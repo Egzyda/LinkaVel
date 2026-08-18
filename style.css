@@ -635,6 +635,38 @@ body {
     border: 1px solid #444;
 }
 
+/* ==========================================
+   セットされた魔術（裏側表示）
+   ========================================== */
+.card-mini.face-down .card-front {
+    visibility: hidden;
+}
+
+.card-mini.face-down .card-back {
+    transform: rotateY(0deg);
+    z-index: 3;
+    visibility: visible;
+}
+
+/* 自分が伏せたカードは、自分の場だと分かるよう縁を色分けする */
+.card-mini.face-down.own-set {
+    border-color: var(--accent-blue) !important;
+    box-shadow: 0 0 8px rgba(0, 210, 255, 0.4);
+}
+
+/* 罠発動時のバナー */
+#selection-prompt.trap-banner {
+    border-color: #ff4b2b;
+    color: #ff8a6b;
+    background: rgba(30, 0, 0, 0.9);
+}
+
+/* セットボタン */
+.btn-action-float.set {
+    background: #444;
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
 /* アニメーション用一時カード */
 .anim-drawing-card {
     position: fixed;
@@ -1762,7 +1794,7 @@ body {
 
     #game-viewport {
         width: 480px;
-        height: 900px;
+        height: 720px;
         max-width: none;
         flex: none;
         transform-origin: center center;
