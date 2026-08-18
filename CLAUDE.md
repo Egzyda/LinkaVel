@@ -36,6 +36,7 @@ git push -u origin main
 | `effect_logic.js` | カード効果の汎用エンジン `EffectLogic` |
 | `cpu_logic.js` | CPU の思考 `CpuLogic` |
 | `deck_builder.js` | デッキ構築・Firestore 保存 |
+| `tutorial.js` | 遊び方画面（タブ切り替え・カード実例の描画） |
 | `firebase_config.js` | Firebase 初期化（匿名認証＋Firestore） |
 | `ルール.txt` | ゲームルール仕様書（正典） |
 | `ロジック定義.txt` | `logic` プロパティの共通規格（正典） |

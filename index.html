@@ -40,10 +40,10 @@
                     <span class="btn-icon">🃏</span>
                     <span class="btn-text">DECK BUILD - <small>デッキ編成</small></span>
                 </button>
-            </div>
-
-            <div class="menu-footer">
-                <span id="user-status">Guest Mode</span>
+                <button class="menu-btn" onclick="openTutorial()">
+                    <span class="btn-icon">📖</span>
+                    <span class="btn-text">HOW TO PLAY - <small>遊び方</small></span>
+                </button>
             </div>
         </div>
 
@@ -204,6 +204,168 @@
             </div>
         </div>
 
+        <div id="tutorial-screen" class="screen">
+            <div id="tutorial-view">
+                <div class="tutorial-header">
+                    <button class="builder-btn" onclick="showScreen('menu-screen')">← BACK</button>
+                    <h2 class="tutorial-title">遊び方</h2>
+                </div>
+
+                <div class="tutorial-tabs" id="tutorial-tabs">
+                    <button class="tutorial-tab active" data-tab="flow">流れ</button>
+                    <button class="tutorial-tab" data-tab="field">場</button>
+                    <button class="tutorial-tab" data-tab="summon">召喚</button>
+                    <button class="tutorial-tab" data-tab="battle">戦闘</button>
+                    <button class="tutorial-tab" data-tab="magic">魔術・罠</button>
+                    <button class="tutorial-tab" data-tab="misc">その他</button>
+                </div>
+
+                <div class="tutorial-body">
+
+                    <section class="tutorial-section active" data-section="flow">
+                        <h3>ゲームの目的</h3>
+                        <p>相手の <strong>LP（ライフポイント）</strong> を 0 にすれば勝ち。初期LPはお互い <strong>5000</strong>。</p>
+
+                        <h3>ターンの流れ</h3>
+                        <div class="tut-phase-flow">
+                            <div class="tut-phase"><span class="tut-phase-name">DRAW</span><span class="tut-phase-desc">デッキから1枚引く</span></div>
+                            <div class="tut-phase-arrow">→</div>
+                            <div class="tut-phase"><span class="tut-phase-name">MAIN1</span><span class="tut-phase-desc">召喚・魔術の発動</span></div>
+                            <div class="tut-phase-arrow">→</div>
+                            <div class="tut-phase"><span class="tut-phase-name">BATTLE</span><span class="tut-phase-desc">モンスターで攻撃</span></div>
+                            <div class="tut-phase-arrow">→</div>
+                            <div class="tut-phase"><span class="tut-phase-name">MAIN2</span><span class="tut-phase-desc">召喚・魔術の発動</span></div>
+                            <div class="tut-phase-arrow">→</div>
+                            <div class="tut-phase"><span class="tut-phase-name">END</span><span class="tut-phase-desc">手札10枚超なら捨てる</span></div>
+                        </div>
+                        <ul class="tut-list">
+                            <li>先行1ターン目だけは <strong>ドローとバトルフェイズを行わない</strong>。</li>
+                            <li>通常召喚は1ターンに合計1回まで（MAIN1かMAIN2、どちらかで）。</li>
+                            <li>手札が11枚以上になったら、エンドフェイズに10枚まで選んで捨てる。</li>
+                        </ul>
+                    </section>
+
+                    <section class="tutorial-section" data-section="field">
+                        <h3>場の構成</h3>
+                        <p>自分側の場はこうなっている（相手側も同じ構成が反転して並ぶ）。</p>
+                        <div class="tut-field-diagram">
+                            <div class="tut-field-row">
+                                <div class="tut-field-zone banish-zone">除外</div>
+                                <div class="tut-field-zone magic-zone">魔術</div>
+                                <div class="tut-field-zone magic-zone">魔術</div>
+                                <div class="tut-field-zone magic-zone">魔術</div>
+                                <div class="tut-field-zone trash-zone">トラッシュ</div>
+                            </div>
+                            <div class="tut-field-row">
+                                <div class="tut-field-zone deck-zone">デッキ</div>
+                                <div class="tut-field-zone monster-zone">モンスター</div>
+                                <div class="tut-field-zone monster-zone">モンスター</div>
+                                <div class="tut-field-zone monster-zone">モンスター</div>
+                                <div class="tut-field-zone empty-slot"></div>
+                            </div>
+                        </div>
+                        <ul class="tut-list">
+                            <li><strong>モンスターゾーン</strong>：最大3体まで並べられる。</li>
+                            <li><strong>魔術ゾーン</strong>：通常魔術・永続魔術・罠魔術を置く場所。最大3枚。</li>
+                            <li><strong>トラッシュ</strong>：使用済み・破壊されたカードの置き場。タップすると中身を見られる。ここにあるカードは蘇生などで戻ってくる可能性がある。</li>
+                            <li><strong>除外ゾーン</strong>：後述の「除外」されたカードの置き場。ここに行ったカードは、そのゲーム中二度と使えない。</li>
+                        </ul>
+                    </section>
+
+                    <section class="tutorial-section" data-section="summon">
+                        <h3>モンスターカードの見方</h3>
+                        <div class="tut-example-row">
+                            <div class="tut-card-slot" id="tut-example-normal"></div>
+                            <div class="tut-card-slot" id="tut-example-effect"></div>
+                        </div>
+                        <ul class="tut-list">
+                            <li><strong>薄黄色</strong> = 通常モンスター（効果なし）、<strong>オレンジ</strong> = 効果モンスター。</li>
+                            <li>左下の「Lv.」の隣にある召喚条件は、下の「召喚コスト」の欄で説明。右下の数字が<strong>パワー</strong>（戦闘力）。</li>
+                        </ul>
+
+                        <h3>召喚コスト</h3>
+                        <p>レベルが上がるほど、通常召喚に必要なコスト（体数）が増える。</p>
+                        <ul class="tut-list">
+                            <li>Lv.1：コストなしで召喚できる。</li>
+                            <li>Lv.2以上：必要な体数ぶんのモンスターをコストとして支払う。</li>
+                        </ul>
+                        <div class="tut-example-row">
+                            <div class="tut-card-slot" id="tut-example-cost"></div>
+                            <div class="tut-cost-note">
+                                このカードはLv.4なので、コストとして3体必要。<br>
+                                コストは <strong>フィールドのモンスター</strong> と <strong>手札のモンスター</strong> を自由に組み合わせて支払える。
+                            </div>
+                        </div>
+                        <div class="tut-callout">
+                            <div class="tut-callout-title">⚠ フィールドと手札でコストの扱いが違う</div>
+                            <ul class="tut-list">
+                                <li><strong>フィールドから支払う</strong>：そのモンスターは<strong>トラッシュ</strong>へ。あとで蘇生・回収できる可能性が残る。「トラッシュに送られた時」の効果も発動する。</li>
+                                <li><strong>手札から支払う</strong>：そのカードは<strong>除外</strong>される。そのゲーム中は二度と使えず、効果も一切発動しない。</li>
+                            </ul>
+                            <p>盤面を育てて出すか、手札を犠牲にして即席で出すか——ここが駆け引きどころ。場が全滅していても、手札さえあれば上級モンスターを出せる。</p>
+                        </div>
+                    </section>
+
+                    <section class="tutorial-section" data-section="battle">
+                        <h3>攻撃のルール</h3>
+                        <ul class="tut-list">
+                            <li>モンスター1体につき、1回まで攻撃できる。</li>
+                            <li>相手にモンスターがいなければ、パワーの数値がそのままLPダメージになる（ダイレクトアタック）。</li>
+                        </ul>
+                        <h3>モンスター同士がぶつかったら</h3>
+                        <table class="tut-table">
+                            <tr><th>比較</th><th>結果</th></tr>
+                            <tr><td>自分のパワー ＞ 相手のパワー</td><td>相手を破壊し、差分のダメージを与える</td></tr>
+                            <tr><td>自分のパワー ＝ 相手のパワー</td><td>両方とも破壊。ダメージはなし</td></tr>
+                            <tr><td>自分のパワー ＜ 相手のパワー</td><td>自分が破壊され、差分のダメージを受ける</td></tr>
+                        </table>
+                    </section>
+
+                    <section class="tutorial-section" data-section="magic">
+                        <h3>魔術カードの種類</h3>
+                        <div class="tut-example-row three">
+                            <div class="tut-card-slot" id="tut-example-magic"></div>
+                            <div class="tut-card-slot" id="tut-example-permanent"></div>
+                            <div class="tut-card-slot" id="tut-example-trap"></div>
+                        </div>
+                        <ul class="tut-list">
+                            <li><strong>通常魔術</strong>：発動したら効果を解決してすぐトラッシュへ。</li>
+                            <li><strong>永続魔術</strong>：発動後もフィールドに残り、効果を発揮し続ける。</li>
+                            <li><strong>罠魔術</strong>：手札から直接は使えない。下のセットの説明を参照。</li>
+                        </ul>
+
+                        <h3>セット（裏向き設置）</h3>
+                        <ul class="tut-list">
+                            <li>自分のメインフェイズに、手札の魔術を<strong>裏向き</strong>で魔術ゾーンに置ける。種別を問わずセットできる。</li>
+                            <li><strong>セットしたその手番は発動できない。</strong>次の手番以降から有効になる。</li>
+                            <li>通常魔術・永続魔術をセットした場合は、あとで自分のタイミングで表向きにして発動する（相手へのブラフにもなる）。</li>
+                            <li><strong>罠魔術は必ずセットしてから使う。</strong>記載された条件を満たした瞬間、<strong>相手ターン中でも自動で強制発動</strong>する。発動するかどうかを選ぶことはできない。</li>
+                            <li>相手が伏せたカードの中身は確認できない。</li>
+                        </ul>
+                    </section>
+
+                    <section class="tutorial-section" data-section="misc">
+                        <h3>デッキ切れ（リフレッシュ）</h3>
+                        <ul class="tut-list">
+                            <li>デッキが0枚でドローが必要になったら、トラッシュをすべてシャッフルして新しいデッキにする。</li>
+                            <li>リフレッシュした場合、本来のドローに加えてさらに1枚多く引ける。</li>
+                            <li>1ターンにつき1回まで（自分・相手それぞれ）。デッキが0枚でもそれ自体で負けにはならない。</li>
+                        </ul>
+                        <h3>引き分け</h3>
+                        <ul class="tut-list">
+                            <li>お互いのLPが同時に0になった場合は引き分け。</li>
+                        </ul>
+                        <h3>デッキ構築</h3>
+                        <ul class="tut-list">
+                            <li>デッキは30枚固定。同名カードは3枚まで。</li>
+                            <li>メニューの「DECK BUILD」から編集できる。</li>
+                        </ul>
+                    </section>
+
+                </div>
+            </div>
+        </div>
+
 
         <div id="common-confirm-modal" class="modal-overlay">
             <div class="modal-content">
@@ -300,5 +462,6 @@
     <script src="effect_logic.js"></script>
     <script src="main.js"></script>
     <script src="cpu_logic.js"></script>
+    <script src="tutorial.js"></script>
 </body>
 </html>

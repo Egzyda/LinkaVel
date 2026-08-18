@@ -1603,6 +1603,296 @@ body {
 }
 
 /* ==========================================
+   8.5 チュートリアル画面 (遊び方)
+   ========================================== */
+#tutorial-screen.active {
+    display: flex !important;
+    justify-content: center;
+    background: radial-gradient(circle at center, #1a1a1a, #000);
+}
+
+#tutorial-view {
+    width: 100%;
+    max-width: 480px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #0a0a0a;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tutorial-header {
+    flex-shrink: 0;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 12px;
+    background: #151515;
+    border-bottom: 1px solid #333;
+}
+
+.tutorial-title {
+    color: #fff;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+}
+
+.tutorial-tabs {
+    flex-shrink: 0;
+    display: flex;
+    gap: 4px;
+    padding: 8px;
+    overflow-x: auto;
+    touch-action: pan-x;
+    background: #111;
+    border-bottom: 1px solid #222;
+}
+
+.tutorial-tab {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 1px solid #444;
+    background: #1c1c1c;
+    color: #999;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.tutorial-tab.active {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: #001820;
+    font-weight: bold;
+}
+
+.tutorial-body {
+    flex: 1;
+    overflow-y: auto;
+    touch-action: pan-y;
+    padding: 16px 16px 40px;
+    color: #ddd;
+}
+
+.tutorial-section {
+    display: none;
+    animation: fadeIn 0.25s ease;
+}
+
+.tutorial-section.active {
+    display: block;
+}
+
+.tutorial-section h3 {
+    color: var(--accent-blue);
+    font-size: 0.95rem;
+    margin: 18px 0 8px;
+    letter-spacing: 0.5px;
+}
+
+.tutorial-section h3:first-child {
+    margin-top: 0;
+}
+
+.tutorial-section p {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: #ccc;
+    margin-bottom: 8px;
+}
+
+.tut-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #ccc;
+}
+
+.tut-list li {
+    padding-left: 14px;
+    position: relative;
+}
+
+.tut-list li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--accent-blue);
+}
+
+.tut-list strong {
+    color: #fff;
+}
+
+/* フェイズの流れ図 */
+.tut-phase-flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.tut-phase {
+    flex: 1 1 auto;
+    min-width: 80px;
+    background: #1c1c1c;
+    border: 1px solid var(--accent-blue);
+    border-radius: 8px;
+    padding: 8px 6px;
+    text-align: center;
+}
+
+.tut-phase-name {
+    display: block;
+    font-weight: bold;
+    color: var(--accent-blue);
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+}
+
+.tut-phase-desc {
+    display: block;
+    font-size: 0.65rem;
+    color: #999;
+    margin-top: 2px;
+}
+
+.tut-phase-arrow {
+    color: #555;
+    font-size: 0.9rem;
+}
+
+/* 場のミニ図解（実際のゾーンCSSを縮小して再利用） */
+.tut-field-diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 10px 0 14px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+}
+
+.tut-field-row {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+}
+
+.tut-field-zone {
+    flex: 1;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.55rem;
+    color: rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--zone-border);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.tut-field-zone.monster-zone { border-color: rgba(255, 166, 0, 0.4); }
+.tut-field-zone.magic-zone { border-color: rgba(0, 210, 255, 0.4); }
+.tut-field-zone.deck-zone,
+.tut-field-zone.trash-zone { border-style: dashed; }
+.tut-field-zone.banish-zone {
+    border-color: rgba(186, 104, 255, 0.5);
+    background: rgba(120, 60, 180, 0.1);
+    color: #d9c2ff;
+}
+.tut-field-zone.empty-slot { border: none; background: none; }
+
+/* カード実例 */
+.tut-example-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin: 10px 0;
+    flex-wrap: wrap;
+}
+
+.tut-example-row.three .tut-card-slot { flex: 0 0 auto; }
+
+.tut-card-slot {
+    width: 90px;
+    height: 124px;
+    flex-shrink: 0;
+}
+
+.tut-card-slot .card-mini {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+}
+
+.tut-cost-note {
+    flex: 1;
+    min-width: 140px;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: #ccc;
+    /* display:flex にすると <br>/<strong> を含むテキストが
+       断片ごとに別のフレックスアイテムとして扱われ、各断片が
+       勝手に折り返されて縦書きのようにバラバラになる。
+       通常のブロックのまま、縦中央寄せは親フレックス側の align-self に任せる。 */
+    align-self: center;
+}
+
+.tut-callout {
+    margin-top: 14px;
+    padding: 12px;
+    background: rgba(0, 210, 255, 0.06);
+    border: 1px solid rgba(0, 210, 255, 0.3);
+    border-radius: 8px;
+}
+
+.tut-callout-title {
+    font-weight: bold;
+    color: var(--accent-blue);
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+}
+
+.tut-callout p {
+    margin-top: 8px;
+    margin-bottom: 0;
+    font-size: 0.78rem;
+    color: #bbb;
+}
+
+.tut-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+    margin-bottom: 10px;
+}
+
+.tut-table th,
+.tut-table td {
+    border: 1px solid #333;
+    padding: 8px 6px;
+    text-align: left;
+    color: #ccc;
+}
+
+.tut-table th {
+    background: #1c1c1c;
+    color: var(--accent-blue);
+    font-size: 0.7rem;
+}
+
+/* ==========================================
    9. VFX & Animations (LinkaVel VFX System)
    ========================================== */
 /* VFX Layer Constraint */
