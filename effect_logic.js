@@ -32,9 +32,11 @@ const EffectLogic = {
         // フィールド上のカードの効果が動く時は、どのカードが発動したのかを見せる。
         // ・常時効果(always)は演出しない（判定のたびに光ってしまう）
         // ・対象がなくて空振りする効果も演出しない（無駄な待ち時間になる）
+        // ・「1ターンに1度」を使い切った効果も演出しない
+        //   （条件を満たすたびに光るが実際には何も起きない、という状態を防ぐ）
         if (typeof showEffectActivation === "function"
             && triggerFilter && triggerFilter !== "always"
-            && cardData.logic.some(a => a.trigger === triggerFilter)
+            && this.hasUsableAction(cardData, triggerFilter)
             && this.isEffectActivatable(cardData, side, triggerFilter)) {
             await showEffectActivation(cardData, side);
         }
@@ -238,12 +240,38 @@ const EffectLogic = {
      * 起動効果が「このターン使用済み」かどうか（UI/CPUの表示判定用）
      */
     isIgnitionUsed(cardData) {
+        return this.isLimitUsed(cardData, "ignition");
+    },
+
+    /**
+     * 「1ターンに1度」の効果を、このターンすでに使い切っているか。
+     * trigger を省略すると、そのカードのどれかの回数制限効果が使用済みかを見る。
+     */
+    isLimitUsed(cardData, trigger = null) {
         if (!cardData || !cardData.logic || !cardData._usedLimits) return false;
-        return cardData.logic.some((action, i) =>
-            action.trigger === "ignition" &&
-            action.countLimit === "once_per_turn" &&
-            cardData._usedLimits[`action_${i}`] === GAME_STATE.turnCount
-        );
+        const limited = cardData.logic
+            .map((action, i) => ({ action, i }))
+            .filter(({ action }) =>
+                action.countLimit === "once_per_turn" &&
+                (trigger === null || action.trigger === trigger));
+        if (limited.length === 0) return false;
+        // 回数制限のある効果がすべて使用済みなら「使用済み」とみなす
+        return limited.every(({ i }) => cardData._usedLimits[`action_${i}`] === GAME_STATE.turnCount);
+    },
+
+    /**
+     * このトリガーで実際に動く余地があるか。
+     * 回数制限を使い切った効果しか無い場合は、演出も出さない。
+     */
+    hasUsableAction(cardData, trigger) {
+        if (!cardData || !cardData.logic) return false;
+        return cardData.logic.some((action, i) => {
+            if (action.trigger !== trigger) return false;
+            if (action.countLimit !== "once_per_turn") return true;
+            const used = cardData._usedLimits
+                && cardData._usedLimits[`action_${i}`] === GAME_STATE.turnCount;
+            return !used;
+        });
     },
 
     /**
@@ -735,6 +763,7 @@ const EffectLogic = {
             GAME_STATE[ownerSide].trash.splice(trashIdx, 1);
             p.field.monsters[slotIdx] = target;
             if (typeof renderFieldCard === "function") renderFieldCard(side, "monster", slotIdx, target);
+            if (typeof playSummonEffect === "function") await playSummonEffect(side, slotIdx);
 
             await this.resolveEffects(target, side, "on_summon");
             await this.notifySummon(side, [target]);
@@ -789,6 +818,10 @@ const EffectLogic = {
             // UI描画の更新 (main.jsの関数を呼び出し)
             if (typeof renderFieldCard === "function") {
                 renderFieldCard(side, "monster", slotIdx, targetCard);
+            }
+            // 特殊召喚も「召喚演出 → 効果発動」の順に見せる
+            if (typeof playSummonEffect === "function") {
+                await playSummonEffect(side, slotIdx);
             }
 
             summonedCards.push(targetCard);
@@ -1086,15 +1119,20 @@ const EffectLogic = {
                     });
                 case "apply_combat_effect":
                     return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}));
-                case "special_summon":
+                case "special_summon": {
                     // フィールドに空きがない場合は発動不可
                     if (!p.field.monsters.includes(null)) return false;
-                    if (action.source === "deck") return p.deck.some(c => this._checkFilter(c, action.filter || {}));
-                    if (action.source === "trash") return p.trash.some(c => this._checkFilter(c, action.filter || {}));
+                    // 特殊召喚できるのはモンスターだけ。
+                    // maxLevel 等のフィルタは level を持たない魔術を弾かないので、
+                    // ここで種別を見ないと「対象がいないのに発動できる」状態になる。
+                    const summonable = c => c.type === "monster" && this._checkFilter(c, action.filter || {});
+                    if (action.source === "deck") return p.deck.some(summonable);
+                    if (action.source === "trash") return p.trash.some(summonable);
                     if (action.source === "choice_deck_or_trash") {
-                        return p.deck.some(c => this._checkFilter(c, action.filter || {})) || p.trash.some(c => this._checkFilter(c, action.filter || {}));
+                        return p.deck.some(summonable) || p.trash.some(summonable);
                     }
                     return true;
+                }
                 case "search":
                 case "salvage":
                     const pool = (action.type === "search") ? p.deck : p.trash;

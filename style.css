@@ -2223,6 +2223,78 @@ body {
     animation: lp-flash 0.45s ease-out;
 }
 
+/* カード上の状態バッジ（攻撃可能／攻撃済み／効果使用済み） */
+.card-state-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    z-index: 8;
+    pointer-events: none;
+    padding: 1px;
+    background: rgba(6, 8, 14, 0.82);
+    border: 1px solid currentColor;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.card-state-badge .state-badge-icon {
+    width: 24cqi;
+    height: 24cqi;
+    min-width: 12px;
+    min-height: 12px;
+    display: block;
+}
+
+/* 攻撃可能: はっきり光らせる */
+.card-state-badge.can-attack {
+    color: #ffd23f;
+    filter: drop-shadow(0 0 3px rgba(255, 210, 63, 0.8));
+}
+
+/* 攻撃済み: くすませて区別する */
+.card-state-badge.attacked {
+    color: #7b8290;
+    opacity: 0.85;
+}
+.card-state-badge.attacked .state-badge-icon {
+    opacity: 0.6;
+}
+
+/* 効果使用済みは攻撃バッジと重ならないよう左上に出す */
+.card-state-badge.used-effect {
+    top: 2px;
+    right: auto;
+    left: 2px;
+    color: #ff9d5c;
+    filter: drop-shadow(0 0 3px rgba(255, 157, 92, 0.7));
+}
+
+/* 相手のカードは180度回転しているのでバッジだけ正対させる */
+.opponent-field .card-state-badge {
+    transform: rotateZ(180deg);
+}
+
+/* 召喚の演出。周囲が軽く光るだけの短いもの */
+.vfx-summon-glow {
+    position: absolute;
+    inset: -6px;
+    border-radius: 8px;
+    border: 2px solid rgba(120, 220, 255, 0.9);
+    box-shadow: 0 0 16px rgba(120, 220, 255, 0.85), inset 0 0 12px rgba(120, 220, 255, 0.45);
+    pointer-events: none;
+    z-index: 65;
+    animation: summon-glow 0.4s ease-out forwards;
+}
+
+@keyframes summon-glow {
+    0% { opacity: 0; transform: scale(1.25); }
+    40% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1); }
+}
+
 /* モンスター破壊の演出。いきなり消えたように見せない */
 .vfx-destroy-burst {
     position: absolute;
@@ -2240,15 +2312,21 @@ body {
     100% { opacity: 0; transform: scale(1.5); }
 }
 
-/* 破壊されるカード本体が砕けて落ちる */
+/* 破壊されるカード本体が砕けて落ちる。
+ * 相手のカードは rotateZ(180deg) で正対させているので、
+ * その向きを --destroy-base で引き継がないと破壊の瞬間だけ向きが変わってしまう。 */
 @keyframes destroy-card {
-    0% { opacity: 1; transform: scale(1) rotate(0deg); filter: brightness(1); }
-    25% { opacity: 1; transform: scale(1.06) rotate(-3deg); filter: brightness(2.2); }
-    100% { opacity: 0; transform: scale(0.72) rotate(9deg) translateY(14px); filter: brightness(0.4); }
+    0% { opacity: 1; transform: var(--destroy-base) scale(1); filter: brightness(1); }
+    25% { opacity: 1; transform: var(--destroy-base) scale(1.06) rotate(-3deg); filter: brightness(2.2); }
+    100% { opacity: 0; transform: var(--destroy-base) scale(0.72) rotate(9deg) translateY(14px); filter: brightness(0.4); }
 }
 .card-mini.destroying {
+    --destroy-base: rotateZ(0deg);
     animation: destroy-card 0.45s ease-in forwards;
     pointer-events: none;
+}
+.opponent-field .card-mini.destroying {
+    --destroy-base: rotateZ(180deg);
 }
 
 /* 攻撃の矢印（誰が誰を攻撃したか） */
@@ -2321,10 +2399,11 @@ body {
     height: 36px;
     flex-shrink: 0;
     border-radius: 3px;
-    border: 1px solid #6a6a80;
-    background:
-        repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.06) 0 3px, transparent 3px 6px),
-        linear-gradient(160deg, #33334a, #17172333);
+    border: 1px solid #555;
+    background-image: url('img/card.webp');
+    background-size: cover;
+    background-position: center;
+    background-color: #222;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7), -1px 0 0 rgba(0, 0, 0, 0.5);
 }
 

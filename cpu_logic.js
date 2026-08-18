@@ -83,23 +83,76 @@ const CpuLogic = {
     },
 
     /**
+     * カードの効果がどれくらい盤面価値になるかの目安。
+     * パワーだけで比べると、除去や蘇生を持つカードを不当に低く見てしまう。
+     */
+    effectBonus(card) {
+        if (!card.logic || card.logic.length === 0) return 0;
+        let bonus = 0;
+        for (const l of card.logic) {
+            switch (l.type) {
+                case "destroy":
+                case "destroy_magic":
+                case "bounce":       bonus += 400; break;
+                case "damage":       bonus += 250; break;
+                case "special_summon": bonus += 350; break;
+                case "search":
+                case "salvage":      bonus += 250; break;
+                case "heal":         bonus += 120; break;
+                case "global_buff":  bonus += Math.abs(l.value || 0) * 1.5; break;
+                case "battle_protection":
+                case "damage_reduction": bonus += 250; break;
+                case "mill":         bonus += 60; break;
+                default:             bonus += 50; break;
+            }
+            // 常時発動のオーラは場に残り続けるぶん価値が高い
+            if (l.trigger === "always") bonus += 150;
+        }
+        return bonus;
+    },
+
+    /**
+     * 場に出ているモンスター1体の価値（コストに差し出してよいかの判断に使う）。
+     * 召喚時効果はすでに使い終わっているので、場に残す価値にはならない。
+     * 逆にトラッシュで誘発する効果を持つカードは、コストにしたほうが得。
+     */
+    fieldMonsterValue(card, slotIdx) {
+        if (!card) return 0;
+        let value = EffectLogic.getCurrentPower(card, "opponent", slotIdx);
+        for (const l of (card.logic || [])) {
+            switch (l.trigger) {
+                case "always":   value += 200; break; // 場に居続けることで効くオーラ
+                case "ignition": value += 150; break; // 毎ターン使える
+                case "on_battle_destroy": value += 80; break;
+                case "on_sent_to_trash":  value -= 150; break; // 墓地に送ると誘発する＝コスト向き
+                default: break;                        // on_summon等は消費済み
+            }
+        }
+        return Math.max(0, value);
+    },
+
+    /** 手札のモンスターを召喚した場合に得られる価値 */
+    summonValue(card) {
+        return (card.power || 0) + this.effectBonus(card);
+    },
+
+    /**
      * 召喚コストの支払い計画を立てる
      * フィールド（トラッシュ送り＝復帰可能）を優先し、足りない分だけ手札（除外）で補う。
-     * @returns {{costs:Array, slotIndex:number}|null}
+     * @returns {{costs:Array, slotIndex:number, lostValue:number}|null}
      */
     planSummonCosts(card, costCount, costFilter) {
         const field = GAME_STATE.opponent.field.monsters;
         const emptySlots = field.map((m, i) => (m === null ? i : null)).filter(i => i !== null);
 
-        // フィールド候補：オーラや強化を持たない、弱いモンスターから差し出す
+        // フィールド候補：価値の低いモンスターから差し出す
         const fieldCandidates = field
             .map((m, i) => ({
                 card: m, slotIdx: i, from: "field",
-                pwr: m ? EffectLogic.getCurrentPower(m, "opponent", i) : 0,
-                hasBuff: !!m && ((m._tempBuffs && m._tempBuffs.length > 0) || (m.logic && m.logic.some(l => l.trigger === "always")))
+                value: m ? this.fieldMonsterValue(m, i) : 0
             }))
             .filter(obj => obj.card && matchesCostFilter(obj.card, costFilter))
-            .sort((a, b) => (a.hasBuff - b.hasBuff) || (a.pwr - b.pwr));
+            .sort((a, b) => a.value - b.value);
 
         // 手札候補：除外されるため、切っても痛くない順に並べる
         const handCandidates = GAME_STATE.opponent.hand
@@ -134,26 +187,38 @@ const CpuLogic = {
             return null; // 手札だけ払っても置き場所がない
         }
 
-        return { costs, slotIndex };
+        // 失う価値。場のモンスターは丸ごと失う。
+        // 手札は除外されるが盤面には影響しないので、軽めに見積もる。
+        const lostValue = costs.reduce((sum, c) => {
+            if (c.from === "field") return sum + this.fieldMonsterValue(c.card, c.slotIdx);
+            return sum + 150 + (c.card.power || 0) * 0.15;
+        }, 0);
+
+        return { costs, slotIndex, lostValue };
     },
 
-    /** CPUの召喚試行。実際に召喚したら true */
+    /**
+     * CPUの召喚試行。実際に召喚したら true
+     * 手札のモンスターをすべて評価し、盤面がいちばん良くなる1体を出す。
+     * 「強いモンスターをコストにして弱いモンスターを出す」ような損な召喚はしない。
+     */
     async tryCpuSummon() {
         const hand = GAME_STATE.opponent.hand;
-        // レベルの高い順、同レベルならパワーの高い順にソート
-        const monsters = hand.filter(c => c.type === "monster")
-                            .sort((a, b) => (b.level - a.level) || (b.power - a.power));
+        const field = GAME_STATE.opponent.field.monsters;
+        const emptySlots = field.map((m, i) => m === null ? i : null).filter(i => i !== null);
 
-        for (const card of monsters) {
+        let best = null;
+
+        for (const card of hand.filter(c => c.type === "monster")) {
             const req = card.summonRequirement || {};
             const costCount = req.costCount || 0;
-            const field = GAME_STATE.opponent.field.monsters;
-            const emptySlots = field.map((m, i) => m === null ? i : null).filter(i => i !== null);
+            const gain = this.summonValue(card);
 
             if (costCount === 0) {
-                if (emptySlots.length > 0) {
-                    await executeSummon("opponent", card, emptySlots[0]);
-                    return true;
+                // コスト不要。空き枠があるならそのまま得
+                if (emptySlots.length === 0) continue;
+                if (!best || gain > best.netGain) {
+                    best = { card, slotIndex: emptySlots[0], costs: [], netGain: gain };
                 }
                 continue;
             }
@@ -161,10 +226,21 @@ const CpuLogic = {
             const plan = this.planSummonCosts(card, costCount, req.costFilter);
             if (!plan) continue;
 
-            await executeSummon("opponent", card, plan.slotIndex, plan.costs);
-            return true;
+            // 差し引きで損になる召喚はしない
+            const netGain = gain - plan.lostValue;
+            if (netGain <= 0) {
+                console.log(`CPU: skip summoning ${card.name} (net ${Math.round(netGain)})`);
+                continue;
+            }
+            if (!best || netGain > best.netGain) {
+                best = { card, slotIndex: plan.slotIndex, costs: plan.costs, netGain };
+            }
         }
-        return false;
+
+        if (!best) return false;
+
+        await executeSummon("opponent", best.card, best.slotIndex, best.costs);
+        return true;
     },
 
     /** CPUの魔術発動。1枚でも発動・セットしたら true */
