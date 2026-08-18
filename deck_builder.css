@@ -101,9 +101,11 @@
 .deck-grid-scroll {
     flex: 1;
     overflow-y: auto;
+    /* body の touch-action:none を打ち消す（無いとスマホでスクロールできない） */
+    touch-action: pan-y;
     padding: 4px;
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
     grid-auto-rows: max-content;
     gap: 4px;
     align-content: start;
@@ -212,6 +214,7 @@
     line-height: 1.3;
     color: #ddd;
     overflow-y: auto;
+    touch-action: pan-y;
     white-space: pre-wrap;
     background: rgba(0,0,0,0.3);
     padding: 4px;
@@ -260,6 +263,8 @@
     display: flex;
     gap: 6px;
     overflow-x: auto;
+    touch-action: pan-x;
+    flex-shrink: 0;
 }
 
 .filter-select {
@@ -274,9 +279,10 @@
 .library-grid {
     flex: 1;
     overflow-y: auto;
+    touch-action: pan-y;
     padding: 4px;
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
     gap: 4px;
     align-content: start;
 }

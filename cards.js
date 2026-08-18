@@ -781,3 +781,15 @@ function getCardData(cardId) {
     if (!MASTER_CARDS[cardId]) return null;
     return JSON.parse(JSON.stringify(MASTER_CARDS[cardId]));
 }
+
+/**
+ * 魔術カードの種別表記を返す
+ * @param {string} subType - "normal" | "permanent" | "trap"
+ */
+function getMagicTypeLabel(subType) {
+    switch (subType) {
+        case 'permanent': return '永続魔術';
+        case 'trap': return '罠魔術';
+        default: return '通常魔術';
+    }
+}

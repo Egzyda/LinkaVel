@@ -32,15 +32,10 @@ const DeckBuilder = {
         this.renderLibrary();
         this.updateUI();
 
-        // Firebase Auth 匿名ログイン
-        if (window.auth) {
-            try {
-                const userCredential = await window.auth.signInAnonymously();
-                console.log("Signed in as:", userCredential.user.uid);
-            } catch (error) {
-                console.error("Auth Error:", error);
-                this.showToast("ログインエラー");
-            }
+        // Firebase Auth 匿名ログイン（main.js側の共通処理に一本化）
+        if (typeof ensureAuth === 'function') {
+            const user = await ensureAuth();
+            if (!user && window.auth) this.showToast("ログインエラー");
         }
     },
 
@@ -226,7 +221,7 @@ const DeckBuilder = {
         const isMonster = card.type === "monster";
         const statsHtml = isMonster
             ? `Lv.${card.level} / ATK ${card.power}`
-            : `${card.subType === 'permanent' ? '永続魔術' : '通常魔術'}`;
+            : `${getMagicTypeLabel(card.subType)}`;
 
         infoBox.innerHTML = `
             <div class="detail-header">
@@ -460,7 +455,7 @@ const DeckBuilder = {
                         <div class="card-lv-text">Lv.${cardData.level}</div>
                         <div class="card-atk-text">${cardData.power}</div>
                     ` : `
-                        <div class="card-magic-type">${cardData.subType === 'permanent' ? '永続魔術' : '通常魔術'}</div>
+                        <div class="card-magic-type">${getMagicTypeLabel(cardData.subType)}</div>
                     `}
                 </div>
             </div>
