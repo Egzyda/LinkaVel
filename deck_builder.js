@@ -172,6 +172,7 @@ const DeckBuilder = {
         filtered.forEach(card => {
             const el = document.createElement('div');
             el.className = 'lib-item';
+            el.dataset.cardId = card.id; // 選択・所持数の差分更新で参照する
             if (this.selectedCardId === card.id) el.classList.add('selected');
 
             // デッキ内の所持数チェック
@@ -197,10 +198,51 @@ const DeckBuilder = {
 
     /** カード選択時の処理（中段更新） */
     selectCard(cardId) {
+        const previousId = this.selectedCardId;
         this.selectedCardId = cardId;
         const card = this.allCards.find(c => c.id === cardId);
         this.renderDetail(card);
-        this.renderLibrary(); // 選択枠の更新のため
+        // ライブラリ全体は再構築せず、選択枠のクラスだけ差し替える。
+        // renderLibrary() を毎回呼ぶと全カードの<img>が作り直されて
+        // 選択のたびにチラつく・もたつく原因になっていた。
+        this.updateLibrarySelectionHighlight(previousId, cardId);
+    },
+
+    /** ライブラリの選択枠（.selected）だけを差し替える */
+    updateLibrarySelectionHighlight(previousId, nextId) {
+        const grid = document.getElementById('builder-library-grid');
+        if (previousId) {
+            const prevEl = grid.querySelector(`.lib-item[data-card-id="${previousId}"]`);
+            if (prevEl) prevEl.classList.remove('selected');
+        }
+        if (nextId) {
+            const nextEl = grid.querySelector(`.lib-item[data-card-id="${nextId}"]`);
+            if (nextEl) nextEl.classList.add('selected');
+        }
+    },
+
+    /** 1枚分の所持数バッジ・上限表示だけを更新する（全体再構築を避ける） */
+    updateLibraryCardBadge(cardId) {
+        const grid = document.getElementById('builder-library-grid');
+        const el = grid.querySelector(`.lib-item[data-card-id="${cardId}"]`);
+        if (!el) return;
+
+        const inDeck = this.currentDeck.cards.find(c => c.id === cardId);
+        const count = inDeck ? inDeck.count : 0;
+
+        el.classList.toggle('max-copy', count >= this.MAX_COPIES);
+
+        let badge = el.querySelector('.lib-count-badge');
+        if (count > 0) {
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'lib-count-badge';
+                el.appendChild(badge);
+            }
+            badge.innerText = count;
+        } else if (badge) {
+            badge.remove();
+        }
     },
 
     /** 中段詳細エリアの描画 */
@@ -275,7 +317,7 @@ const DeckBuilder = {
         }
 
         this.updateUI();
-        this.renderLibrary(); // バッジ更新
+        this.updateLibraryCardBadge(cardId);
     },
 
     /** 現在のデッキ枚数取得 */
