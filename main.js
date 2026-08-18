@@ -2309,6 +2309,11 @@ function openBanishViewer(side) {
  * @param {string} pileType - "trash" | "banish"
  */
 function openCardPileViewer(side, pileType) {
+    // 選択モード中（召喚コスト・召喚先・攻撃対象・効果対象など）は開かない。
+    // ゾーンのonclickは選択モードの状態に関わらず常に生きているため、ここで
+    // ガードしないと選択操作中の誤タップでトラッシュ/除外ビューアが割り込む。
+    if (GAME_STATE.isSelectingSlot || GAME_STATE.isSelectingTarget || GAME_STATE.isSelectingCost) return;
+
     const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
     const pile = (pileType === "trash") ? p.trash : p.banished;
     if (pile.length === 0) return;

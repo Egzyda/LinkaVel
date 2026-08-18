@@ -985,6 +985,12 @@ body {
     box-shadow: 0 0 14px #b06cff, 0 6px 12px rgba(0, 0, 0, 0.7);
 }
 
+/* コストにできない手札（フィルタ対象外・召喚しようとしているカード自身）は選べないと分かるように沈める */
+#game-viewport.cost-selecting #player-hand .card-mini:not(.cost-highlight):not(.cost-selected) {
+    opacity: 0.4;
+    filter: grayscale(0.6);
+}
+
 #player-hand .card-mini.cost-selected {
     transform: translateY(-14px);
     border-color: #ffaa00 !important;
@@ -1307,6 +1313,20 @@ body {
 .selecting-mode .zone.cost-highlight {
     pointer-events: auto !important;
     z-index: 1000;
+}
+
+/*
+ * 選択モード中（召喚先・コスト・魔術設置・効果対象の選択）は、
+ * 対象になり得ないゾーン（トラッシュ・除外・デッキ・無関係なモンスター等）を
+ * 見た目でも操作でも無効化する。
+ * これが無いと、選択候補のすぐ隣にあるトラッシュ/除外ゾーンへの
+ * 誤タップでビューアが割り込んでしまう。
+ */
+.selecting-mode .zone:not(.highlight):not(.cost-highlight):not(.cost-selected) {
+    pointer-events: none;
+    opacity: 0.3;
+    filter: grayscale(0.7);
+    transition: opacity 0.15s, filter 0.15s;
 }
 
 /*
@@ -1810,6 +1830,19 @@ body {
     color: #d9c2ff;
 }
 .tut-field-zone.empty-slot { border: none; background: none; }
+
+.tut-field-row-label {
+    text-align: center;
+    font-size: 0.6rem;
+    color: #777;
+    letter-spacing: 1px;
+}
+
+.tut-field-divider {
+    height: 1px;
+    margin: 4px 0;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15), transparent);
+}
 
 /* カード実例 */
 .tut-example-row {
