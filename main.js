@@ -21,6 +21,7 @@ const GAME_STATE = {
     // 手番管理
     turnPlayer: "player",   // "player" | "opponent"
     hasNormalSummoned: false, // ターン中の召喚済みフラグ
+    isGameOver: false,        // 決着済みフラグ（以降の処理を一切行わない）
 
     // プレイヤー状態
     player: {
@@ -28,6 +29,7 @@ const GAME_STATE = {
         deck: [],
         hand: [],
         trash: [],
+        banished: [], // 除外ゾーン（このゲーム中は一切干渉できない）
         refreshCount: 0,
         field: {
             monsters: [null, null, null],
@@ -41,6 +43,7 @@ const GAME_STATE = {
         deck: [],
         hand: [], // CPUは簡易管理のため配列で持つが、基本は数のみ参照でも可
         trash: [],
+        banished: [],
         refreshCount: 0,
         field: {
             monsters: [null, null, null],
@@ -56,9 +59,38 @@ const GAME_STATE = {
     pendingCard: null,       // 召喚待機中のカード
     attackerPending: null,   // 攻撃待機中の情報 {card, slotIdx}
     isSelectingCost: false,  // コスト選択中か
-    selectedCosts: [],       // 選択されたコスト対象 [{card, slotIdx}]
+    selectedCosts: [],       // 選択されたコスト対象 [{card, slotIdx, from:"field"|"hand"}]
     isAnimating: false       // アニメーション中（UIロック用）
 };
+
+/**
+ * カードが場を離れる際に、個体に付いた一時状態をすべて消す。
+ * これを通さないと、蘇生したモンスターが「攻撃済み」のままだったり
+ * 古いデバフを引きずったままトラッシュ／デッキに戻ってしまう。
+ */
+function resetCardState(card) {
+    if (!card) return card;
+    delete card._hasAttacked;
+    delete card._tempBuffs;
+    delete card._combatEffects;
+    delete card._usedLimits;
+    delete card._usedProtections;
+    delete card._usedTurn;
+    return card;
+}
+
+/** カードをトラッシュへ送る（個体状態のリセットを保証する共通経路） */
+function sendCardToTrash(side, card) {
+    if (!card) return;
+    GAME_STATE[side].trash.push(resetCardState(card));
+}
+
+/** カードを除外する（このゲーム中は復帰・参照ともに不可） */
+function banishCard(side, card) {
+    if (!card) return;
+    GAME_STATE[side].banished.push(resetCardState(card));
+    console.log(`${side} banished ${card.name}`);
+}
 
 // ==========================================
 // 2. 初期化・起動シーケンス
@@ -73,8 +105,65 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setupEventListeners();
+    updateViewportScale();
+    window.addEventListener('resize', updateViewportScale);
+    window.addEventListener('orientationchange', updateViewportScale);
+
+    // 匿名ログインは起動時に一度だけ済ませておく。
+    // デッキビルダーを開かずにデュエルへ入ると保存デッキが読めない問題への対処。
+    ensureAuth();
+
     console.log("LinkaVel Game Engine Ready.");
 });
+
+/**
+ * Firebase匿名ログインを保証する（多重呼び出しは同じPromiseを共有）
+ */
+let authPromise = null;
+function ensureAuth() {
+    if (!window.auth) return Promise.resolve(null);
+    if (window.auth.currentUser) return Promise.resolve(window.auth.currentUser);
+    if (!authPromise) {
+        authPromise = window.auth.signInAnonymously()
+            .then(cred => {
+                console.log("Signed in as:", cred.user.uid);
+                return cred.user;
+            })
+            .catch(err => {
+                console.error("Auth Error:", err);
+                authPromise = null; // 次回リトライできるようにする
+                return null;
+            });
+    }
+    return authPromise;
+}
+window.ensureAuth = ensureAuth;
+
+/**
+ * PC等の広い画面では、スマホ設計のレイアウトを保ったまま拡大する。
+ * 幅だけ広げるとカードが豆粒のまま余白だけ増えてしまうため、
+ * 設計サイズ(480x900)を基準に等倍スケールを掛ける方式にしている。
+ */
+const DESIGN_WIDTH = 480;
+const DESIGN_HEIGHT = 900;
+
+function updateViewportScale() {
+    const viewport = document.getElementById('game-viewport');
+    if (!viewport) return;
+
+    // スマホ幅では従来通りの流動レイアウト（CSS側のメディアクエリと揃える）
+    if (window.innerWidth <= 480) {
+        viewport.style.transform = "";
+        return;
+    }
+
+    const scale = Math.min(
+        window.innerWidth / DESIGN_WIDTH,
+        window.innerHeight / DESIGN_HEIGHT,
+        1.7 // 拡大しすぎて粗くならないよう上限を設ける
+    );
+    viewport.style.transform = `scale(${scale})`;
+}
 
 function setupEventListeners() {
     // 降参ボタン
@@ -140,6 +229,7 @@ async function renderDeckSelection() {
 
     // 2. ユーザーデッキ (Firestore)
     if (typeof DeckBuilder !== 'undefined') {
+        await ensureAuth();
         const userDecks = await DeckBuilder.fetchUserDecks();
         userDecks.forEach(deck => {
             html += createDeckItemHtml(deck.id, deck.name, "user", true);
@@ -166,6 +256,7 @@ async function renderDeckManager() {
     `;
 
     // ユーザーデッキ一覧
+    await ensureAuth();
     const userDecks = await DeckBuilder.fetchUserDecks();
     if (userDecks.length === 0) {
         html += `<div style="color:#666;text-align:center;padding:20px;">保存されたデッキはありません</div>`;
@@ -216,6 +307,9 @@ async function deleteDeckAndReload(id) {
  * デッキ確定後の初期化プロセス
  */
 async function confirmDeckSelection(deckId, type) {
+    // 前回の対戦結果（LP・決着フラグ等）を確実に初期化してから組み直す
+    resetGameState();
+
     // プレイヤーのデッキを初期化
     await initDeck("player", deckId, type);
 
@@ -250,6 +344,7 @@ function resetGameState() {
     GAME_STATE.isFirstTurnOfGame = true;
     GAME_STATE.phase = "DRAW";
     GAME_STATE.hasNormalSummoned = false;
+    GAME_STATE.isGameOver = false;
 
     // プレイヤーリセット
     GAME_STATE.player.lp = 5000;
@@ -257,6 +352,7 @@ function resetGameState() {
     GAME_STATE.player.deck = [];
     GAME_STATE.player.hand = [];
     GAME_STATE.player.trash = [];
+    GAME_STATE.player.banished = [];
     GAME_STATE.player.field.monsters = [null, null, null];
     GAME_STATE.player.field.magics = [null, null, null];
 
@@ -266,6 +362,7 @@ function resetGameState() {
     GAME_STATE.opponent.deck = [];
     GAME_STATE.opponent.hand = [];
     GAME_STATE.opponent.trash = [];
+    GAME_STATE.opponent.banished = [];
     GAME_STATE.opponent.field.monsters = [null, null, null];
     GAME_STATE.opponent.field.magics = [null, null, null];
 
@@ -306,6 +403,16 @@ function cleanFieldZones() {
         ids.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.innerHTML = "";
+        });
+    });
+
+    // デッキ・トラッシュ・除外ゾーンは枚数バッジを残したままカードだけ取り除く
+    ["player", "opponent"].forEach(side => {
+        ["deck", "trash", "banish"].forEach(type => {
+            const zone = document.getElementById(`${side}-${type}-zone`);
+            if (!zone) return;
+            zone.querySelectorAll('.card-mini').forEach(el => el.remove());
+            zone.classList.remove('stack-stage-1', 'stack-stage-2', 'stack-stage-3');
         });
     });
 }
@@ -371,6 +478,7 @@ function openDeckEditor() {
 // ==========================================
 
 function startTurnProcess() {
+    if (GAME_STATE.isGameOver) return;
     GAME_STATE.phase = "DRAW";
     GAME_STATE.hasNormalSummoned = false;
     // ターン開始時に全モンスターの攻撃済みフラグをリセット (ルール5.3)
@@ -404,8 +512,16 @@ function startTurnProcess() {
 }
 
 function advancePhase() {
+    if (GAME_STATE.isGameOver) return;
+
     const pOrder = GAME_STATE.phases;
     const currentIdx = pOrder.indexOf(GAME_STATE.phase);
+
+    // ENDフェイズから先には進まない（ターン終了処理は startEndPhaseProcess が担当）
+    if (currentIdx === -1 || currentIdx >= pOrder.length - 1) {
+        console.warn(`advancePhase: ignored (phase=${GAME_STATE.phase})`);
+        return;
+    }
 
     // 次のフェイズを決定
     let nextPhase = pOrder[currentIdx + 1];
@@ -436,6 +552,8 @@ function advancePhase() {
 }
 
 function endTurn() {
+    if (GAME_STATE.isGameOver) return;
+
     // ターン交代
     GAME_STATE.turnPlayer = (GAME_STATE.turnPlayer === "player") ? "opponent" : "player";
 
@@ -465,7 +583,7 @@ async function drawCard(side, count) {
             // デッキ切れ時のリフレッシュ規定 (ルール Ver.1.1)
             if (p.trash.length > 0 && p.refreshCount < 1) {
                 console.log(`${side} performs Deck Refresh!`);
-                p.deck = shuffleArray([...p.trash]);
+                p.deck = shuffleArray(p.trash.map(resetCardState));
                 p.trash = [];
                 p.refreshCount++;
                 // リフレッシュ成功時、本来のドローに追加してさらに 1 枚ドローする
@@ -560,19 +678,25 @@ function animateDrawCard(cardData, sequenceIdx = 0) {
  * 召喚が可能かどうかを論理的に判定する
  */
 function checkCanSummon(cardData) {
+    if (GAME_STATE.isGameOver) return false;
     if (GAME_STATE.phase !== "MAIN1" && GAME_STATE.phase !== "MAIN2") return false;
     if (GAME_STATE.hasNormalSummoned) return false;
 
     const req = cardData.summonRequirement;
     const costCount = (req && req.type === 'normal') ? req.costCount : 0;
+    const hasEmptySlot = GAME_STATE.player.field.monsters.some(c => c === null);
 
-    if (costCount > 0) {
-        // コストが必要な場合：フィールドの空きに関わらず、コスト対象がいればOK
-        return getValidCosterMonsters(req.costFilter).length >= costCount;
-    } else {
-        // コスト不要な場合：モンスターゾーンに空きがあるか
-        return GAME_STATE.player.field.monsters.some(c => c === null);
-    }
+    if (costCount === 0) return hasEmptySlot;
+
+    const filter = req.costFilter;
+    const fieldCosters = getValidCosterMonsters(filter);
+    const handCosters = getValidHandCosters(filter, cardData);
+
+    // 素材の総数が足りているか（フィールドと手札は自由に組み合わせられる）
+    if (fieldCosters.length + handCosters.length < costCount) return false;
+
+    // 場が埋まっている場合、フィールドから最低1体はリリースしないと置き場所がない
+    return hasEmptySlot || fieldCosters.length >= 1;
 }
 
 /**
@@ -591,22 +715,35 @@ function trySummon(cardData) {
     }
 }
 
-async function executeSummon(side, cardData, slotIndex, costSlotIndices = []) {
+/**
+ * 召喚の実行
+ * @param {Array} costs - [{card, slotIdx, from:"field"|"hand"}]
+ *   from:"field" はトラッシュへ、from:"hand" は除外される（除外は墓地誘発を起こさない）
+ */
+async function executeSummon(side, cardData, slotIndex, costs = []) {
     const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
-    const costCards = [];
+    const trashedCosts = [];
 
     // 1. コストの支払いを実行 (ルール Ver.1.1: 効果発動は後回し)
-    for (const cIdx of costSlotIndices) {
-        const cCard = p.field.monsters[cIdx];
-        if (cCard) {
-            costCards.push(cCard);
-            p.trash.push(cCard);
-            p.field.monsters[cIdx] = null;
+    for (const cost of costs) {
+        if (cost.from === "hand") {
+            const hIdx = p.hand.indexOf(cost.card);
+            if (hIdx !== -1) {
+                p.hand.splice(hIdx, 1);
+                banishCard(side, cost.card);
+            }
+        } else {
+            const cCard = p.field.monsters[cost.slotIdx];
+            if (cCard) {
+                p.field.monsters[cost.slotIdx] = null;
+                sendCardToTrash(side, cCard);
+                trashedCosts.push(cCard);
+            }
         }
     }
 
-    // 2. 手札から削除
-    const handIndex = p.hand.findIndex(c => c.id === cardData.id);
+    // 2. 手札から削除（同名カードを取り違えないようオブジェクト同一性で検索）
+    const handIndex = p.hand.indexOf(cardData);
     if (handIndex !== -1) {
         p.hand.splice(handIndex, 1);
     }
@@ -615,8 +752,9 @@ async function executeSummon(side, cardData, slotIndex, costSlotIndices = []) {
     p.field.monsters[slotIndex] = cardData;
 
     // 4. トラッシュ送り時および召喚成功時の効果解決
-    for (const cCard of costCards) {
-        await EffectLogic.resolveEffects(cCard, side, "on_sent_to_trash");
+    //    （除外したカードはここに含まれない＝墓地誘発は発動しない）
+    for (const cCard of trashedCosts) {
+        await EffectLogic.notifyCardSentToTrash(cCard, side);
     }
     await EffectLogic.resolveEffects(cardData, side, "on_summon");
 
@@ -639,6 +777,7 @@ async function executeSummon(side, cardData, slotIndex, costSlotIndices = []) {
 
 /** 魔術が発動可能か判定 */
 function checkCanActivateMagic(cardData) {
+    if (GAME_STATE.isGameOver) return false;
     if (GAME_STATE.phase !== "MAIN1" && GAME_STATE.phase !== "MAIN2") return false;
     const hasSpace = GAME_STATE.player.field.magics.some(m => m === null);
     if (!hasSpace) return false;
@@ -693,19 +832,26 @@ function detectHitSlot(e, idPrefix, count = 3, requireHighlight = true) {
     }
 
     // 2. 幾何学的判定 (バックアップ)
+    //    候補が複数ヒットする場合は「中心が最も近いゾーン」を採用する。
+    //    先着順で決めると常にスロット0側へ判定が偏ってしまうため。
     if (hitSlotIdx === -1) {
+        const margin = 8; // 指の太さぶんの許容（隣のゾーンと食い合わない範囲に留める）
+        let bestDistance = Infinity;
+
         for (let i = 0; i < count; i++) {
             const el = document.getElementById(`${idPrefix}-${i}`);
-            if (el) {
-                if (requireHighlight && !el.classList.contains('highlight')) continue;
+            if (!el) continue;
+            if (requireHighlight && !el.classList.contains('highlight')) continue;
 
-                const rect = el.getBoundingClientRect();
-                const margin = 20; // マージン（指の太さ考慮）
-                if (e.clientX >= rect.left - margin && e.clientX <= rect.right + margin &&
-                    e.clientY >= rect.top - margin && e.clientY <= rect.bottom + margin) {
+            const rect = el.getBoundingClientRect();
+            if (e.clientX >= rect.left - margin && e.clientX <= rect.right + margin &&
+                e.clientY >= rect.top - margin && e.clientY <= rect.bottom + margin) {
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const distance = Math.hypot(e.clientX - cx, e.clientY - cy);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
                     hitSlotIdx = i;
-                    console.log(`DEBUG: Geometric hit (${idPrefix}-${i})`);
-                    break;
                 }
             }
         }
@@ -719,9 +865,12 @@ function detectHitSlot(e, idPrefix, count = 3, requireHighlight = true) {
  * 全てのクリックイベントをここで受け取り、状態に応じて振り分ける
  */
 function handleGlobalInteract(e) {
+    if (GAME_STATE.isGameOver) return;
+
     // UI要素やオーバーレイへのクリックはパススルー（それぞれの制御に任せる）
     if (e.target.closest('#card-detail-overlay') ||
         e.target.closest('.floating-actions') ||
+        e.target.closest('#floating-action-container') ||
         e.target.closest('.modal-content') ||
         e.target.closest('.card-mini.entering') ||
         e.target.closest('.btn-sub') || // フェイズボタン等
@@ -729,71 +878,68 @@ function handleGlobalInteract(e) {
         return;
     }
 
-    // 手札のクリック判定
-    const handCard = e.target.closest('#player-hand .card-mini');
+    // モード別ディスパッチ（選択モード中は手札の詳細表示より選択操作を優先する）
+    if (GAME_STATE.isSelectingCost) {
+        handleCostSelectionClick(e);
+        return;
+    }
+    if (GAME_STATE.isSelectingSlot) {
+        handleSelectionClick(e);
+        return;
+    }
+    if (GAME_STATE.isSelectingTarget) {
+        handleAttackSelectionClick(e);
+        return;
+    }
 
+    // 手札のクリック判定（同名カードを取り違えないよう表示位置で特定する）
+    const handCard = e.target.closest('#player-hand .card-mini');
     if (handCard) {
-        // IDから手札情報を特定して詳細表示
-        const cardId = handCard.dataset.id;
-        const cardData = GAME_STATE.player.hand.find(c => c.id === cardId);
+        const handIdx = parseInt(handCard.dataset.handIndex, 10);
+        const cardData = GAME_STATE.player.hand[handIdx];
         if (cardData) {
             showCardDetail(cardData, 'hand', e, null);
             return;
         }
     }
 
-    // モード別ディスパッチ
-    if (GAME_STATE.isSelectingSlot) {
-        handleSelectionClick(e);
-    } else if (GAME_STATE.isSelectingTarget) {
-        handleAttackSelectionClick(e);
-    } else if (GAME_STATE.isSelectingCost) {
-        handleCostSelectionClick(e);
-    } else {
-        // 通常モード（詳細表示 / アクションメニュー）
-        handleNormalInteraction(e);
-    }
+    // 通常モード（詳細表示 / アクションメニュー）
+    handleNormalInteraction(e);
 }
 
-/** コスト選択中のクリックハンドラ */
+/** コスト選択中のクリックハンドラ（フィールド・手札の両方が対象） */
 function handleCostSelectionClick(e) {
     if (!GAME_STATE.isSelectingCost || !GAME_STATE.pendingCard) return;
 
-    // 手札タップ時の救済（コスト選択中は手札に戻る＝キャンセルで良い）
-    if (e.target.closest('#player-hand')) {
-        cancelCostSelection();
+    const req = GAME_STATE.pendingCard.summonRequirement;
+    const filter = req ? req.costFilter : null;
+
+    // 1. 手札のモンスターをコスト（＝除外）に選ぶ
+    const handEl = e.target.closest('#player-hand .card-mini');
+    if (handEl) {
+        e.stopPropagation();
+        const handIdx = parseInt(handEl.dataset.handIndex, 10);
+        const card = GAME_STATE.player.hand[handIdx];
+        if (card && card !== GAME_STATE.pendingCard && matchesCostFilter(card, filter)) {
+            toggleCostSelection({ card: card, handIdx: handIdx, from: "hand" });
+        }
+        return;
+    }
+    // 手札エリアの余白タップは何もしない（誤キャンセル防止）
+    if (e.target.closest('#player-hand-container')) return;
+
+    // 2. フィールドのモンスターをコスト（＝トラッシュ）に選ぶ
+    const hitIdx = detectHitSlot(e, 'ply-monster', 3, false);
+    if (hitIdx !== -1) {
+        const monster = GAME_STATE.player.field.monsters[hitIdx];
+        if (monster && matchesCostFilter(monster, filter)) {
+            e.stopPropagation();
+            toggleCostSelection({ card: monster, slotIdx: hitIdx, from: "field" });
+        }
         return;
     }
 
-    // コストは「自分のモンスター」が対象
-    // ハイライト判定(第4引数)をfalseにし、実際のクラス(cost-highlight)をここで確認する
-    const hitIdx = detectHitSlot(e, 'ply-monster', 3, false);
-
-    if (hitIdx !== -1) {
-        const zone = document.getElementById(`ply-monster-${hitIdx}`);
-        if (!zone || !zone.classList.contains('cost-highlight')) return;
-
-        // validMonstersに含まれているか確認
-        // (UI上の .cost-highlight クラスで判定しても良いが、念のためデータで確認)
-        const monster = GAME_STATE.player.field.monsters[hitIdx];
-        const req = GAME_STATE.pendingCard.summonRequirement;
-        const filter = req ? req.costFilter : null;
-
-        // 簡易フィルタチェック (getValidCosterMonstersと同じロジック)
-        let isValid = false;
-        if (monster) {
-            if (!filter) isValid = true;
-            else if (!filter.minLevel || monster.level >= filter.minLevel) isValid = true;
-        }
-
-        if (isValid) {
-            e.stopPropagation();
-            toggleCostSelection({ card: monster, slotIdx: hitIdx });
-            return;
-        }
-    }
-
-    // キャンセル判定
+    // 3. 背景タップでキャンセル
     if (checkGlobalCancel(e)) {
         cancelCostSelection();
     }
@@ -835,25 +981,26 @@ function handleNormalInteraction(e) {
         return;
     }
 
-    // 追加: トラッシュゾーンの幾何判定 (DOMイベントが親要素に吸われた場合の救済)
-    // 相手側は正常に動作しているため、プレイヤー側のみ対象とする
-    const trashZones = [
-        { id: 'player-trash-zone', side: 'player' }
+    // トラッシュ・除外ゾーンの幾何判定
+    // フィールドは3D変形しているため、DOMのヒットテストが親要素(.field-row)に吸われて
+    // ゾーンのinline onclickが発火しないことがある。座標で救済する。
+    const pileZones = [
+        { id: 'player-trash-zone', side: 'player', pile: 'trash' },
+        { id: 'opponent-trash-zone', side: 'opponent', pile: 'trash' },
+        { id: 'player-banish-zone', side: 'player', pile: 'banish' },
+        { id: 'opponent-banish-zone', side: 'opponent', pile: 'banish' }
     ];
 
-    for (const tz of trashZones) {
-        const el = document.getElementById(tz.id);
-        if (el) {
-            const rect = el.getBoundingClientRect();
-            const margin = 10; // 判定のあそび
-            // すでにtargetが自分自身や内部要素ならinlineハンドラが動くはずだが、
-            // ここでは「親要素がクリックされたが座標は合っている」ケースを救う
-            if (e.clientX >= rect.left - margin && e.clientX <= rect.right + margin &&
-                e.clientY >= rect.top - margin && e.clientY <= rect.bottom + margin) {
-                console.log(`[DEBUG] Trash Geometric Hit: ${tz.side}`);
-                openTrashViewer(tz.side);
-                return;
-            }
+    for (const pz of pileZones) {
+        const el = document.getElementById(pz.id);
+        if (!el) continue;
+
+        const rect = el.getBoundingClientRect();
+        const margin = 6; // 判定のあそび（隣のゾーンと食い合わない範囲）
+        if (e.clientX >= rect.left - margin && e.clientX <= rect.right + margin &&
+            e.clientY >= rect.top - margin && e.clientY <= rect.bottom + margin) {
+            openCardPileViewer(pz.side, pz.pile);
+            return;
         }
     }
 
@@ -928,8 +1075,8 @@ async function finishMagicSlotSelection(slotIdx) {
     // 効果解決（await）の前に選択モードを完全に終了させる
     cancelMagicSlotSelection();
 
-    // 1. 手札から削除
-    const handIndex = p.hand.findIndex(c => c.id === cardData.id);
+    // 1. 手札から削除（同名カードを取り違えないようオブジェクト同一性で検索）
+    const handIndex = p.hand.indexOf(cardData);
     if (handIndex !== -1) p.hand.splice(handIndex, 1);
 
     // 2. 一旦魔術ゾーンに配置して描画（効果解決中であることを示す）
@@ -943,9 +1090,10 @@ async function finishMagicSlotSelection(slotIdx) {
     if (cardData.subType === 'normal') {
         // 通常魔術は少し待ってからトラッシュへ (演出用)
         setTimeout(() => {
+            if (p.field.magics[slotIdx] !== cardData) return;
             p.field.magics[slotIdx] = null;
             renderFieldCard("player", "magic", slotIdx, null);
-            p.trash.push(cardData);
+            sendCardToTrash("player", cardData);
             updateUI();
         }, 500);
     } else {
@@ -979,6 +1127,7 @@ function cancelMagicSlotSelection() {
 // ==========================================
 
 function tryAttack(attackerCard, attackerSlotIdx) {
+    if (GAME_STATE.isGameOver) return;
     if (GAME_STATE.phase !== "BATTLE" || attackerCard._hasAttacked) {
         return;
     }
@@ -994,6 +1143,8 @@ function tryAttack(attackerCard, attackerSlotIdx) {
 }
 
 async function resolveBattle(attacker, defender, atkIdx, defIdx) {
+    if (GAME_STATE.isGameOver) return;
+
     console.log(`Battle: ${attacker.name} vs ${defender ? defender.name : "Direct"}`);
     attacker._hasAttacked = true;
     GAME_STATE.isAnimating = true; // CPUの連続処理を防止
@@ -1024,10 +1175,16 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
             await destroyMonster(attackerSide, atkIdx, "battle");
         }
 
-        if (attacker._combatEffects && attacker._combatEffects.some(e => e.type === "destroy_opponent_after_combat")) {
-            if (GAME_STATE[defenderSide].field.monsters[defIdx]) {
-                await destroyMonster(defenderSide, defIdx, "effect");
-            }
+        // 戦闘後の予約効果（海の突撃など）。
+        // 「戦闘を行った相手モンスター」が対象なので、攻撃側・防御側どちらが持っていても機能する。
+        const hasAfterCombatDestroy = (c) =>
+            !!c && !!c._combatEffects && c._combatEffects.some(e => e.type === "destroy_opponent_after_combat");
+
+        if (hasAfterCombatDestroy(attacker) && GAME_STATE[defenderSide].field.monsters[defIdx] === defender) {
+            await destroyMonster(defenderSide, defIdx, "effect");
+        }
+        if (hasAfterCombatDestroy(defender) && GAME_STATE[attackerSide].field.monsters[atkIdx] === attacker) {
+            await destroyMonster(attackerSide, atkIdx, "effect");
         }
     }
 
@@ -1037,6 +1194,8 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
 }
 
 function damagePlayer(side, amount) {
+    if (GAME_STATE.isGameOver) return;
+
     // ダメージ軽減ロジックの適用
     const finalDamage = EffectLogic.calculateFinalDamage(side, amount);
 
@@ -1046,20 +1205,50 @@ function damagePlayer(side, amount) {
         GAME_STATE.opponent.lp = Math.max(0, GAME_STATE.opponent.lp - finalDamage);
     }
 
-    // 決着判定
-    if (GAME_STATE.player.lp === 0) {
-        endGameSequence("opponent");
-    } else if (GAME_STATE.opponent.lp === 0) {
-        endGameSequence("player");
+    checkGameEnd();
+}
+
+/** LPによる決着判定（同時に0なら引き分け / ルール1準拠） */
+function checkGameEnd() {
+    if (GAME_STATE.isGameOver) return false;
+
+    const playerDead = GAME_STATE.player.lp === 0;
+    const opponentDead = GAME_STATE.opponent.lp === 0;
+
+    if (playerDead && opponentDead) {
+        endGameSequence("draw");
+        return true;
     }
+    if (playerDead) {
+        endGameSequence("opponent");
+        return true;
+    }
+    if (opponentDead) {
+        endGameSequence("player");
+        return true;
+    }
+    return false;
 }
 
 /**
  * ゲーム終了シーケンス
- * @param {string} winner - "player" | "opponent"
+ * @param {string} winner - "player" | "opponent" | "draw"
  */
 function endGameSequence(winner) {
-    // UIレイヤーの操作ロックは行わない（副作用防止）
+    // 二重呼び出し防止：以降のターン進行・効果解決をすべて停止する
+    if (GAME_STATE.isGameOver) return;
+    GAME_STATE.isGameOver = true;
+
+    // 選択モードが残っていると操作不能に見えるため強制解除
+    GAME_STATE.isSelectingSlot = false;
+    GAME_STATE.isSelectingTarget = false;
+    GAME_STATE.isSelectingCost = false;
+    GAME_STATE.pendingCard = null;
+    GAME_STATE.attackerPending = null;
+    GAME_STATE.selectedCosts = [];
+    document.getElementById('floating-action-container').innerHTML = "";
+    document.getElementById('game-viewport').classList.remove('field-selecting', 'cost-selecting');
+    document.getElementById('field-surface').classList.remove('selecting-mode');
 
     // 1秒の「間（演出）」の後にモーダルを表示
     setTimeout(() => {
@@ -1067,17 +1256,20 @@ function endGameSequence(winner) {
         const title = document.getElementById('result-title');
         const msg = document.getElementById('result-message');
 
-        // クラス付与で表示制御
+        overlay.classList.remove("result-win", "result-lose");
         overlay.classList.add('active');
 
         if (winner === "player") {
             overlay.classList.add("result-win");
             title.innerText = "VICTORY";
             msg.innerText = "相手のLPを0にしました！";
-        } else {
+        } else if (winner === "opponent") {
             overlay.classList.add("result-lose");
             title.innerText = "DEFEAT";
             msg.innerText = "自分のLPが0になりました...";
+        } else {
+            title.innerText = "DRAW";
+            msg.innerText = "お互いのLPが同時に0になりました";
         }
     }, 1000);
 }
@@ -1093,27 +1285,16 @@ async function destroyMonster(side, slotIdx, reason = "effect") {
             return;
         }
 
-        p.trash.push(card); // トラッシュ送り
         p.field.monsters[slotIdx] = null;
-
-        // 割り込みトリガー: on_other_sent_to_trash (アクア・サルベージ s006等)
-        const allFieldCards = [
-            ...GAME_STATE.player.field.monsters, ...GAME_STATE.player.field.magics,
-            ...GAME_STATE.opponent.field.monsters, ...GAME_STATE.opponent.field.magics
-        ];
-        for (const source of allFieldCards) {
-            if (source && source !== card) {
-                await EffectLogic.resolveEffects(source, (allFieldCards.indexOf(source) < 6 ? "player" : "opponent"), "on_other_sent_to_trash");
-            }
-        }
-
-        // トラッシュ送り時トリガーの発火
-        await EffectLogic.resolveEffects(card, side, "on_sent_to_trash");
+        sendCardToTrash(side, card);
 
         // UIクリア
         const prefix = (side === "player") ? "ply" : "opt";
         const el = document.getElementById(`${prefix}-monster-${slotIdx}`);
         if (el) el.innerHTML = "";
+
+        // トラッシュ送りに伴う誘発（自身の on_sent_to_trash と、他カードの on_other_sent_to_trash）
+        await EffectLogic.notifyCardSentToTrash(card, side);
     }
 }
 
@@ -1127,8 +1308,10 @@ function updateUI() {
     document.getElementById('opt-hand-hud').innerText = GAME_STATE.opponent.hand.length;
     updateZoneVisuals("player", "deck");
     updateZoneVisuals("player", "trash");
+    updateZoneVisuals("player", "banish");
     updateZoneVisuals("opponent", "deck");
     updateZoneVisuals("opponent", "trash");
+    updateZoneVisuals("opponent", "banish");
 
     // フィールド上の全カードを最新データで再描画 (バフ・オーラ反映)
     ["player", "opponent"].forEach(side => {
@@ -1172,32 +1355,42 @@ function renderHand() {
     const hand = GAME_STATE.player.hand;
     if (hand.length === 0) return;
 
-    // 最大幅をコンテナの90%に制限して計算
-    const maxDisplayWidth = (container.parentElement.clientWidth || window.innerWidth) * 0.9;
-    const cardWidth = 65; // CSSの--card-max-widthに相当
-    const idealGap = 8;   // 枚数が少ない時の理想的な隙間
+    const costFilter = (GAME_STATE.isSelectingCost && GAME_STATE.pendingCard)
+        ? (GAME_STATE.pendingCard.summonRequirement || {}).costFilter
+        : null;
 
-    // 全カードを隙間ありで並べた時の合計幅
-    const totalRawWidth = (cardWidth * hand.length) + (idealGap * (hand.length - 1));
-
-    let currentGap = idealGap;
-    // 合計幅が制限を超える場合のみ、重なり（ネガティブマージン）を計算
-    if (totalRawWidth > maxDisplayWidth) {
-        currentGap = (maxDisplayWidth - cardWidth) / (hand.length - 1) - cardWidth;
-    }
-
-    hand.forEach((card, idx) => {
+    const elements = hand.map((card, idx) => {
         const el = createCardElement(card, "hand");
+        el.dataset.handIndex = idx; // 同名カードを位置で識別する
         el.style.zIndex = idx;
-        if (idx > 0) {
-            el.style.marginLeft = `${currentGap}px`;
+        if (card.isNew) el.classList.add('entering');
+
+        // コスト選択中：除外コストに使える手札を光らせる
+        if (GAME_STATE.isSelectingCost && card !== GAME_STATE.pendingCard) {
+            if (matchesCostFilter(card, costFilter)) el.classList.add('cost-highlight');
+            if (isCostSelected(card)) el.classList.add('cost-selected');
         }
-        // 新規カードなら透明クラスを付与
-        if (card.isNew) {
-            el.classList.add('entering');
-        }
+
         container.appendChild(el);
+        return el;
     });
+
+    // 実際に描画されたカード幅を測ってから重なり量を決める
+    // (--card-width は vw 基準なので端末ごとに実寸が変わる)
+    const cardWidth = elements[0].offsetWidth || 65;
+    const maxDisplayWidth = (container.parentElement.clientWidth || window.innerWidth) * 0.9;
+    const idealGap = 8;
+
+    if (hand.length > 1) {
+        const totalRawWidth = (cardWidth * hand.length) + (idealGap * (hand.length - 1));
+        let currentGap = idealGap;
+        if (totalRawWidth > maxDisplayWidth) {
+            currentGap = (maxDisplayWidth - cardWidth) / (hand.length - 1) - cardWidth;
+        }
+        elements.forEach((el, idx) => {
+            if (idx > 0) el.style.marginLeft = `${currentGap}px`;
+        });
+    }
 }
 
 function renderFieldCard(side, type, index, cardData) {
@@ -1253,7 +1446,7 @@ function createCardElement(cardData, location, slotIdx = null) {
                     <div class="card-lv-text">Lv.${cardData.level}</div>
                     <div class="card-atk-text">${currentPower}</div>
                 ` : `
-                    <div class="card-magic-type">${cardData.subType === 'permanent' ? '永続魔術' : '通常魔術'}</div>
+                    <div class="card-magic-type">${getMagicTypeLabel(cardData.subType)}</div>
                 `}
             </div>
         </div>
@@ -1354,12 +1547,66 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
     const isBattle = (GAME_STATE.phase === "BATTLE");
 
     // アクションボタン表示判定
-    const canShowSummon = (location === "hand" && isMain && cardData.type === "monster" && !GAME_STATE.hasNormalSummoned);
+    const canShowSummon = (location === "hand" && isMain && cardData.type === "monster");
     const canShowMagic = (location === "hand" && isMain && cardData.type === "magic");
     const canShowAttack = (location === "ply-field" && isBattle && cardData.type === "monster" && !cardData._hasAttacked);
-    const canShowEffect = (location === "ply-field" && isMain && cardData.logic && cardData.logic.some(l => l.trigger === "ignition"));
+    // 起動効果はメインフェイズとバトルフェイズの両方で使える（ルール3準拠）
+    const canShowEffect = (location === "ply-field" && (isMain || isBattle)
+        && cardData.logic && cardData.logic.some(l => l.trigger === "ignition"));
 
-    if (canShowSummon || canShowMagic || canShowAttack || canShowEffect) {
+    const buttons = [];
+
+    if (canShowSummon) {
+        const btn = document.createElement('button');
+        btn.className = 'btn-action-float';
+        btn.innerText = "召喚";
+        btn.disabled = !checkCanSummon(cardData);
+        btn.onclick = () => trySummon(cardData);
+        buttons.push(btn);
+    } else if (canShowMagic) {
+        const btn = document.createElement('button');
+        btn.className = 'btn-action-float';
+        btn.innerText = "発動";
+        btn.disabled = !checkCanActivateMagic(cardData);
+        btn.onclick = () => tryActivateMagic(cardData);
+        buttons.push(btn);
+    }
+
+    if (canShowAttack) {
+        const btn = document.createElement('button');
+        btn.className = 'btn-action-float attack';
+        btn.innerText = "攻撃";
+        // 直接slotIdxを使用することで同名カードの誤認を回避
+        const effectiveIdx = slotIdx !== null ? slotIdx : GAME_STATE.player.field.monsters.indexOf(cardData);
+        btn.onclick = () => { container.innerHTML = ""; tryAttack(cardData, effectiveIdx); };
+        buttons.push(btn);
+    }
+
+    if (canShowEffect) {
+        const btn = document.createElement('button');
+        btn.className = 'btn-action-float';
+        btn.innerText = "効果発動";
+
+        const isUsed = EffectLogic.isIgnitionUsed(cardData);
+        const isActivatable = EffectLogic.isEffectActivatable(cardData, "player", "ignition");
+
+        if (isUsed) {
+            btn.disabled = true;
+            btn.innerText = "使用済み";
+        } else if (!isActivatable) {
+            btn.disabled = true;
+            btn.innerText = "対象なし";
+        }
+
+        btn.onclick = async () => {
+            container.innerHTML = "";
+            // 使用済み判定は EffectLogic 側の countLimit 管理に一本化している
+            await EffectLogic.resolveEffects(cardData, "player", "ignition");
+        };
+        buttons.push(btn);
+    }
+
+    if (buttons.length > 0) {
         const menu = document.createElement('div');
         menu.className = 'floating-actions';
 
@@ -1371,47 +1618,7 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
             menu.style.opacity = "1";
         }
 
-        const btn = document.createElement('button');
-        btn.className = 'btn-action-float';
-
-        if (location === "hand") {
-            if (cardData.type === "monster") {
-                btn.innerText = "召喚";
-                btn.disabled = !checkCanSummon(cardData);
-                btn.onclick = () => trySummon(cardData);
-            } else {
-                btn.innerText = "発動";
-                btn.disabled = !checkCanActivateMagic(cardData);
-                btn.onclick = () => tryActivateMagic(cardData);
-            }
-        } else if (canShowAttack) {
-            btn.innerText = "攻撃";
-            btn.className += " attack";
-            // 直接slotIdxを使用することで同名カードの誤認を回避
-            const effectiveIdx = slotIdx !== null ? slotIdx : GAME_STATE.player.field.monsters.indexOf(cardData);
-            btn.onclick = () => { container.innerHTML = ""; tryAttack(cardData, effectiveIdx); };
-        } else if (canShowEffect) {
-            btn.innerText = "効果発動";
-            const hasLimit = cardData.logic.some(l => l.countLimit === "once_per_turn");
-            const isUsed = hasLimit && cardData._usedTurn === GAME_STATE.turnCount;
-            const isActivatable = EffectLogic.isEffectActivatable(cardData, "player", "ignition");
-
-            if (isUsed) {
-                btn.disabled = true;
-                btn.innerText = "使用済み";
-            } else if (!isActivatable) {
-                btn.disabled = true;
-                btn.innerText = "対象なし";
-            }
-
-            btn.onclick = () => {
-                container.innerHTML = "";
-                if (hasLimit) cardData._usedTurn = GAME_STATE.turnCount;
-                EffectLogic.resolveEffects(cardData, "player", "ignition");
-            };
-        }
-
-        menu.appendChild(btn);
+        buttons.forEach(b => menu.appendChild(b));
         container.appendChild(menu);
     }
 }
@@ -1480,7 +1687,7 @@ function updateInfoPanel(cardData, location = null) {
         }
     } else {
         // 魔術種別の日本語化
-        levelEl.innerText = cardData.subType === 'permanent' ? '永続魔術' : '通常魔術';
+        levelEl.innerText = getMagicTypeLabel(cardData.subType);
         powerEl.innerText = "";
         extraEl.innerText = "";
     }
@@ -1509,8 +1716,10 @@ function startSlotSelection(cardData) {
     GAME_STATE.isSelectingSlot = true;
     GAME_STATE.pendingCard = cardData;
 
-    // コストで選択されたインデックスを取得（その場所は空き地として扱う）
-    const costIndices = GAME_STATE.selectedCosts.map(c => c.slotIdx);
+    // フィールドからリリースする枠は「空き地」として扱う（手札コストは枠を空けない）
+    const costIndices = GAME_STATE.selectedCosts
+        .filter(c => c.from === "field")
+        .map(c => c.slotIdx);
 
     // モンスターゾーンを光らせる
     [0, 1, 2].forEach(i => {
@@ -1525,14 +1734,14 @@ function startSlotSelection(cardData) {
 async function finishSlotSelection(slotIdx) {
     if (!GAME_STATE.pendingCard) return;
 
-    const costIndices = GAME_STATE.selectedCosts.map(c => c.slotIdx);
+    const card = GAME_STATE.pendingCard;
+    const costs = GAME_STATE.selectedCosts.slice();
 
-    // API化した executeSummon を呼び出し
-    await executeSummon("player", GAME_STATE.pendingCard, slotIdx, costIndices);
-
-    // クリーンアップ
+    // 二重実行を防ぐため、解決前に選択状態を畳む
     GAME_STATE.selectedCosts = [];
     cancelSlotSelection();
+
+    await executeSummon("player", card, slotIdx, costs);
 }
 
 function cancelSlotSelection() {
@@ -1549,6 +1758,9 @@ function cancelSlotSelection() {
 }
 
 function hideCardDetail() {
+    // コスト選択中のガイドバーは閉じない（背景タップで消えてしまうのを防ぐ）
+    if (GAME_STATE.isSelectingCost) return;
+
     document.getElementById('floating-action-container').innerHTML = "";
     // 全ての手札の選択状態（浮き上がり）を解除
     const handCards = document.querySelectorAll('#player-hand .card-mini');
@@ -1601,10 +1813,11 @@ function updateZoneVisuals(side, type) {
     const zoneEl = document.getElementById(zoneId);
     if (!zoneEl) return;
 
-    const count = (type === "deck") ? p.deck.length : p.trash.length;
+    const pile = (type === "deck") ? p.deck : (type === "trash") ? p.trash : p.banished;
+    const count = pile.length;
 
-    // 追加: トラッシュタップイベントの視覚制御
-    if (type === "trash") {
+    // 追加: トラッシュ・除外タップイベントの視覚制御
+    if (type === "trash" || type === "banish") {
         zoneEl.style.cursor = count > 0 ? "pointer" : "default";
         // 判定を確実にするため、z-indexを動的に確保
         zoneEl.style.zIndex = "100";
@@ -1633,17 +1846,20 @@ function updateZoneVisuals(side, type) {
             cardEl.className = 'card-mini card-back';
             cardEl.innerHTML = ''; // デッキは背面画像のみを表示
         } else {
-            const topCard = p.trash.at(-1);
-            // 既存の createCardElement を流用して最新の捨て札を表向きで表示
-            const newCard = createCardElement(topCard, `${side}-trash`);
+            const topCard = pile.at(-1);
+            // 既存の createCardElement を流用して最新のカードを表向きで表示
+            const newCard = createCardElement(topCard, `${side}-${type}`);
             zoneEl.replaceChild(newCard, cardEl);
         }
     }
 
-    // 3. 枚数表示の更新（Deck & Trash）
-    const badgeId = (type === "deck")
-        ? ((side === "player") ? 'ply-deck-count-badge' : 'opt-deck-count')
-        : ((side === "player") ? 'ply-trash-count-badge' : 'opt-trash-count-badge');
+    // 3. 枚数表示の更新（Deck / Trash / Banish）
+    const badgeIds = {
+        deck: { player: 'ply-deck-count-badge', opponent: 'opt-deck-count' },
+        trash: { player: 'ply-trash-count-badge', opponent: 'opt-trash-count-badge' },
+        banish: { player: 'ply-banish-count-badge', opponent: 'opt-banish-count-badge' }
+    };
+    const badgeId = badgeIds[type][side];
 
     const badge = document.getElementById(badgeId);
     if (badge) {
@@ -1656,65 +1872,135 @@ function updateZoneVisuals(side, type) {
 /**
  * モーダルを閉じて実際にデュエルを開始する
  */
-function beginDuel() {
+async function beginDuel() {
     const overlay = document.getElementById('game-start-overlay');
     overlay.style.display = "none";
 
-    // 初期手札の配布と最初のターン開始
-    drawCard("player", 6);
-    drawCard("opponent", 6);
+    // 初期手札の配布が終わってからターンを開始する
+    // (await しないとドロー演出とターン開始処理が競合し isAnimating が壊れる)
+    await drawCard("player", 6);
+    await drawCard("opponent", 6);
     updateUI();
     startTurnProcess();
 }
 
-/** 召喚コスト対象の取得 */
+/** コストフィルタに合致するか */
+function matchesCostFilter(card, filter) {
+    if (!card || card.type !== "monster") return false;
+    if (!filter) return true;
+    if (filter.minLevel && card.level < filter.minLevel) return false;
+    if (filter.maxLevel && card.level > filter.maxLevel) return false;
+    if (filter.attribute && card.attribute !== filter.attribute) return false;
+    if (filter.category && (!card.categories || !card.categories.includes(filter.category))) return false;
+    return true;
+}
+
+/** 召喚コスト対象の取得（自分フィールド） */
 function getValidCosterMonsters(filter) {
     return GAME_STATE.player.field.monsters
-        .map((m, i) => ({ card: m, slotIdx: i }))
-        .filter(obj => {
-            if (!obj.card) return false;
-            if (!filter) return true;
-            if (filter.minLevel && obj.card.level < filter.minLevel) return false;
-            return true;
-        });
+        .map((m, i) => ({ card: m, slotIdx: i, from: "field" }))
+        .filter(obj => matchesCostFilter(obj.card, filter));
+}
+
+/** 召喚コスト対象の取得（自分の手札 / 支払うと除外される） */
+function getValidHandCosters(filter, excludeCard = null) {
+    return GAME_STATE.player.hand
+        .map((c, i) => ({ card: c, handIdx: i, from: "hand" }))
+        .filter(obj => obj.card !== excludeCard && matchesCostFilter(obj.card, filter));
+}
+
+/** 選択済みコストに含まれるか（オブジェクト同一性で判定） */
+function isCostSelected(card) {
+    return GAME_STATE.selectedCosts.some(c => c.card === card);
 }
 
 /** コスト選択モードの開始 */
 function startCostSelection(cardData) {
     hideCardDetail();
     document.getElementById('field-surface').classList.add('selecting-mode');
-    document.getElementById('game-viewport').classList.add('field-selecting');
+    document.getElementById('game-viewport').classList.add('field-selecting', 'cost-selecting');
     GAME_STATE.isSelectingCost = true;
     GAME_STATE.pendingCard = cardData;
     GAME_STATE.selectedCosts = [];
 
-    const validMonsters = getValidCosterMonsters(cardData.summonRequirement.costFilter);
-
-    validMonsters.forEach(obj => {
-        const zone = document.getElementById(`ply-monster-${obj.slotIdx}`);
-        zone.classList.add('cost-highlight');
-        // zone.onclick = ... (削除: グローバルハンドラ移行)
+    const filter = cardData.summonRequirement.costFilter;
+    getValidCosterMonsters(filter).forEach(obj => {
+        document.getElementById(`ply-monster-${obj.slotIdx}`).classList.add('cost-highlight');
     });
+
+    renderHand(); // 手札側のコスト候補ハイライトを反映
+    renderCostSelectionBar();
 }
 
+/** コスト選択中のガイド＆確定バーを描画 */
+function renderCostSelectionBar() {
+    const container = document.getElementById('floating-action-container');
+    container.innerHTML = "";
+    if (!GAME_STATE.isSelectingCost || !GAME_STATE.pendingCard) return;
 
-function toggleCostSelection(monsterObj) {
-    const idx = GAME_STATE.selectedCosts.findIndex(c => c.slotIdx === monsterObj.slotIdx);
-    const zone = document.getElementById(`ply-monster-${monsterObj.slotIdx}`);
+    const req = GAME_STATE.pendingCard.summonRequirement;
+    const selected = GAME_STATE.selectedCosts;
+    const fieldPicks = selected.filter(c => c.from === "field").length;
+    const handPicks = selected.filter(c => c.from === "hand").length;
+    const emptySlots = GAME_STATE.player.field.monsters.filter(m => m === null).length;
+
+    const enough = selected.length === req.costCount;
+    const hasRoom = (emptySlots + fieldPicks) >= 1;
+
+    const bar = document.createElement('div');
+    bar.className = 'cost-select-bar';
+
+    const info = document.createElement('div');
+    info.className = 'cost-select-info';
+    info.innerHTML = `<strong>${GAME_STATE.pendingCard.name}</strong> の召喚コスト
+        <span class="cost-progress">${selected.length} / ${req.costCount}</span>
+        <span class="cost-hint">場のモンスターはトラッシュへ / 手札のモンスターは除外されます${handPicks > 0 ? `（除外 ${handPicks}枚）` : ""}</span>
+        ${enough && !hasRoom ? `<span class="cost-warn">場に置き場所がありません。フィールドから1体以上リリースしてください</span>` : ""}`;
+
+    const btns = document.createElement('div');
+    btns.className = 'cost-select-buttons';
+
+    const okBtn = document.createElement('button');
+    okBtn.className = 'btn-action-float';
+    okBtn.innerText = "確定";
+    okBtn.disabled = !(enough && hasRoom);
+    okBtn.onclick = (e) => { e.stopPropagation(); proceedToSlotSelectionFromCost(); };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn-action-float cancel';
+    cancelBtn.innerText = "やめる";
+    cancelBtn.onclick = (e) => { e.stopPropagation(); cancelCostSelection(); };
+
+    btns.appendChild(cancelBtn);
+    btns.appendChild(okBtn);
+    bar.appendChild(info);
+    bar.appendChild(btns);
+    container.appendChild(bar);
+}
+
+function toggleCostSelection(costObj) {
+    if (!GAME_STATE.isSelectingCost) return;
+
+    const idx = GAME_STATE.selectedCosts.findIndex(c => c.card === costObj.card);
+    const req = GAME_STATE.pendingCard.summonRequirement;
 
     if (idx > -1) {
         GAME_STATE.selectedCosts.splice(idx, 1);
-        zone.classList.remove('cost-selected');
     } else {
-        GAME_STATE.selectedCosts.push(monsterObj);
-        zone.classList.add('cost-selected');
+        // 必要数を超える選択は受け付けない（選び直しは解除してから）
+        if (GAME_STATE.selectedCosts.length >= req.costCount) return;
+        GAME_STATE.selectedCosts.push(costObj);
     }
 
-    const req = GAME_STATE.pendingCard.summonRequirement;
-    if (GAME_STATE.selectedCosts.length >= req.costCount) {
-        // 必要コストが溜まったら場所選択へ移行
-        proceedToSlotSelectionFromCost();
-    }
+    // フィールド側の見た目を更新
+    [0, 1, 2].forEach(i => {
+        const zone = document.getElementById(`ply-monster-${i}`);
+        const card = GAME_STATE.player.field.monsters[i];
+        zone.classList.toggle('cost-selected', !!card && isCostSelected(card));
+    });
+
+    renderHand();
+    renderCostSelectionBar();
 }
 
 function proceedToSlotSelectionFromCost() {
@@ -1724,65 +2010,105 @@ function proceedToSlotSelectionFromCost() {
         zone.onclick = null;
     });
     GAME_STATE.isSelectingCost = false;
+    document.getElementById('game-viewport').classList.remove('cost-selecting');
+    document.getElementById('floating-action-container').innerHTML = "";
+    renderHand();
     startSlotSelection(GAME_STATE.pendingCard);
 }
 
 function cancelCostSelection() {
     GAME_STATE.isSelectingCost = false;
+    document.getElementById('game-viewport').classList.remove('cost-selecting');
+    document.getElementById('floating-action-container').innerHTML = "";
     cancelSlotSelection();
+    renderHand();
+}
+
+/** 対象選択中の案内テキストを表示／消去する */
+function showSelectionPrompt(text) {
+    const el = document.getElementById('selection-prompt');
+    if (!el) return;
+    if (!text) {
+        el.classList.remove('active');
+        el.innerHTML = "";
+        return;
+    }
+    el.innerHTML = `<span>${text}</span><small>背景をタップでキャンセル</small>`;
+    el.classList.add('active');
 }
 
 /**
  * 汎用ターゲット選択Promise
+ * @param {Array<number>} validSlots - 選択を許可するスロット番号（効果のフィルタ適用済み）
+ * @param {string} promptText - プレイヤーへの案内文
+ * @returns {Promise<number|null>} 選ばれたスロット番号。キャンセル時は null
  */
-async function selectTargetUI(side, type, filter = {}) {
+async function selectTargetUI(side, type, validSlots = null, promptText = "対象を選択してください") {
+    const zoneList = GAME_STATE[side].field[type + "s"];
+
+    // 対象指定がない場合は「そのゾーンにあるカードすべて」を候補とする
+    let candidates = validSlots;
+    if (!Array.isArray(candidates)) {
+        candidates = zoneList.map((card, i) => (card ? i : null)).filter(i => i !== null);
+    }
+    candidates = candidates.filter(i => zoneList[i]);
+
+    if (candidates.length === 0) return null;
+
     // 相手ターン（CPU）または非ターンプレイヤーが選択する場合はランダム
     if (GAME_STATE.turnPlayer !== "player") {
-        const p = GAME_STATE[side];
-        const validIdx = [];
-        p.field[type + "s"].forEach((card, i) => { if (card) validIdx.push(i); });
-        return validIdx.length > 0 ? validIdx[Math.floor(Math.random() * validIdx.length)] : null;
+        return candidates[Math.floor(Math.random() * candidates.length)];
     }
 
     return new Promise((resolve) => {
         const prefix = (side === "player") ? "ply" : "opt";
         document.getElementById('field-surface').classList.add('selecting-mode');
         document.getElementById('game-viewport').classList.add('field-selecting');
+        showSelectionPrompt(promptText);
 
         const zones = [0, 1, 2].map(i => document.getElementById(`${prefix}-${type}-${i}`));
         let resolved = false;
 
-        zones.forEach((zone, i) => {
-            const card = GAME_STATE[side].field[type + "s"][i];
-            if (card) {
-                zone.classList.add('highlight');
-                // ゾーンとカード本体、どちらのクリックも拾えるようにする
-                const selectHandler = (e) => {
-                    e.stopPropagation();
-                    cleanup(i);
-                };
-                zone.onclick = selectHandler;
-                const cardEl = zone.querySelector('.card-mini');
-                if (cardEl) cardEl.onclick = selectHandler;
-            }
+        candidates.forEach(i => {
+            const zone = zones[i];
+            if (!zone) return;
+            zone.classList.add('highlight');
+            // ゾーンとカード本体、どちらのクリックも拾えるようにする（速い経路）
+            const selectHandler = (e) => {
+                e.stopPropagation();
+                cleanup(i);
+            };
+            zone.onclick = selectHandler;
+            const cardEl = zone.querySelector('.card-mini');
+            if (cardEl) cardEl.onclick = selectHandler;
         });
 
-        // キャンセル処理（背景クリック）
-        const handleCancel = (e) => {
-            if (!e.target.closest('.zone.highlight')) cleanup(null);
+        // フィールドは3D変形しており、DOMのヒットテストが親要素に吸われてゾーンの
+        // onclick が発火しないことがある。他の選択モードと同じ幾何判定で拾う。
+        const handleClick = (e) => {
+            const hit = detectHitSlot(e, `${prefix}-${type}`, 3, true);
+            if (hit !== -1 && candidates.includes(hit)) {
+                e.stopPropagation();
+                cleanup(hit);
+                return;
+            }
+            // 誤タップでいきなり不発にならないよう、明示的な背景タップのみキャンセル扱いにする
+            if (checkGlobalCancel(e)) cleanup(null);
         };
-        setTimeout(() => { document.body.addEventListener('click', handleCancel, { once: true }); }, 10);
+        setTimeout(() => { document.addEventListener('click', handleClick, true); }, 10);
 
         function cleanup(result) {
             if (resolved) return;
             resolved = true;
-            document.body.removeEventListener('click', handleCancel);
+            document.removeEventListener('click', handleClick, true);
             zones.forEach(z => {
+                if (!z) return;
                 z.classList.remove('highlight');
                 z.onclick = null;
             });
             document.getElementById('field-surface').classList.remove('selecting-mode');
             document.getElementById('game-viewport').classList.remove('field-selecting');
+            showSelectionPrompt(null);
             resolve(result);
         }
     });
@@ -1793,23 +2119,42 @@ async function selectTargetUI(side, type, filter = {}) {
  * @param {string} side - "player" | "opponent"
  */
 function openTrashViewer(side) {
+    openCardPileViewer(side, "trash");
+}
+
+/**
+ * 除外ゾーン閲覧モーダルを開く
+ * 除外されたカードはゲーム中に復帰しないが、何を切ったかは確認できるようにする
+ */
+function openBanishViewer(side) {
+    openCardPileViewer(side, "banish");
+}
+
+/**
+ * カードの山（トラッシュ／除外）を一覧表示する
+ * @param {string} side - "player" | "opponent"
+ * @param {string} pileType - "trash" | "banish"
+ */
+function openCardPileViewer(side, pileType) {
     const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
-    if (p.trash.length === 0) return;
+    const pile = (pileType === "trash") ? p.trash : p.banished;
+    if (pile.length === 0) return;
 
     const modal = document.getElementById('trash-viewer-modal');
     const title = document.getElementById('trash-viewer-title');
     const list = document.getElementById('trash-card-list');
 
-    title.innerText = `${side === "player" ? "自分" : "相手"}のトラッシュ (${p.trash.length}枚)`;
+    const owner = (side === "player") ? "自分" : "相手";
+    const label = (pileType === "trash") ? "トラッシュ" : "除外ゾーン";
+    title.innerText = `${owner}の${label} (${pile.length}枚)`;
     list.innerHTML = "";
 
-    p.trash.forEach((card, idx) => {
-        const location = (side === "player") ? "ply-field" : "opt-field";
-        const el = createCardElement(card, location);
-
+    // 詳細パネルでバフ込みの数値を出さないよう、素の情報として表示する
+    pile.forEach(card => {
+        const el = createCardElement(card, "preview");
         el.onclick = (e) => {
             e.stopPropagation();
-            showCardDetail(card, location, e, null);
+            updateInfoPanel(card, "preview");
         };
         list.appendChild(el);
     });
@@ -1888,6 +2233,7 @@ async function selectHandCardsUI(count) {
  * エンドフェイズの開始処理（手札制限チェック）
  */
 async function startEndPhaseProcess() {
+    if (GAME_STATE.isGameOver) return;
     console.log(`End Phase started for ${GAME_STATE.turnPlayer}`);
 
     if (GAME_STATE.turnPlayer === "player") {
@@ -1898,10 +2244,11 @@ async function startEndPhaseProcess() {
             const targetIndices = await selectHandCardsUI(discardCount);
 
             // 選択されたカードをトラッシュへ（インデックスのズレを防ぐため降順で処理）
-            targetIndices.sort((a, b) => b - a).forEach(idx => {
-                const card = hand.splice(idx, 1)[0];
-                GAME_STATE.player.trash.push(card);
-            });
+            const discarded = targetIndices.sort((a, b) => b - a).map(idx => hand.splice(idx, 1)[0]);
+            for (const card of discarded) {
+                sendCardToTrash("player", card);
+                await EffectLogic.notifyCardSentToTrash(card, "player");
+            }
 
             updateUI();
             console.log(`Player discarded ${discardCount} cards to meet limit.`);

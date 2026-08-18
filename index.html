@@ -52,7 +52,7 @@
                     <div id="hud-opponent-status" class="hud-stats opt">
                         <div class="hud-label">OPPONENT</div>
                         <div class="hud-lp" id="opponent-lp-hud">5000</div>
-                        <div class="hud-sub">HAND: <span id="opt-hand-hud">5</span></div>
+                        <div class="hud-sub">HAND: <span id="opt-hand-hud">0</span></div>
                     </div>
 
                     <div id="card-info-panel">
@@ -80,6 +80,8 @@
 
                     <div id="floating-action-container"></div>
 
+                    <div id="selection-prompt"></div>
+
                     <button id="next-phase-btn">
                         <span class="btn-sub">GO TO</span>
                         <span id="next-phase-display">MAIN1</span>
@@ -96,10 +98,10 @@
                                 <div class="zone magic-zone" id="opt-magic-2"></div>
                                 <div class="zone magic-zone" id="opt-magic-1"></div>
                                 <div class="zone magic-zone" id="opt-magic-0"></div>
-                                <div class="zone empty-zone"></div>
+                                <div class="zone banish-zone" id="opponent-banish-zone" onclick="openBanishViewer('opponent')"><span id="opt-banish-count-badge">0</span></div>
                             </div>
                             <div class="field-row front-row">
-                                <div class="zone deck-zone" id="opponent-deck-zone"><span id="opt-deck-count">20</span></div>
+                                <div class="zone deck-zone" id="opponent-deck-zone"><span id="opt-deck-count">30</span></div>
                                 <div class="zone monster-zone" id="opt-monster-2"></div>
                                 <div class="zone monster-zone" id="opt-monster-1"></div>
                                 <div class="zone monster-zone" id="opt-monster-0"></div>
@@ -118,11 +120,11 @@
                                 <div class="zone monster-zone" data-index="1" id="ply-monster-1"></div>
                                 <div class="zone monster-zone" data-index="2" id="ply-monster-2"></div>
                                 <div class="zone deck-zone" id="player-deck-zone">
-                                    <span id="ply-deck-count-badge">20</span>
+                                    <span id="ply-deck-count-badge">30</span>
                                 </div>
                             </div>
                             <div class="field-row back-row">
-                                <div class="zone empty-zone"></div>
+                                <div class="zone banish-zone" id="player-banish-zone" onclick="openBanishViewer('player')"><span id="ply-banish-count-badge">0</span></div>
                                 <div class="zone magic-zone" data-index="0" id="ply-magic-0"></div>
                                 <div class="zone magic-zone" data-index="1" id="ply-magic-1"></div>
                                 <div class="zone magic-zone" data-index="2" id="ply-magic-2"></div>

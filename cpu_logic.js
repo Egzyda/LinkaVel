@@ -11,7 +11,7 @@ const CpuLogic = {
      * main.jsからフェイズごとに呼び出されるエントリーポイント
      */
     async execute() {
-        if (GAME_STATE.turnPlayer !== "opponent") return;
+        if (GAME_STATE.turnPlayer !== "opponent" || GAME_STATE.isGameOver) return;
 
         console.log(`CPU Thinking... Phase: ${GAME_STATE.phase}`);
 
@@ -50,9 +50,89 @@ const CpuLogic = {
 
         await this.delay(1000);
 
-        if (GAME_STATE.turnPlayer === "opponent") {
+        if (GAME_STATE.turnPlayer === "opponent" && !GAME_STATE.isGameOver) {
             advancePhase();
         }
+    },
+
+    // 手札から除外してよいコストの上限（手札を丸ごと溶かさないための歯止め）
+    MAX_HAND_COST: 2,
+
+    /** 手札から捨てる／除外する優先度（高いほど手放してよい） */
+    discardScore(card) {
+        let score = 0;
+        if (card.logic && card.logic.some(l => l.trigger === "on_sent_to_trash")) score += 100;
+        if (card.type === "monster" && card.level >= 4) score += 50;
+        if (card.type === "monster" && card.level === 1) score -= 30; // 召喚コスト用に保持
+        if (card.type === "magic") score -= 20;
+        return score;
+    },
+
+    /**
+     * 手札から除外コストにする優先度（高いほど切ってよい）
+     * トラッシュ送りと違い除外は復帰不能なので、墓地効果持ちはむしろ温存する。
+     */
+    banishScore(card) {
+        let score = 0;
+        if (card.logic && card.logic.some(l => l.trigger === "on_sent_to_trash")) score -= 80;
+        if (card.subType === "normal" && card.type === "monster") score += 40; // 効果なしバニラは切りやすい
+        score -= (card.power || 0) / 100;
+        return score;
+    },
+
+    /**
+     * 召喚コストの支払い計画を立てる
+     * フィールド（トラッシュ送り＝復帰可能）を優先し、足りない分だけ手札（除外）で補う。
+     * @returns {{costs:Array, slotIndex:number}|null}
+     */
+    planSummonCosts(card, costCount, costFilter) {
+        const field = GAME_STATE.opponent.field.monsters;
+        const emptySlots = field.map((m, i) => (m === null ? i : null)).filter(i => i !== null);
+
+        // フィールド候補：オーラや強化を持たない、弱いモンスターから差し出す
+        const fieldCandidates = field
+            .map((m, i) => ({
+                card: m, slotIdx: i, from: "field",
+                pwr: m ? EffectLogic.getCurrentPower(m, "opponent", i) : 0,
+                hasBuff: !!m && ((m._tempBuffs && m._tempBuffs.length > 0) || (m.logic && m.logic.some(l => l.trigger === "always")))
+            }))
+            .filter(obj => obj.card && matchesCostFilter(obj.card, costFilter))
+            .sort((a, b) => (a.hasBuff - b.hasBuff) || (a.pwr - b.pwr));
+
+        // 手札候補：除外されるため、切っても痛くない順に並べる
+        const handCandidates = GAME_STATE.opponent.hand
+            .map(c => ({ card: c, from: "hand" }))
+            .filter(obj => obj.card !== card && matchesCostFilter(obj.card, costFilter))
+            .sort((a, b) => this.banishScore(b.card) - this.banishScore(a.card));
+
+        const costs = [];
+        for (const c of fieldCandidates) {
+            if (costs.length >= costCount) break;
+            costs.push(c);
+        }
+
+        const fieldPicks = costs.length;
+        // フィールドだけで足りない分を手札で補う（上限あり）
+        const shortage = costCount - fieldPicks;
+        if (shortage > 0) {
+            if (shortage > this.MAX_HAND_COST) return null;
+            if (handCandidates.length < shortage) return null;
+            costs.push(...handCandidates.slice(0, shortage));
+        }
+
+        if (costs.length < costCount) return null;
+
+        // 置き場所：フィールドコストで空く枠を優先、なければ元々の空き枠
+        let slotIndex;
+        if (fieldPicks > 0) {
+            slotIndex = costs.find(c => c.from === "field").slotIdx;
+        } else if (emptySlots.length > 0) {
+            slotIndex = emptySlots[0];
+        } else {
+            return null; // 手札だけ払っても置き場所がない
+        }
+
+        return { costs, slotIndex };
     },
 
     /** CPUの召喚試行 */
@@ -63,7 +143,7 @@ const CpuLogic = {
                             .sort((a, b) => (b.level - a.level) || (b.power - a.power));
 
         for (const card of monsters) {
-            const req = card.summonRequirement;
+            const req = card.summonRequirement || {};
             const costCount = req.costCount || 0;
             const field = GAME_STATE.opponent.field.monsters;
             const emptySlots = field.map((m, i) => m === null ? i : null).filter(i => i !== null);
@@ -71,26 +151,16 @@ const CpuLogic = {
             if (costCount === 0) {
                 if (emptySlots.length > 0) {
                     await executeSummon("opponent", card, emptySlots[0]);
-                    break;
+                    return;
                 }
                 continue;
             }
 
-            // コスト候補の選定：バフがない、かつパワーが低い順
-            const candidates = field.map((m, i) => ({
-                m, i,
-                pwr: m ? EffectLogic.getCurrentPower(m, "opponent", i) : 0,
-                hasBuff: m && ((m._tempBuffs && m._tempBuffs.length > 0) || (m.logic && m.logic.some(l => l.trigger === "always")))
-            })).filter(obj => obj.m !== null);
+            const plan = this.planSummonCosts(card, costCount, req.costFilter);
+            if (!plan) continue;
 
-            candidates.sort((a, b) => (a.hasBuff - b.hasBuff) || (a.pwr - b.pwr));
-
-            if (candidates.length >= costCount) {
-                const costs = candidates.slice(0, costCount).map(c => c.i);
-                // 召喚先はコストで空いた場所にする
-                await executeSummon("opponent", card, costs[0], costs);
-                break;
-            }
+            await executeSummon("opponent", card, plan.slotIndex, plan.costs);
+            return;
         }
     },
 
@@ -134,10 +204,21 @@ const CpuLogic = {
                 }
             }
 
+            // 3. 永続魔術は魔術ゾーンを埋め切らないよう1枠は空けておく
+            //    (3枠すべて永続で埋まると以後まったく魔術を発動できなくなる)
+            if (shouldActivate && card.subType === "permanent") {
+                const freeSlots = field.filter(m => m === null).length;
+                const hasOtherPlayableMagic = hand.some(c =>
+                    c !== card && c.type === "magic" && c.subType !== "permanent");
+                if (freeSlots <= 1 && hasOtherPlayableMagic) shouldActivate = false;
+            }
+
             if (shouldActivate) {
-                GAME_STATE.opponent.field.magics[emptySlot] = card;
-                const hIdx = GAME_STATE.opponent.hand.findIndex(c => c.id === card.id);
+                // 同名カードを取り違えないようオブジェクト同一性で手札から取り除く
+                const hIdx = GAME_STATE.opponent.hand.indexOf(card);
+                if (hIdx === -1) continue;
                 GAME_STATE.opponent.hand.splice(hIdx, 1);
+                GAME_STATE.opponent.field.magics[emptySlot] = card;
 
                 updateUI();
                 await this.delay(800);
@@ -145,10 +226,11 @@ const CpuLogic = {
 
                 if (card.subType === "normal") {
                     GAME_STATE.opponent.field.magics[emptySlot] = null;
-                    GAME_STATE.opponent.trash.push(card);
+                    sendCardToTrash("opponent", card);
                 }
                 updateUI();
                 await this.delay(500);
+                if (GAME_STATE.isGameOver) return;
             }
         }
     },
@@ -163,15 +245,15 @@ const CpuLogic = {
             const ignitionLogic = card.logic.filter(l => l.trigger === "ignition");
             if (ignitionLogic.length === 0) continue;
 
-            const hasLimit = ignitionLogic.some(l => l.countLimit === "once_per_turn");
-            const isUsed = hasLimit && card._usedTurn === GAME_STATE.turnCount;
+            // 使用済み判定は EffectLogic 側の countLimit 管理に一本化している
+            const isUsed = EffectLogic.isIgnitionUsed(card);
 
             if (!isUsed && EffectLogic.isEffectActivatable(card, "opponent", "ignition")) {
                 console.log(`CPU Activating Ignition: ${card.name}`);
-                if (hasLimit) card._usedTurn = GAME_STATE.turnCount;
                 await EffectLogic.resolveEffects(card, "opponent", "ignition");
                 await this.delay(800);
                 updateUI();
+                if (GAME_STATE.isGameOver) return;
             }
         }
     },
@@ -183,6 +265,8 @@ const CpuLogic = {
         const field = GAME_STATE.opponent.field.monsters;
 
         for (let i = 0; i < field.length; i++) {
+            if (GAME_STATE.isGameOver) return;
+
             const attacker = field[i];
             if (!attacker || attacker._hasAttacked) continue;
 
@@ -202,8 +286,12 @@ const CpuLogic = {
                 await resolveBattle(attacker, null, i, -1);
             } else {
                 // リーサルチェック: 攻撃可能な全パワーの合計が相手LP以上か？
-                const totalPotential = field.filter(m => m && !m._hasAttacked)
-                                          .reduce((sum, m, idx) => sum + EffectLogic.getCurrentPower(m, "opponent", idx), 0);
+                // (スロット番号は元のフィールド添字を使う。filter後の添字ではズレる)
+                const totalPotential = field.reduce(
+                    (sum, m, idx) => (m && !m._hasAttacked)
+                        ? sum + EffectLogic.getCurrentPower(m, "opponent", idx)
+                        : sum,
+                    0);
 
                 // ターゲット優先順位: 1.倒せる敵(効果持ち優先) 2.相打ち(高パワー敵優先)
                 const killable = targets.filter(t => atkPower > t.pwr)
@@ -230,7 +318,7 @@ const CpuLogic = {
         }
 
         await this.delay(1000);
-        if (GAME_STATE.turnPlayer === "opponent") advancePhase();
+        if (GAME_STATE.turnPlayer === "opponent" && !GAME_STATE.isGameOver) advancePhase();
     }
 };
 
@@ -238,13 +326,18 @@ const CpuLogic = {
  * main.jsのエンドフェイズから呼ばれる処理
  */
 async function handleCpuEndPhase() {
+    if (GAME_STATE.isGameOver) return;
+
     const hand = GAME_STATE.opponent.hand;
     if (hand.length > 10) {
         const discardCount = hand.length - 10;
-        // CPUは古いカード（先頭）から機械的に捨てる
+        // 手札に残しても使えないカード（コスト過多の上級など）から捨てる
         for (let i = 0; i < discardCount; i++) {
+            if (hand.length === 0) break;
+            hand.sort((a, b) => CpuLogic.discardScore(b) - CpuLogic.discardScore(a));
             const card = hand.shift();
-            GAME_STATE.opponent.trash.push(card);
+            sendCardToTrash("opponent", card);
+            await EffectLogic.notifyCardSentToTrash(card, "opponent");
         }
         console.log(`CPU discarded ${discardCount} cards.`);
     }

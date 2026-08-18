@@ -91,7 +91,8 @@ body {
     position: absolute;
     top: calc(10px + env(safe-area-inset-top));
     left: 10px;
-    width: 280px;
+    /* 右上の降参ボタンと重ならないよう、狭い画面では自動的に縮める */
+    width: min(280px, calc(100% - 110px));
     height: 150px;
     background: var(--bg-panel);
     backdrop-filter: blur(20px);
@@ -426,14 +427,16 @@ body {
     transition: all 0.2s;
 }
 
-/* ゾーンのヒットエリアを拡大（操作性向上） */
+/* ゾーンのヒットエリアを拡大（操作性向上）
+   ゾーン間の隙間は8pxなので、拡張は左右4pxまでに留める。
+   これ以上広げると隣のゾーンと判定が食い合い、境目のタップが隣のスロットに吸われる。 */
 .zone::after {
     content: '';
     position: absolute;
-    top: -15px;
-    left: -15px;
-    right: -15px;
-    bottom: -15px;
+    top: -10px;
+    left: -4px;
+    right: -4px;
+    bottom: -10px;
     z-index: 5;
     /* カードより手前、ただしUIやオーバーレイより下 */
 }
@@ -448,9 +451,42 @@ body {
 }
 
 .deck-zone,
-.trash-zone {
+.trash-zone,
+.banish-zone {
     border-style: dashed;
     opacity: 0.7;
+}
+
+/* 除外ゾーン：トラッシュと区別できるよう紫系で示す */
+.banish-zone {
+    border-color: rgba(186, 104, 255, 0.45);
+    background: rgba(120, 60, 180, 0.08);
+}
+
+.banish-zone .card-mini,
+.banish-zone .card-mini * {
+    pointer-events: none !important;
+    filter: grayscale(0.75) brightness(0.8);
+}
+
+#ply-banish-count-badge,
+#opt-banish-count-badge {
+    position: absolute;
+    bottom: -10px;
+    background: rgba(70, 40, 100, 0.95);
+    border: 1px solid #b06cff;
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    color: #e6d2ff;
+    transform: rotateX(-35deg);
+    z-index: 20;
+    pointer-events: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+#opt-banish-count-badge {
+    transform: rotateX(-35deg) rotateZ(180deg);
 }
 
 /* ゾーン内のテキスト (Deck/Trash) */
@@ -903,6 +939,144 @@ body {
     background: rgba(255, 170, 0, 0.3) !important;
 }
 
+/* ==========================================
+   コスト選択（手札 → 除外）
+   ========================================== */
+/* コスト選択中は手札も操作対象にする */
+#game-viewport.field-selecting.cost-selecting #player-hand-container {
+    pointer-events: auto !important;
+    opacity: 1;
+}
+
+#player-hand .card-mini.cost-highlight {
+    border-color: #b06cff !important;
+    box-shadow: 0 0 14px #b06cff, 0 6px 12px rgba(0, 0, 0, 0.7);
+}
+
+#player-hand .card-mini.cost-selected {
+    transform: translateY(-14px);
+    border-color: #ffaa00 !important;
+    box-shadow: 0 0 20px #ffaa00, 0 10px 18px rgba(0, 0, 0, 0.8);
+    z-index: 900 !important;
+}
+
+/* 除外予定であることを示すバッジ */
+#player-hand .card-mini.cost-selected::after {
+    content: '除外';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #6b2fb0;
+    color: #fff;
+    font-size: 0.55rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 8px;
+    white-space: nowrap;
+    z-index: 5;
+}
+
+.cost-select-bar {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom) + 175px);
+    transform: translateX(-50%);
+    width: min(420px, calc(100% - 24px));
+    background: rgba(10, 10, 14, 0.95);
+    border: 1px solid var(--accent-blue);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+    pointer-events: auto;
+    z-index: 2100;
+}
+
+.cost-select-info {
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: #ddd;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cost-select-info strong {
+    color: var(--accent-blue);
+}
+
+.cost-progress {
+    font-weight: bold;
+    color: #ffd700;
+}
+
+.cost-hint {
+    font-size: 0.65rem;
+    color: #999;
+}
+
+.cost-warn {
+    font-size: 0.65rem;
+    color: var(--accent-red);
+    font-weight: bold;
+}
+
+.cost-select-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.cost-select-buttons .btn-action-float {
+    padding: 8px 22px;
+    font-size: 0.85rem;
+}
+
+.btn-action-float.cancel {
+    background: #333;
+    border-color: #666;
+}
+
+/* 対象選択中の案内バナー */
+#selection-prompt {
+    position: absolute;
+    top: calc(170px + env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid var(--accent-blue);
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: var(--accent-blue);
+    white-space: nowrap;
+    max-width: calc(100% - 24px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 2200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+#selection-prompt small {
+    font-size: 0.6rem;
+    font-weight: normal;
+    color: #888;
+}
+
+#selection-prompt.active {
+    opacity: 1;
+}
+
 /* 相手ターン中のUIロック */
 .disabled-ui {
     filter: grayscale(0.8) brightness(0.7);
@@ -1149,7 +1323,22 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 40px;
+    gap: 20px;
+    padding: 20px 0;
+    overflow-y: auto;
+    touch-action: pan-y;
+}
+
+/* デッキ一覧が画面に収まらない場合にスクロールさせる */
+#deck-select-screen #deck-list-container {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    touch-action: pan-y;
+    padding: 4px;
+    width: 100%;
+    max-width: 300px;
+    align-items: stretch;
 }
 
 /* ==========================================
@@ -1209,6 +1398,8 @@ body {
     display: flex;
     gap: 6px;
     overflow-x: auto;
+    /* body の touch-action:none を打ち消してタッチスクロールを許可する */
+    touch-action: pan-x;
     padding: 5px 2px;
     min-height: auto;
     /* 横スクロールを滑らかにする */
@@ -1311,6 +1502,7 @@ body {
     display: flex;
     gap: 10px;
     overflow-x: auto;
+    touch-action: pan-x;
     padding: 20px 0;
     min-height: 120px;
     justify-content: flex-start;
@@ -1554,18 +1746,62 @@ body {
 /* ==========================================
    10. PC対応レイアウト
    ========================================== */
+/*
+ * PCでは「スマホ設計のレイアウトを保ったまま、画面サイズに合わせて等倍拡大」する。
+ * 幅だけ広げるとカードが65pxの豆粒のまま余白だけ増えてしまうため、
+ * 設計サイズ(480x900)に固定して JS 側(updateViewportScale)で scale を掛ける。
+ */
 @media (min-width: 481px) {
 
-    /* ゲーム画面をモバイル幅に制限して中央配置 */
     #game-screen.active {
         display: flex !important;
         justify-content: center;
+        align-items: center;
         background: radial-gradient(circle at center, #0a0a0a 0%, #000000 100%);
     }
 
     #game-viewport {
-        max-width: 480px;
+        width: 480px;
+        height: 900px;
+        max-width: none;
+        flex: none;
+        transform-origin: center center;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+    }
+
+    /* 拡大後もクリックしやすいよう、PCでは当たり判定の拡張を控えめにする */
+    .zone::after {
+        top: -6px;
+        bottom: -6px;
+    }
+
+    /* デッキビルダーもPC幅で間延びしないように中央寄せ */
+    #deck-builder-view {
+        max-width: 900px;
+        margin: 0 auto;
         border-left: 1px solid rgba(255, 255, 255, 0.08);
         border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+}
+
+/* 画面が低い環境（横向きスマホ等）ではフィールドの上下余白を詰める */
+@media (max-height: 700px) and (max-width: 480px) {
+    #field-perspective-wrapper {
+        padding-top: 170px;
+        padding-bottom: 120px;
+    }
+
+    #card-info-panel {
+        height: 120px;
+    }
+
+    #player-hand-container {
+        height: 130px;
+    }
+
+    .cost-select-bar {
+        bottom: calc(env(safe-area-inset-bottom) + 145px);
     }
 }

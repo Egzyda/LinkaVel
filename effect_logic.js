@@ -5,6 +5,13 @@
  */
 
 const EffectLogic = {
+    // 効果の連鎖が循環した場合に備えた深さ制限（無限ループ防止）
+    MAX_RESOLVE_DEPTH: 12,
+    _resolveDepth: 0,
+    // プレイヤーが対象選択をキャンセルした場合に立つフラグ。
+    // 「自分と相手を1体ずつ破壊」のような効果で、片方だけ実行されるのを防ぐ。
+    _selectionCancelled: false,
+
     /**
      * カードが持つ効果配列を順番に解決する (Ver 1.3準拠)
      * @param {Object} cardData - カードデータ
@@ -12,29 +19,97 @@ const EffectLogic = {
      * @param {string} triggerFilter - 特定のトリガーのみ実行する場合に指定 (nullなら全実行)
      */
     async resolveEffects(cardData, side, triggerFilter = null) {
-        if (!cardData.logic || cardData.logic.length === 0) return;
+        if (!cardData || !cardData.logic || cardData.logic.length === 0) return;
+        if (GAME_STATE.isGameOver) return;
+
+        if (this._resolveDepth >= this.MAX_RESOLVE_DEPTH) {
+            console.warn(`EffectLogic: resolve depth limit reached at ${cardData.name}. Aborting chain.`);
+            return;
+        }
 
         console.log(`EffectLogic: Resolving [${triggerFilter || "All"}] logic for ${cardData.name}`);
+        this._resolveDepth++;
 
-        for (let i = 0; i < cardData.logic.length; i++) {
-            const action = cardData.logic[i];
-            if (triggerFilter && action.trigger !== triggerFilter) continue;
+        try {
+            for (let i = 0; i < cardData.logic.length; i++) {
+                const action = cardData.logic[i];
+                if (triggerFilter && action.trigger !== triggerFilter) continue;
+                if (GAME_STATE.isGameOver) break;
 
-            // 1ターンに1度の制限チェック (インデックスで管理)
-            if (action.countLimit === "once_per_turn") {
-                cardData._usedLimits = cardData._usedLimits || {};
-                const limitKey = `action_${i}`;
-                // 現在のターンですでに使用済みならスキップ
-                if (cardData._usedLimits[limitKey] === GAME_STATE.turnCount) {
-                    console.log(`Effect Limit Reached: ${cardData.name} (Action ${i})`);
-                    continue;
+                // 1ターンに1度の制限チェック (インデックスで管理)
+                if (action.countLimit === "once_per_turn") {
+                    cardData._usedLimits = cardData._usedLimits || {};
+                    const limitKey = `action_${i}`;
+                    // 現在のターンですでに使用済みならスキップ
+                    if (cardData._usedLimits[limitKey] === GAME_STATE.turnCount) {
+                        console.log(`Effect Limit Reached: ${cardData.name} (Action ${i})`);
+                        continue;
+                    }
+                    // 使用済みフラグを立てる
+                    cardData._usedLimits[limitKey] = GAME_STATE.turnCount;
                 }
-                // 使用済みフラグを立てる
-                cardData._usedLimits[limitKey] = GAME_STATE.turnCount;
-            }
 
-            await this.executeAction(action, side, cardData);
+                await this.executeAction(action, side, cardData);
+
+                // 対象選択がキャンセルされたら、以降のアクションは実行しない
+                if (this._selectionCancelled) {
+                    this._selectionCancelled = false;
+                    console.log(`EffectLogic: ${cardData.name} の効果は対象選択の中断により終了`);
+                    break;
+                }
+            }
+        } finally {
+            this._resolveDepth--;
         }
+    },
+
+    /**
+     * 起動効果が「このターン使用済み」かどうか（UI/CPUの表示判定用）
+     */
+    isIgnitionUsed(cardData) {
+        if (!cardData || !cardData.logic || !cardData._usedLimits) return false;
+        return cardData.logic.some((action, i) =>
+            action.trigger === "ignition" &&
+            action.countLimit === "once_per_turn" &&
+            cardData._usedLimits[`action_${i}`] === GAME_STATE.turnCount
+        );
+    },
+
+    /**
+     * カードがトラッシュに送られた事による誘発をまとめて処理する。
+     * - 送られたカード自身の on_sent_to_trash
+     * - フィールド上の他カードの on_other_sent_to_trash（フィルタと持ち主を判定する）
+     *
+     * 除外(banish)はこの関数を通らないため、墓地誘発は一切発生しない。
+     * @param {Object} card - トラッシュに送られたカード
+     * @param {string} side - そのカードの持ち主 ("player" | "opponent")
+     */
+    async notifyCardSentToTrash(card, side) {
+        if (!card || GAME_STATE.isGameOver) return;
+
+        // 1. 他カードの誘発（アクア・サルベージ s006 等）
+        for (const watcherSide of ["player", "opponent"]) {
+            const p = GAME_STATE[watcherSide];
+            const sources = [...p.field.monsters, ...p.field.magics];
+
+            for (const source of sources) {
+                if (!source || source === card || !source.logic) continue;
+
+                const matched = source.logic.some(action => {
+                    if (action.trigger !== "on_other_sent_to_trash") return false;
+                    // 「自分の」カードが送られた時のみ反応する（相手の破壊では誘発しない）
+                    if (watcherSide !== side) return false;
+                    return this._checkFilter(card, action.filter || {});
+                });
+
+                if (matched) {
+                    await this.resolveEffects(source, watcherSide, "on_other_sent_to_trash");
+                }
+            }
+        }
+
+        // 2. 送られたカード自身の誘発
+        await this.resolveEffects(card, side, "on_sent_to_trash");
     },
 
     /**
@@ -72,14 +147,16 @@ const EffectLogic = {
     /** LP回復処理 */
     applyHeal: async function(action, side) {
         const amount = action.value || 0;
+        if (amount <= 0) return;
+
         const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
         p.lp += amount;
         console.log(`${side} healed ${amount} LP. Current LP: ${p.lp}`);
 
         // 割り込みトリガー: on_lp_gain (聖界王レオニダス等)
-        const allFieldMonsters = [...GAME_STATE.player.field.monsters, ...GAME_STATE.opponent.field.monsters];
-        for (const m of allFieldMonsters) {
-            if (m) await this.resolveEffects(m, (GAME_STATE.player.field.monsters.includes(m) ? "player" : "opponent"), "on_lp_gain");
+        // 回復したプレイヤー側のモンスターのみが反応する
+        for (const m of GAME_STATE[side].field.monsters) {
+            if (m) await this.resolveEffects(m, side, "on_lp_gain");
         }
     },
 
@@ -94,7 +171,7 @@ const EffectLogic = {
                 // 効果処理の途中でも条件を満たした瞬間にリフレッシュする (ルール Ver.1.1)
                 if (p.trash.length > 0 && p.refreshCount < 1) {
                     console.log(`${side} performs Deck Refresh during Milling!`);
-                    p.deck = shuffleArray([...p.trash]);
+                    p.deck = shuffleArray(p.trash.map(resetCardState));
                     p.trash = [];
                     p.refreshCount++;
                     // リフレッシュ後は追加で 1 枚ドローする
@@ -106,8 +183,8 @@ const EffectLogic = {
             }
 
             const card = p.deck.pop();
-            p.trash.push(card);
-            await this.resolveEffects(card, side, "on_sent_to_trash");
+            sendCardToTrash(side, card);
+            await this.notifyCardSentToTrash(card, side);
             remaining--;
         }
         console.log(`${side} milled ${count} cards.`);
@@ -167,10 +244,7 @@ const EffectLogic = {
         p.field.monsters.forEach((m, i) => {
             if (m && this._checkFilter(m, filter)) {
                 // 条件判定: is_weakened (森界の怒り等)
-                if (action.condition === "is_weakened") {
-                    const currentPower = this.getCurrentPower(m, targetSide, i);
-                    if (currentPower >= m.power) return;
-                }
+                if (action.condition === "is_weakened" && !this.isWeakened(m)) return;
                 candidates.push({ card: m, side: targetSide, slotIdx: i });
             }
         });
@@ -180,29 +254,45 @@ const EffectLogic = {
         if (select === "manual") {
             if (side === "player") {
                 const results = [];
+                const prompt = this._targetPromptText(action, targetSide, side);
+
                 for (let i = 0; i < count; i++) {
                     if (candidates.length === 0) break;
-                    const slot = await selectTargetUI(targetSide, "monster", filter);
-                    if (slot === null) break;
+
+                    // 効果の条件を満たすスロットだけを選択可能にする
+                    // (フィルタ外のカードを選んで「何も起きない」のを防ぐ)
+                    const validSlots = candidates.map(c => c.slotIdx);
+                    const label = (count > 1) ? `${prompt}（${i + 1}/${count}）` : prompt;
+                    const slot = await selectTargetUI(targetSide, "monster", validSlots, label);
+
+                    if (slot === null) {
+                        // キャンセルされた場合は効果全体を中断させる
+                        this._selectionCancelled = true;
+                        break;
+                    }
                     const cIdx = candidates.findIndex(c => c.slotIdx === slot);
                     if (cIdx !== -1) results.push(candidates.splice(cIdx, 1)[0]);
                 }
                 return results;
             } else {
                 // CPUのインテリジェンス選択 (s014等の対応)
+                const targetsOwnSide = (targetSide === side);
+                const isRemoval = (action.type === "destroy");
                 const results = [];
+
                 for (let i = 0; i < count; i++) {
                     if (candidates.length === 0) break;
                     candidates.sort((a, b) => {
                         const pA = this.getCurrentPower(a.card, a.side, a.slotIdx);
                         const pB = this.getCurrentPower(b.card, b.side, b.slotIdx);
-                        const hasTrashEff = (c) => c.logic && c.logic.some(l => l.trigger === "on_sent_to_trash");
+                        const hasTrashEff = (c) => (c.logic && c.logic.some(l => l.trigger === "on_sent_to_trash")) ? 1 : 0;
 
-                        if (a.side === "opponent") { // 自分を破壊する場合: 弱い、または墓地効果持ちを優先
+                        if (targetsOwnSide && isRemoval) {
+                            // 自分を破壊する場合: 墓地効果持ち、または弱いモンスターを優先
                             return (hasTrashEff(b.card) - hasTrashEff(a.card)) || (pA - pB);
-                        } else { // 相手を破壊する場合: 強いモンスターを優先
-                            return pB - pA;
                         }
+                        // 相手への除去・弱体化、自分への強化はいずれも「強いモンスター」が最優先
+                        return pB - pA;
                     });
                     results.push(candidates.shift());
                 }
@@ -239,29 +329,22 @@ const EffectLogic = {
             const sortedTargets = targets.sort((a, b) => b - a);
             for (const idx of sortedTargets) {
                 const card = p.hand.splice(idx, 1)[0];
-                p.trash.push(card);
-                await this.resolveEffects(card, side, "on_sent_to_trash");
+                sendCardToTrash(side, card);
+                await this.notifyCardSentToTrash(card, side);
             }
         } else {
             // CPU戦略的ディスカード: 墓地利用・高Lvを優先し、Lv1や汎用魔術を残す
+            // (優先度の定義は CpuLogic 側に一本化している)
+            const score = (c) => (typeof CpuLogic !== "undefined") ? CpuLogic.discardScore(c) : 0;
+
             for (let i = 0; i < discardCount; i++) {
                 if (p.hand.length === 0) break;
 
-                p.hand.sort((a, b) => {
-                    const getScore = (c) => {
-                        let score = 0;
-                        if (c.logic && c.logic.some(l => l.trigger === "on_sent_to_trash")) score += 100;
-                        if (c.type === "monster" && c.level >= 4) score += 50;
-                        if (c.type === "monster" && c.level === 1) score -= 30; // 召喚コスト用に保持
-                        if (c.type === "magic") score -= 20;
-                        return score;
-                    };
-                    return getScore(b) - getScore(a); // スコア高い順（捨てたい順）
-                });
+                p.hand.sort((a, b) => score(b) - score(a)); // スコア高い順（捨てたい順）
 
                 const card = p.hand.shift();
-                p.trash.push(card);
-                await this.resolveEffects(card, side, "on_sent_to_trash");
+                sendCardToTrash(side, card);
+                await this.notifyCardSentToTrash(card, side);
             }
         }
         console.log(`${side} discarded ${discardCount} cards.`);
@@ -372,6 +455,37 @@ const EffectLogic = {
                 p.hand.push(targetCard);
                 console.log(`${side} salvaged ${targetCard.name}`);
             }
+        }
+    },
+
+    /**
+     * 「パワーが元々の数値より低下している」判定 (森界の怒り s007 等)
+     *
+     * 常時オーラ(always)による低下は含めない。
+     * 含めてしまうと「森界の門」を1枚置くだけで相手全員が常に条件を満たし、
+     * s007 が無条件除去になってしまうため、
+     * 個別に掛けられた一時的なデバフ(_tempBuffs)のみを見る。
+     */
+    isWeakened: function(card) {
+        if (!card || !card._tempBuffs || card._tempBuffs.length === 0) return false;
+        const delta = card._tempBuffs.reduce((sum, b) => sum + (b.value || 0), 0);
+        return delta < 0;
+    },
+
+    /** 対象選択時にプレイヤーへ出す案内文 */
+    _targetPromptText: function(action, targetSide, side) {
+        const owner = (targetSide === side) ? "自分" : "相手";
+        switch (action.type) {
+            case "destroy":
+                return `破壊する${owner}のモンスターを選択してください`;
+            case "buff":
+                return (action.value || 0) < 0
+                    ? `弱体化させる${owner}のモンスターを選択してください`
+                    : `強化する${owner}のモンスターを選択してください`;
+            case "apply_combat_effect":
+                return `効果を適用する${owner}のモンスターを選択してください`;
+            default:
+                return `対象にする${owner}のモンスターを選択してください`;
         }
     },
 
@@ -571,7 +685,7 @@ const EffectLogic = {
                     return p.field.monsters.some((m, i) => {
                         if (!m || !this._checkFilter(m, action.filter || {})) return false;
                         // 条件(is_weakened等)のチェック
-                        if (action.condition === "is_weakened" && this.getCurrentPower(m, targetSide, i) >= m.power) return false;
+                        if (action.condition === "is_weakened" && !this.isWeakened(m)) return false;
                         return true;
                     });
                 case "apply_combat_effect":
@@ -600,28 +714,37 @@ const EffectLogic = {
     /** 全フィールドのバフ持続時間を更新 */
     cleanAllBuffs: function() {
         ["player", "opponent"].forEach(side => {
-            GAME_STATE[side].field.monsters.forEach(m => {
-                if (m) {
-                    // バフの掃除
-                    if (m._tempBuffs) {
-                        m._tempBuffs = m._tempBuffs.filter(b => {
-                            if (b.duration === "permanent") return true;
-                            b.duration--;
-                            return b.duration > 0;
-                        });
-                    }
-                    // 戦闘予約エフェクトの掃除
-                    if (m._combatEffects) {
-                        m._combatEffects = m._combatEffects.filter(e => {
-                            e.duration--;
-                            return e.duration > 0;
-                        });
-                    }
+            // 魔術ゾーンも対象に含める。
+            // 含めないと永続魔術の countLimit がリセットされず、
+            // 「1ターンに1度」が「1ゲームに1度」になってしまう。
+            const cards = [
+                ...GAME_STATE[side].field.monsters,
+                ...GAME_STATE[side].field.magics
+            ];
 
-                    // 1ターンに1度の制限リセット (ターン開始時にクリーニング)
-                    if (m._usedLimits) m._usedLimits = {};
-                    if (m._usedProtections) m._usedProtections = {};
+            cards.forEach(m => {
+                if (!m) return;
+
+                // バフの掃除
+                if (m._tempBuffs) {
+                    m._tempBuffs = m._tempBuffs.filter(b => {
+                        if (b.duration === "permanent") return true;
+                        b.duration--;
+                        return b.duration > 0;
+                    });
                 }
+                // 戦闘予約エフェクトの掃除
+                if (m._combatEffects) {
+                    m._combatEffects = m._combatEffects.filter(e => {
+                        e.duration--;
+                        return e.duration > 0;
+                    });
+                }
+
+                // 1ターンに1度の制限リセット (ターン開始時にクリーニング)
+                if (m._usedLimits) m._usedLimits = {};
+                if (m._usedProtections) m._usedProtections = {};
+                delete m._usedTurn;
             });
         });
     },
