@@ -93,6 +93,12 @@
                     </button>
 
                     <button id="surrender-btn">降参</button>
+
+                    <!-- 相手の場と詳細エリアの間の帯。相手の手札と効果トーストを出す -->
+                    <div id="opponent-band">
+                        <div id="opponent-hand"></div>
+                        <div id="effect-toast"></div>
+                    </div>
                 </div>
 
                 <div id="field-perspective-wrapper">
@@ -198,14 +204,14 @@
 
         <div id="deck-select-screen" class="screen">
             <div class="menu-header">
-                <h1 class="game-title">Deck Select</h1>
-                <p class="game-subtitle">使用するデッキを選択してください</p>
+                <h1 class="game-title" id="deck-select-title">Deck Select</h1>
+                <p class="game-subtitle" id="deck-select-subtitle">使用するデッキを選択してください</p>
             </div>
             <div id="deck-list-container" class="menu-options">
 
             </div>
             <div class="menu-footer">
-                <button class="menu-btn" onclick="backToMenu()">BACK</button>
+                <button class="menu-btn" onclick="backFromDeckSelect()">BACK</button>
             </div>
         </div>
 

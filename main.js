@@ -212,18 +212,46 @@ function showScreen(screenId) {
 
 // ゲーム開始処理（ここがエントリーポイント）
 function startSinglePlay() {
+    _pendingPlayerDeck = null;
     showScreen('deck-select-screen');
-    renderDeckSelection();
+    renderDeckSelection("player");
 }
 
 /**
- * デッキ選択リストを動的に生成 (デュエル開始用)
+ * デッキ選択の進行状態。
+ * 自分のデッキを選んだあと、続けて相手のデッキを選ばせる。
  */
-async function renderDeckSelection() {
+let _pendingPlayerDeck = null;
+
+/**
+ * デッキ選択リストを動的に生成 (デュエル開始用)
+ * @param {"player"|"opponent"} target どちらのデッキを選んでいるか
+ */
+async function renderDeckSelection(target = "player") {
     const container = document.getElementById('deck-list-container');
+    const title = document.getElementById('deck-select-title');
+    const subtitle = document.getElementById('deck-select-subtitle');
     container.innerHTML = "<div style='color:#fff;text-align:center;'>Loading...</div>";
 
+    const isOpponent = (target === "opponent");
+    if (title) title.innerText = isOpponent ? "Opponent Deck" : "Deck Select";
+    if (subtitle) {
+        subtitle.innerText = isOpponent
+            ? "相手が使うデッキを選択してください"
+            : "使用するデッキを選択してください";
+    }
+
     let html = "";
+
+    // 相手デッキ選択のときは、まずランダムを選べるようにする
+    if (isOpponent) {
+        html += `
+            <button class="menu-btn custom-deck-item" onclick="selectOpponentDeck('random', 'random')">
+                <span class="btn-text">おまかせ（ランダム） <small class="deck-manage-tag starter">RANDOM</small></span>
+            </button>
+            <hr style="border:0; border-top:1px solid #333; margin:10px 0; width:100%;">
+        `;
+    }
 
     // 1. ユーザーデッキ (Firestore) を先に、更新が新しい順で出す。
     //    自作デッキのほうが使う頻度が高いので、スクロールせずに選べるようにする。
@@ -231,17 +259,42 @@ async function renderDeckSelection() {
         await ensureAuth();
         const userDecks = await DeckBuilder.fetchUserDecks();
         userDecks.forEach(deck => {
-            html += createDeckItemHtml(deck.id, deck.name, "user", true);
+            html += createDeckItemHtml(deck.id, deck.name, "user", true, target);
         });
     }
 
     // 2. あらかじめ用意されたデッキ
     Object.keys(DECK_RECIPES).forEach(key => {
         const recipe = DECK_RECIPES[key];
-        html += createDeckItemHtml(key, recipe.name, "starter", true);
+        html += createDeckItemHtml(key, recipe.name, "starter", true, target);
     });
 
     container.innerHTML = html;
+    container.scrollTop = 0;
+}
+
+/** 自分のデッキを選んだあと、相手のデッキ選択へ進む */
+function selectPlayerDeck(deckId, type) {
+    _pendingPlayerDeck = { deckId, type };
+    renderDeckSelection("opponent");
+}
+
+/** 相手のデッキが決まったらデュエル開始 */
+function selectOpponentDeck(deckId, type) {
+    if (!_pendingPlayerDeck) return;
+    const mine = _pendingPlayerDeck;
+    _pendingPlayerDeck = null;
+    confirmDeckSelection(mine.deckId, mine.type, deckId, type);
+}
+
+/** デッキ選択画面のBACK。相手デッキ選択中なら自分のデッキ選択へ戻る */
+function backFromDeckSelect() {
+    if (_pendingPlayerDeck) {
+        _pendingPlayerDeck = null;
+        renderDeckSelection("player");
+        return;
+    }
+    backToMenu();
 }
 
 /**
@@ -250,6 +303,13 @@ async function renderDeckSelection() {
 async function renderDeckManager() {
     const container = document.getElementById('deck-list-container');
     container.innerHTML = "<div style='color:#fff;text-align:center;'>Loading...</div>";
+
+    // デュエル用のデッキ選択と画面を共用しているので、見出しを管理用に戻す
+    _pendingPlayerDeck = null;
+    const title = document.getElementById('deck-select-title');
+    const subtitle = document.getElementById('deck-select-subtitle');
+    if (title) title.innerText = "Deck Build";
+    if (subtitle) subtitle.innerText = "デッキを作成・編集できます";
 
     // 新規作成ボタン
     let html = `
@@ -274,14 +334,15 @@ async function renderDeckManager() {
     container.innerHTML = html;
 }
 
-function createDeckItemHtml(id, name, type, isDuelMode) {
+function createDeckItemHtml(id, name, type, isDuelMode, target = "player") {
     const tagClass = type === 'starter' ? 'starter' : 'user';
     const tagName = type === 'starter' ? 'STARTER' : 'USER';
 
     if (isDuelMode) {
         // デュエル開始モード: シンプルなボタン
+        const handler = (target === "opponent") ? "selectOpponentDeck" : "selectPlayerDeck";
         return `
-            <button class="menu-btn custom-deck-item" onclick="confirmDeckSelection('${id}', '${type}')">
+            <button class="menu-btn custom-deck-item" onclick="${handler}('${id}', '${type}')">
                 <span class="btn-text">${name} <small class="deck-manage-tag ${tagClass}">${tagName}</small></span>
             </button>
         `;
@@ -311,17 +372,21 @@ async function deleteDeckAndReload(id) {
 /**
  * デッキ確定後の初期化プロセス
  */
-async function confirmDeckSelection(deckId, type) {
+async function confirmDeckSelection(deckId, type, oppDeckId = "random", oppType = "random") {
     // 前回の対戦結果（LP・決着フラグ等）を確実に初期化してから組み直す
     resetGameState();
 
     // プレイヤーのデッキを初期化
     await initDeck("player", deckId, type);
 
-    // 相手のデッキをランダムに決定 (CPUはスターターから選ぶ)
-    const allKeys = Object.keys(DECK_RECIPES);
-    const randomKey = allKeys[Math.floor(Math.random() * allKeys.length)];
-    await initDeck("opponent", randomKey, "starter");
+    // 相手のデッキ。指定がなければスターターからランダムに決める
+    if (oppType === "random" || !oppDeckId) {
+        const allKeys = Object.keys(DECK_RECIPES);
+        const randomKey = allKeys[Math.floor(Math.random() * allKeys.length)];
+        await initDeck("opponent", randomKey, "starter");
+    } else {
+        await initDeck("opponent", oppDeckId, oppType);
+    }
 
     // 先行・後攻決定 (50%でランダム)
     const isPlayerFirst = Math.random() < 0.5;
@@ -375,6 +440,11 @@ function resetGameState() {
     // UIクリーンアップ
     document.getElementById('player-hand').innerHTML = "";
     _renderedHandCards = [];
+    document.getElementById('opponent-hand').innerHTML = "";
+    _renderedOppHandCount = -1;
+    _pendingLpDisplay.player = null;
+    _pendingLpDisplay.opponent = null;
+    clearToastMessage();
 
     // 前の対戦で見ていたカードが残らないよう、詳細パネルも初期状態に戻す
     clearInfoPanel();
@@ -510,13 +580,14 @@ function startTurnProcess() {
     // ルール: 先行1ターン目はドローしない
     if (GAME_STATE.isFirstTurnOfGame) {
         console.log("First Turn: Skip Draw Phase.");
-        setTimeout(() => { if (GAME_STATE.phase === "DRAW") advancePhase(); }, 1000);
+        setTimeout(() => { if (GAME_STATE.phase === "DRAW") advancePhase(); }, 400);
     } else {
         drawCard(GAME_STATE.turnPlayer, 1);
         updateUI();
 
         // プレイヤー・CPU問わずドロー後は自動でMAIN1へ進行
-        setTimeout(() => { if (GAME_STATE.phase === "DRAW") advancePhase(); }, 1000);
+        // ドロー演出が見える程度には待つ
+        setTimeout(() => { if (GAME_STATE.phase === "DRAW") advancePhase(); }, 700);
 
     }
 }
@@ -557,7 +628,7 @@ function advancePhase() {
 
     // CPUターンなら継続して思考
     if (GAME_STATE.turnPlayer === "opponent") {
-        setTimeout(executeCpuTurn, 1000);
+        setTimeout(executeCpuTurn, 350);
     }
 }
 
@@ -778,7 +849,11 @@ async function executeSummon(side, cardData, slotIndex, costs = []) {
     }
 
     // 3. フィールドへ配置
+    //    先に描画しておかないと、召喚時効果の演出のほうがカードより先に見えてしまう
     p.field.monsters[slotIndex] = cardData;
+    if (side === "player") hideCardDetail();
+    updateUI();
+    await new Promise(r => setTimeout(r, 260));
 
     // 4. トラッシュ送り時および召喚成功時の効果解決
     //    （除外したカードはここに含まれない＝墓地誘発は発動しない）
@@ -795,8 +870,7 @@ async function executeSummon(side, cardData, slotIndex, costs = []) {
         GAME_STATE.hasNormalSummoned = true;
     }
 
-    // UI更新
-    if (side === "player") hideCardDetail();
+    // 効果解決後の盤面を反映（詳細パネルは配置時に閉じている）
     updateUI();
 
     console.log(`${side} Summoned ${cardData.name} to Slot ${slotIndex}`);
@@ -847,8 +921,7 @@ async function activateSetMagic(slotIdx) {
     const card = p.field.magics[slotIdx];
 
     if (!card || !card._isSet) return;
-    if (card.subType === "trap") return;
-    if (card._setTurnSerial === GAME_STATE.turnSerial) return; // 伏せたターンは発動できない
+    if (card.subType === "trap") return; // 罠魔術のみ伏せたターンは発動できない
     if (!EffectLogic.isEffectActivatable(card, "player", "on_activate")) return;
 
     hideCardDetail();
@@ -1266,7 +1339,10 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
         return;
     }
 
-    // 誰が誰を攻撃したのかを矢印で示す
+    // 誰が誰を攻撃したのかを矢印とトーストで示す
+    showToastMessage(
+        defender ? `${attacker.name} → ${defender.name}` : `${attacker.name} のダイレクトアタック`,
+        attackerSide);
     await showAttackArrow(attackerSide, atkIdx, defenderSide, defIdx);
 
     if (!defender) {
@@ -1332,6 +1408,7 @@ function damagePlayer(side, amount) {
         GAME_STATE.opponent.lp = Math.max(0, GAME_STATE.opponent.lp - finalDamage);
     }
 
+    showDamageNumber(side, finalDamage);
     checkGameEnd();
 }
 
@@ -1412,6 +1489,11 @@ async function destroyMonster(side, slotIdx, reason = "effect") {
             return;
         }
 
+        // 破壊演出を見せてから盤面から取り除く。
+        // 先に消すと、いきなりトラッシュへ飛んだように見えて何が起きたか分からない。
+        showToastMessage(`${card.name} が破壊された`, side);
+        await playDestroyEffect(side, slotIdx);
+
         p.field.monsters[slotIdx] = null;
         sendCardToTrash(side, card);
 
@@ -1433,9 +1515,9 @@ async function destroyMonster(side, slotIdx, reason = "effect") {
 // ==========================================
 
 function updateUI() {
-    document.getElementById('player-lp-hud').innerText = GAME_STATE.player.lp;
-    document.getElementById('opponent-lp-hud').innerText = GAME_STATE.opponent.lp;
+    renderLpDisplay();
     document.getElementById('opt-hand-hud').innerText = GAME_STATE.opponent.hand.length;
+    renderOpponentHand();
     updateZoneVisuals("player", "deck");
     updateZoneVisuals("player", "trash");
     updateZoneVisuals("player", "banish");
@@ -1594,9 +1676,7 @@ function createCardElement(cardData, location, slotIdx = null) {
             <div class="card-name-box">
                 <span class="card-name-text">${cardData.name}</span>
             </div>
-            <div class="card-img-frame">
-                <img src="${cardData.image}" class="card-img-content" data-icon="${cardData.icon || ''}" data-attr="${cardData.attribute}" onerror="showCardArtFallback(this)" draggable="false">
-            </div>
+            <div class="card-img-frame">${buildCardArtHtml(cardData)}</div>
             <div class="card-attribute-icon">
                 <img src="img/${attrEn}.webp" alt="${cardData.attribute}">
             </div>
@@ -1755,13 +1835,8 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
             btn.className = 'btn-action-float';
             btn.innerText = "発動";
 
-            const isFresh = cardData._setTurnSerial === GAME_STATE.turnSerial;
-            const activatable = EffectLogic.isEffectActivatable(cardData, "player", "on_activate");
-
-            if (isFresh) {
-                btn.disabled = true;
-                btn.innerText = "次のターンから";
-            } else if (!activatable) {
+            // 通常・永続魔術は伏せたターンでも発動できる（制限があるのは罠魔術のみ）
+            if (!EffectLogic.isEffectActivatable(cardData, "player", "on_activate")) {
                 btn.disabled = true;
                 btn.innerText = "対象なし";
             }
@@ -1960,17 +2035,27 @@ function showHiddenCardInfo() {
  * 属性ごとに色分けする。画像枠いっぱいに正方形のタイルとして表示する。
  */
 const ART_FALLBACK_ATTR_TINT = { "火": "#ff6b4a", "水": "#38b6ff", "草": "#7ed957", "光": "#ffd23f", "闇": "#c17dff", "無": "#9fb4c7" };
-function showCardArtFallback(img) {
-    const frame = img.parentElement;
-    if (!frame) return;
-    const iconPath = (window.GAME_ICONS && window.GAME_ICONS[img.dataset.icon]) || null;
-    const tint = ART_FALLBACK_ATTR_TINT[img.dataset.attr] || "#9fb4c7";
+
+/**
+ * 画像枠の中身を組み立てる。
+ * icon が設定されているカードは「イラスト未作成」の印なので、最初からアイコンを描く。
+ * 以前は <img> を出して404の onerror で差し替えていたが、描画のたびに
+ * 読み込み失敗までの一瞬だけ黒い枠が見えてカードが点滅していた。
+ * イラストを用意したら cards.js の icon 行を消すこと（そのまま画像表示に切り替わる）。
+ */
+function buildCardArtHtml(cardData) {
+    if (!cardData.icon) {
+        return `<img src="${cardData.image}" class="card-img-content" draggable="false">`;
+    }
+
+    const iconPath = (window.GAME_ICONS && window.GAME_ICONS[cardData.icon]) || null;
+    const tint = ART_FALLBACK_ATTR_TINT[cardData.attribute] || "#9fb4c7";
     const inner = iconPath
         ? `<svg class="card-art-fallback-svg" viewBox="0 0 512 512"><path d="${iconPath}"/></svg>`
         : `<span class="card-art-fallback-glyph">❔</span>`;
-    frame.innerHTML = `<span class="card-art-fallback"><span class="card-art-fallback-inner" style="color:${tint}">${inner}</span></span>`;
+    return `<span class="card-art-fallback"><span class="card-art-fallback-inner" style="color:${tint}">${inner}</span></span>`;
 }
-window.showCardArtFallback = showCardArtFallback;
+window.buildCardArtHtml = buildCardArtHtml;
 
 /**
  * カードの現在位置（ゾーン要素）を探す。演出の起点・終点に使う。
@@ -1989,28 +2074,176 @@ function findCardZoneElement(card, side) {
 }
 
 /**
- * 効果が発動したカードを光らせて、何が起きたのかを分かるようにする。
+ * 相手の手札を裏向きで描画する。
+ * 枚数だけが分かればよいので中身は持たせない。
+ */
+let _renderedOppHandCount = -1;
+function renderOpponentHand() {
+    const container = document.getElementById('opponent-hand');
+    if (!container) return;
+
+    const count = GAME_STATE.opponent.hand.length;
+    if (count === _renderedOppHandCount) return;
+
+    const isDraw = count > _renderedOppHandCount && _renderedOppHandCount >= 0;
+    _renderedOppHandCount = count;
+
+    container.innerHTML = "";
+    for (let i = 0; i < count; i++) {
+        const el = document.createElement('div');
+        el.className = 'opp-hand-card';
+        // 増えた分だけ差し込むように見せる
+        if (isDraw && i >= count - 1) el.classList.add('dealt');
+        container.appendChild(el);
+    }
+}
+
+/**
+ * 効果発動などをトーストで知らせる。
+ * カードの真下だと盤面に埋もれて見落とすので、相手の場と詳細エリアの間の帯に出す。
+ * 新しいトーストが来たら前のものは即座に差し替える。
+ */
+let _effectToastTimer = null;
+function showToastMessage(text, side) {
+    const toast = document.getElementById('effect-toast');
+    if (!toast) return;
+
+    const owner = (side === "player") ? "自分" : "相手";
+    toast.innerHTML = `<span class="toast-owner">${owner}</span>${text}`;
+    toast.classList.toggle('opponent', side === "opponent");
+    toast.classList.add('show');
+
+    clearTimeout(_effectToastTimer);
+    _effectToastTimer = setTimeout(() => toast.classList.remove('show'), 1000);
+}
+
+/** トーストを即座に消す（対戦終了・リセット時） */
+function clearToastMessage() {
+    const toast = document.getElementById('effect-toast');
+    if (!toast) return;
+    clearTimeout(_effectToastTimer);
+    toast.classList.remove('show');
+}
+
+/**
+ * 効果が発動したカードを光らせつつ、帯にトーストを出す。
  * @returns {Promise} 演出が終わるまで待てる
  */
 function showEffectActivation(card, side) {
     return new Promise(resolve => {
+        if (GAME_STATE.isGameOver) { resolve(); return; }
+
+        showToastMessage(`${card.name} の効果発動`, side);
+
         const zone = findCardZoneElement(card, side);
+        if (zone) {
+            const fx = document.createElement('div');
+            fx.className = 'vfx-effect-burst';
+            zone.appendChild(fx);
+            setTimeout(() => fx.remove(), 1000);
+        }
+
+        setTimeout(resolve, 1000);
+    });
+}
+
+/**
+ * HUDに出すLP。
+ * ダメージ数字がLP表示に届いた瞬間に減らしたいので、
+ * 実際のLP(GAME_STATE)とは別に「表示中のLP」を持つ。
+ * null の間は実数値をそのまま出す。
+ */
+const _pendingLpDisplay = { player: null, opponent: null };
+
+function renderLpDisplay() {
+    ["player", "opponent"].forEach(side => {
+        const el = document.getElementById(side === "player" ? 'player-lp-hud' : 'opponent-lp-hud');
+        if (!el) return;
+        const pending = _pendingLpDisplay[side];
+        el.innerText = (pending === null) ? GAME_STATE[side].lp : pending;
+    });
+}
+
+/**
+ * 受けたダメージ（回復）を数字で見せる。
+ * その側の手札あたりに出してからLP表示へ吸い込ませ、どちらが何点受けたか分かるようにする。
+ * 数字がLPに届いたタイミングでLPの数値が動く。
+ */
+function showDamageNumber(side, amount, isHeal = false) {
+    const viewport = document.getElementById('game-viewport');
+    if (!viewport || amount <= 0) return;
+
+    const lpEl = document.getElementById(side === "player" ? 'player-lp-hud' : 'opponent-lp-hud');
+    // 自分は手札、相手は裏向き手札の帯を起点にする
+    const originEl = document.getElementById(side === "player" ? 'player-hand-container' : 'opponent-band');
+    if (!lpEl || !originEl) return;
+
+    // 数字がLPに届くまでは変動前の値を出しておく
+    const before = GAME_STATE[side].lp + (isHeal ? -amount : amount);
+    _pendingLpDisplay[side] = before;
+    renderLpDisplay();
+
+    const from = originEl.getBoundingClientRect();
+    const to = lpEl.getBoundingClientRect();
+
+    const el = document.createElement('div');
+    el.className = `vfx-damage-number pop${isHeal ? ' heal' : ''}`;
+    el.innerText = `${isHeal ? '+' : '-'}${amount}`;
+    el.style.left = `${from.left + from.width / 2}px`;
+    el.style.top = `${from.top + from.height / 2}px`;
+    document.body.appendChild(el);
+
+    // 数字が読める間を置いてからLPへ飛ばす
+    setTimeout(() => {
+        el.style.left = `${to.left + to.width / 2}px`;
+        el.style.top = `${to.top + to.height / 2}px`;
+        el.style.fontSize = '0.9rem';
+        el.style.opacity = '0';
+    }, 450);
+
+    // 数字がLPに到達した瞬間にLPの数値を動かす
+    setTimeout(() => {
+        _pendingLpDisplay[side] = null;
+        renderLpDisplay();
+
+        if (!isHeal) {
+            // LPが減ったことを画面全体でも伝える
+            viewport.classList.remove('lp-shake');
+            void viewport.offsetWidth;
+            viewport.classList.add('lp-shake');
+            setTimeout(() => viewport.classList.remove('lp-shake'), 420);
+
+            lpEl.classList.remove('lp-hit');
+            void lpEl.offsetWidth;
+            lpEl.classList.add('lp-hit');
+            setTimeout(() => lpEl.classList.remove('lp-hit'), 470);
+        }
+    }, 1000);
+
+    setTimeout(() => el.remove(), 1050);
+}
+
+/**
+ * モンスターが破壊された時の演出。
+ * 何の前触れもなくトラッシュに送られると、何が起きたのか分からないため。
+ */
+function playDestroyEffect(side, slotIdx) {
+    return new Promise(resolve => {
+        const prefix = (side === "player") ? "ply" : "opt";
+        const zone = document.getElementById(`${prefix}-monster-${slotIdx}`);
         if (!zone || GAME_STATE.isGameOver) { resolve(); return; }
 
-        const fx = document.createElement('div');
-        fx.className = 'vfx-effect-burst';
-        zone.appendChild(fx);
+        const card = zone.querySelector('.card-mini');
+        if (card) card.classList.add('destroying');
 
-        const label = document.createElement('div');
-        label.className = 'vfx-effect-label';
-        label.innerText = card.name;
-        zone.appendChild(label);
+        const burst = document.createElement('div');
+        burst.className = 'vfx-destroy-burst';
+        zone.appendChild(burst);
 
         setTimeout(() => {
-            fx.remove();
-            label.remove();
+            burst.remove();
             resolve();
-        }, 650);
+        }, 450);
     });
 }
 
@@ -2057,7 +2290,7 @@ function showAttackArrow(attackerSide, attackerSlot, defenderSide, defenderSlot)
             arrow.remove();
             toEl.classList.remove('shake-target');
             resolve();
-        }, 520);
+        }, 900);
     });
 }
 

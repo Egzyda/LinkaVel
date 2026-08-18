@@ -303,7 +303,7 @@ const DeckBuilder = {
         }
 
         actions.style.display = "flex";
-        imgBox.innerHTML = `<img src="${card.image}" data-icon="${card.icon || ''}" data-attr="${card.attribute}" onerror="showCardArtFallback(this)">`;
+        imgBox.innerHTML = buildCardArtHtml(card);
 
         const isMonster = card.type === "monster";
         const statsHtml = isMonster
@@ -531,9 +531,7 @@ const DeckBuilder = {
                 <div class="card-name-box">
                     <span class="card-name-text">${cardData.name}</span>
                 </div>
-                <div class="card-img-frame">
-                    <img src="${cardData.image}" class="card-img-content" data-icon="${cardData.icon || ''}" data-attr="${cardData.attribute}" onerror="showCardArtFallback(this)" loading="lazy" draggable="false">
-                </div>
+                <div class="card-img-frame">${buildCardArtHtml(cardData)}</div>
                 <div class="card-attribute-icon">
                     <img src="img/${attrEn}.webp" alt="${cardData.attribute}">
                 </div>

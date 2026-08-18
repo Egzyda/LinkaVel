@@ -329,6 +329,9 @@ const EffectLogic = {
         p.lp += amount;
         console.log(`${side} healed ${amount} LP. Current LP: ${p.lp}`);
 
+        if (typeof showDamageNumber === "function") showDamageNumber(side, amount, true);
+        if (typeof updateUI === "function") updateUI();
+
         // 割り込みトリガー: on_lp_gain (聖界王レオニダス等)
         // 回復したプレイヤー側のモンスターのみが反応する
         for (const m of GAME_STATE[side].field.monsters) {
@@ -353,6 +356,8 @@ const EffectLogic = {
                     // リフレッシュ後は追加で 1 枚ドローする
                     await drawCard(side, 1);
                     updateUI();
+                    // このドローで再びデッキが空になることがあるので、必ず判定し直す
+                    continue;
                 } else {
                     break;
                 }
@@ -418,6 +423,7 @@ const EffectLogic = {
         p.lp = Math.max(0, p.lp - amount);
         console.log(`${targetSide} took ${amount} effect damage. LP: ${p.lp}`);
 
+        if (typeof showDamageNumber === "function") showDamageNumber(targetSide, amount);
         if (typeof checkGameEnd === "function") checkGameEnd();
     },
 
