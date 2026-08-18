@@ -903,11 +903,11 @@ const MASTER_CARDS = {
         level: 3,
         power: 1200,
         categories: ["海界"],
-        text: "①このモンスターを召喚・特殊召喚した時、自分のデッキの上から2枚をトラッシュする。\n②このモンスターがトラッシュに送られた時、自分のトラッシュから【海界】モンスター1体をランダムに特殊召喚する。",
+        text: "①このモンスターを召喚・特殊召喚した時、自分のデッキの上から2枚をトラッシュする。\n②このモンスターがトラッシュに送られた時、自分のトラッシュからレベル2以下の【海界】モンスター1体をランダムに特殊召喚する。",
         summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
         logic: [
             { type: "mill", trigger: "on_summon", count: 2 },
-            { type: "special_summon", trigger: "on_sent_to_trash", source: "trash", count: 1, filter: { category: "海界" }, targetSelect: "random" }
+            { type: "special_summon", trigger: "on_sent_to_trash", source: "trash", count: 1, filter: { category: "海界", maxLevel: 2 }, targetSelect: "random" }
         ]
     },
     "m036": {

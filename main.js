@@ -475,6 +475,10 @@ function resetGameState() {
     }
 
     cleanFieldZones();
+
+    // HUDも初期値に描き直す。
+    // ここで更新しないと、次の対戦が始まるまで前の対戦のLPが表示に残る。
+    updateUI();
 }
 
 function cleanFieldZones() {
@@ -850,10 +854,11 @@ async function executeSummon(side, cardData, slotIndex, costs = []) {
 
     // 3. フィールドへ配置
     //    先に描画しておかないと、召喚時効果の演出のほうがカードより先に見えてしまう
+    //    順序は 召喚演出 → 効果発動 → 効果演出
     p.field.monsters[slotIndex] = cardData;
     if (side === "player") hideCardDetail();
     updateUI();
-    await new Promise(r => setTimeout(r, 260));
+    await playSummonEffect(side, slotIndex);
 
     // 4. トラッシュ送り時および召喚成功時の効果解決
     //    （除外したカードはここに含まれない＝墓地誘発は発動しない）
@@ -1688,6 +1693,7 @@ function createCardElement(cardData, location, slotIdx = null) {
                     <div class="card-magic-type">${getMagicTypeLabel(cardData.subType)}</div>
                 `}
             </div>
+            ${onField ? buildCardStateBadges(cardData, location, isMonster) : ''}
         </div>
         <div class="card-face card-back"></div>
     `;
@@ -2070,6 +2076,11 @@ function findCardZoneElement(card, side) {
     const gIdx = p.field.magics.indexOf(card);
     if (gIdx !== -1) return document.getElementById(`${prefix}-magic-${gIdx}`);
 
+    // 場に無いカード（トラッシュ・除外から発動する効果）は、そのゾーンを光らせる
+    const sideName = (side === "player") ? "player" : "opponent";
+    if (p.trash.includes(card)) return document.getElementById(`${sideName}-trash-zone`);
+    if (p.banished.includes(card)) return document.getElementById(`${sideName}-banish-zone`);
+
     return null;
 }
 
@@ -2227,6 +2238,78 @@ function showDamageNumber(side, amount, isHeal = false) {
  * モンスターが破壊された時の演出。
  * 何の前触れもなくトラッシュに送られると、何が起きたのか分からないため。
  */
+/**
+ * 交差した剣のマーク（攻撃状態の表示に使う自作SVG）。
+ * 絵文字だと環境ごとに絵柄が変わるので、パスで持つ。
+ */
+const CROSSED_SWORDS_SVG = `
+<svg class="state-badge-icon" viewBox="0 0 24 24" aria-hidden="true">
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke-width="2.6">
+      <path d="M3.6 20.4 L17.4 4.6"/>
+      <path d="M20.4 20.4 L6.6 4.6"/>
+    </g>
+    <g stroke-width="2">
+      <path d="M12.6 3.2 L20.6 7.4"/>
+      <path d="M11.4 3.2 L3.4 7.4"/>
+    </g>
+  </g>
+</svg>`;
+
+/** 1ターンに1度の効果を使い切った印（禁止マーク） */
+const EFFECT_USED_SVG = `
+<svg class="state-badge-icon" viewBox="0 0 24 24" aria-hidden="true">
+  <circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="2.6"/>
+  <path d="M6 18 L18 6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+</svg>`;
+
+/**
+ * フィールド上のカードに出す状態バッジ。
+ * ・バトルフェイズ中のモンスター: 攻撃できるか／攻撃済みか
+ * ・「1ターンに1度」を使い切った効果: 使用済み
+ */
+function buildCardStateBadges(cardData, location, isMonster) {
+    // 伏せカードは中身を見せない
+    if (cardData._isSet) return '';
+
+    const side = (location === "ply-field") ? "player" : "opponent";
+    let html = '';
+
+    if (isMonster && GAME_STATE.phase === "BATTLE" && GAME_STATE.turnPlayer === side) {
+        const done = !!cardData._hasAttacked;
+        html += `<div class="card-state-badge ${done ? 'attacked' : 'can-attack'}"
+                      title="${done ? '攻撃済み' : '攻撃可能'}">${CROSSED_SWORDS_SVG}</div>`;
+    }
+
+    if (EffectLogic.isLimitUsed(cardData)) {
+        html += `<div class="card-state-badge used-effect"
+                      title="このターンの効果は使用済み">${EFFECT_USED_SVG}</div>`;
+    }
+
+    return html;
+}
+
+/**
+ * 召喚時の演出。周囲が軽く光るだけの短いもの。
+ * 召喚 → （召喚時効果があれば）効果発動 の順に見せるため、先に呼ぶ。
+ */
+function playSummonEffect(side, slotIdx) {
+    return new Promise(resolve => {
+        const prefix = (side === "player") ? "ply" : "opt";
+        const zone = document.getElementById(`${prefix}-monster-${slotIdx}`);
+        if (!zone || GAME_STATE.isGameOver) { resolve(); return; }
+
+        const glow = document.createElement('div');
+        glow.className = 'vfx-summon-glow';
+        zone.appendChild(glow);
+
+        setTimeout(() => {
+            glow.remove();
+            resolve();
+        }, 400);
+    });
+}
+
 function playDestroyEffect(side, slotIdx) {
     return new Promise(resolve => {
         const prefix = (side === "player") ? "ply" : "opt";
@@ -2261,9 +2344,9 @@ function showAttackArrow(attackerSide, attackerSlot, defenderSide, defenderSlot)
             const defPrefix = (defenderSide === "player") ? "ply" : "opt";
             toEl = document.getElementById(`${defPrefix}-monster-${defenderSlot}`);
         } else {
-            // ダイレクトアタックは相手のLP表示を狙う
+            // ダイレクトアタックは守る側の手札あたりを狙う（プレイヤー本体を殴るイメージ）
             toEl = document.getElementById(
-                defenderSide === "player" ? 'hud-player-status' : 'hud-opponent-status');
+                defenderSide === "player" ? 'player-hand-container' : 'opponent-band');
         }
 
         if (!fromEl || !toEl) { resolve(); return; }
@@ -2283,8 +2366,9 @@ function showAttackArrow(attackerSide, attackerSlot, defenderSide, defenderSlot)
         arrow.style.transform = `rotate(${angle}deg)`;
         document.body.appendChild(arrow);
 
-        // 攻撃を受けた側を揺らす
-        toEl.classList.add('shake-target');
+        // 矢印が届いてから揺らす（同時だと当たる前に相手が震えて見える）
+        const ARROW_REACH_MS = 320;
+        setTimeout(() => toEl.classList.add('shake-target'), ARROW_REACH_MS);
 
         setTimeout(() => {
             arrow.remove();

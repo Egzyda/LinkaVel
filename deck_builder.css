@@ -259,14 +259,14 @@
     overflow: hidden;
 }
 
+/* 横スクロールさせず、狭い画面では折り返して全部見えるようにする */
 .library-filter-bar {
     padding: 6px;
     background: #222;
     border-bottom: 1px solid #333;
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
-    overflow-x: auto;
-    touch-action: pan-x;
     flex-shrink: 0;
 }
 
@@ -276,8 +276,11 @@
     border: 1px solid #555;
     border-radius: 4px;
     font-size: 0.7rem;
-    padding: 4px;
-    flex-shrink: 0;
+    padding: 4px 2px;
+    /* 1行に収まらない分は縮んでから折り返す */
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: center;
 }
 
 .filter-reset-btn {
@@ -285,6 +288,7 @@
     padding: 4px 8px;
     cursor: pointer;
     color: #ccc;
+    flex: 0 1 auto;
 }
 .filter-reset-btn:active {
     background: #444;
