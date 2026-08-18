@@ -1599,17 +1599,28 @@ function renderHand() {
         return;
     }
 
+    // 新しく手札に加わったカードを検出する。
+    // ドロー(drawCard)は自前で isNew を立てて飛来演出をつけるので対象外。
+    // サーチ・回収など、飛来演出を持たずに直接手札へ入る効果は、
+    // ここで拾って「その場でふわっとフェードイン」させないと、
+    // 画像未読み込みのまま一瞬で出現してチラつく。
+    const previousCards = _renderedHandCards;
+    const newlyAdded = hand.filter(c => !previousCards.includes(c) && !c.isNew);
+    newlyAdded.forEach(c => { c.isNew = true; });
+
     container.innerHTML = "";
     _renderedHandCards = hand.slice();
 
     if (hand.length === 0) return;
 
+    const cardToElement = new Map();
     const elements = hand.map((card, idx) => {
         const el = createCardElement(card, "hand");
         el.dataset.handIndex = idx; // 同名カードを位置で識別する
         el.style.zIndex = idx;
         applyHandCardState(el, card, costFilter);
         container.appendChild(el);
+        cardToElement.set(card, el);
         return el;
     });
 
@@ -1627,6 +1638,22 @@ function renderHand() {
         }
         elements.forEach((el, idx) => {
             if (idx > 0) el.style.marginLeft = `${currentGap}px`;
+        });
+    }
+
+    // entering(opacity:0) で一度描画してから、次のペイント後にクラスを外して
+    // CSSトランジション(0.3s)でフェードインさせる。
+    // 1回のrAFだと opacity:0 の状態がまだ画面に反映される前に消してしまい
+    // 効果が出ないことがあるため、2重に待つ。
+    if (newlyAdded.length > 0) {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                newlyAdded.forEach(card => {
+                    delete card.isNew;
+                    const el = cardToElement.get(card);
+                    if (el) el.classList.remove('entering');
+                });
+            });
         });
     }
 }
