@@ -223,14 +223,10 @@ async function renderDeckSelection() {
     const container = document.getElementById('deck-list-container');
     container.innerHTML = "<div style='color:#fff;text-align:center;'>Loading...</div>";
 
-    // 1. スターターデッキ
     let html = "";
-    Object.keys(DECK_RECIPES).forEach(key => {
-        const recipe = DECK_RECIPES[key];
-        html += createDeckItemHtml(key, recipe.name, "starter", true);
-    });
 
-    // 2. ユーザーデッキ (Firestore)
+    // 1. ユーザーデッキ (Firestore) を先に、更新が新しい順で出す。
+    //    自作デッキのほうが使う頻度が高いので、スクロールせずに選べるようにする。
     if (typeof DeckBuilder !== 'undefined') {
         await ensureAuth();
         const userDecks = await DeckBuilder.fetchUserDecks();
@@ -238,6 +234,12 @@ async function renderDeckSelection() {
             html += createDeckItemHtml(deck.id, deck.name, "user", true);
         });
     }
+
+    // 2. あらかじめ用意されたデッキ
+    Object.keys(DECK_RECIPES).forEach(key => {
+        const recipe = DECK_RECIPES[key];
+        html += createDeckItemHtml(key, recipe.name, "starter", true);
+    });
 
     container.innerHTML = html;
 }
@@ -372,6 +374,10 @@ function resetGameState() {
 
     // UIクリーンアップ
     document.getElementById('player-hand').innerHTML = "";
+    _renderedHandCards = [];
+
+    // 前の対戦で見ていたカードが残らないよう、詳細パネルも初期状態に戻す
+    clearInfoPanel();
 
     // UIレイヤーのポインター操作を削除（副作用防止）
     // CSSのデフォルト設定に委ねる
@@ -976,6 +982,11 @@ function handleGlobalInteract(e) {
         const handIdx = parseInt(handCard.dataset.handIndex, 10);
         const cardData = GAME_STATE.player.hand[handIdx];
         if (cardData) {
+            // 同じカードをもう一度タップしたら選択解除
+            if (handCard.classList.contains('selected')) {
+                hideCardDetail();
+                return;
+            }
             showCardDetail(cardData, 'hand', e, null);
             return;
         }
@@ -1255,6 +1266,9 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
         return;
     }
 
+    // 誰が誰を攻撃したのかを矢印で示す
+    await showAttackArrow(attackerSide, atkIdx, defenderSide, defIdx);
+
     if (!defender) {
         const pAtk = EffectLogic.getCurrentPower(attacker, attackerSide, atkIdx);
         damagePlayer(defenderSide, pAtk);
@@ -1267,6 +1281,11 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
             const damage = pAtk - pDef;
             damagePlayer(defenderSide, damage);
             await destroyMonster(defenderSide, defIdx, "battle");
+
+            // 戦闘で相手モンスターを破壊した時の誘発（炎界の砲手 等）
+            if (GAME_STATE[attackerSide].field.monsters[atkIdx] === attacker) {
+                await EffectLogic.resolveEffects(attacker, attackerSide, "on_battle_destroy");
+            }
         } else if (pAtk === pDef) {
             await Promise.all([
                 destroyMonster(attackerSide, atkIdx, "battle"),
@@ -1276,6 +1295,11 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
             const damage = pDef - pAtk;
             damagePlayer(attackerSide, damage);
             await destroyMonster(attackerSide, atkIdx, "battle");
+
+            // 返り討ちにした防御側も「戦闘で相手モンスターを破壊した」に当たる
+            if (GAME_STATE[defenderSide].field.monsters[defIdx] === defender) {
+                await EffectLogic.resolveEffects(defender, defenderSide, "on_battle_destroy");
+            }
         }
 
         // 戦闘後の予約効果（海の突撃など）。
@@ -1454,29 +1478,50 @@ function updateUI() {
     renderHand();
 }
 
+// 直前に描画した手札の顔ぶれ。同じなら作り直さないための記録。
+let _renderedHandCards = [];
+
+/** 手札カード1枚に、現在の状態に応じたクラスを反映する */
+function applyHandCardState(el, card, costFilter) {
+    el.classList.toggle('entering', !!card.isNew);
+
+    const inCostMode = GAME_STATE.isSelectingCost && card !== GAME_STATE.pendingCard;
+    el.classList.toggle('cost-highlight', inCostMode && matchesCostFilter(card, costFilter));
+    el.classList.toggle('cost-selected', inCostMode && isCostSelected(card));
+}
+
 function renderHand() {
     const container = document.getElementById('player-hand');
-    container.innerHTML = "";
-
     const hand = GAME_STATE.player.hand;
-    if (hand.length === 0) return;
 
     const costFilter = (GAME_STATE.isSelectingCost && GAME_STATE.pendingCard)
         ? (GAME_STATE.pendingCard.summonRequirement || {}).costFilter
         : null;
 
+    // 顔ぶれが変わっていなければ、DOMは作り直さずクラスだけ更新する。
+    // updateUI() は効果解決のたびに呼ばれるので、毎回 <img> ごと作り直すと
+    // 画像の再デコードで手札全体が一瞬暗くなってちらつく。
+    const sameHand = _renderedHandCards.length === hand.length
+        && _renderedHandCards.every((c, i) => c === hand[i])
+        && container.children.length === hand.length;
+
+    if (sameHand) {
+        hand.forEach((card, idx) => {
+            applyHandCardState(container.children[idx], card, costFilter);
+        });
+        return;
+    }
+
+    container.innerHTML = "";
+    _renderedHandCards = hand.slice();
+
+    if (hand.length === 0) return;
+
     const elements = hand.map((card, idx) => {
         const el = createCardElement(card, "hand");
         el.dataset.handIndex = idx; // 同名カードを位置で識別する
         el.style.zIndex = idx;
-        if (card.isNew) el.classList.add('entering');
-
-        // コスト選択中：除外コストに使える手札を光らせる
-        if (GAME_STATE.isSelectingCost && card !== GAME_STATE.pendingCard) {
-            if (matchesCostFilter(card, costFilter)) el.classList.add('cost-highlight');
-            if (isCostSelected(card)) el.classList.add('cost-selected');
-        }
-
+        applyHandCardState(el, card, costFilter);
         container.appendChild(el);
         return el;
     });
@@ -1550,7 +1595,7 @@ function createCardElement(cardData, location, slotIdx = null) {
                 <span class="card-name-text">${cardData.name}</span>
             </div>
             <div class="card-img-frame">
-                <img src="${cardData.image}" class="card-img-content" onerror="this.onerror=null;this.src='img/card.webp';" draggable="false">
+                <img src="${cardData.image}" class="card-img-content" data-icon="${cardData.icon || ''}" onerror="showCardArtFallback(this)" draggable="false">
             </div>
             <div class="card-attribute-icon">
                 <img src="img/${attrEn}.webp" alt="${cardData.attribute}">
@@ -1671,8 +1716,8 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
     const canShowSummon = (location === "hand" && isMain && cardData.type === "monster");
     const canShowMagic = (location === "hand" && isMain && cardData.type === "magic");
     const canShowAttack = (location === "ply-field" && isBattle && cardData.type === "monster" && !cardData._hasAttacked);
-    // 起動効果はメインフェイズとバトルフェイズの両方で使える（ルール3準拠）
-    const canShowEffect = (location === "ply-field" && (isMain || isBattle)
+    // 起動効果はメインフェイズのみ（バトルフェイズでは使えない）
+    const canShowEffect = (location === "ply-field" && isMain
         && cardData.logic && cardData.logic.some(l => l.trigger === "ignition"));
 
     const buttons = [];
@@ -1767,8 +1812,12 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
 
         if (targetEl) {
             const rect = targetEl.getBoundingClientRect();
+            // 手札カードは選択時に15px浮くが、その分は rect にまだ反映されていない。
+            // 見込んで引いておかないと、浮き上がった後にボタンだけ取り残されて
+            // 2回目のタップで位置がずれて見える。
+            const liftOffset = (location === "hand") ? 15 : 0;
             menu.style.left = `${rect.left + rect.width / 2}px`;
-            menu.style.top = `${rect.top - 20}px`;
+            menu.style.top = `${rect.top - liftOffset - 20}px`;
             menu.style.transform = 'translateX(-50%) translateY(-100%)';
             menu.style.opacity = "1";
         }
@@ -1847,20 +1896,49 @@ function updateInfoPanel(cardData, location = null) {
         extraEl.innerText = "";
     }
 
-    // パネル内の名称圧縮ロジック（右側の幅に合わせて再計算）
-    requestAnimationFrame(() => {
-        const containerWidth = document.getElementById('info-text-container').clientWidth;
-        const maxWidth = containerWidth - attrEl.offsetWidth - 15;
-        const currentWidth = nameEl.scrollWidth;
+    // 長い名前も省略せず、横に縮めて必ず収める
+    requestAnimationFrame(() => fitTextToWidth(nameEl));
+}
 
-        if (currentWidth > maxWidth) {
-            nameEl.style.display = 'inline-block';
-            nameEl.style.transform = `scaleX(${maxWidth / currentWidth})`;
-            nameEl.style.transformOrigin = 'left center';
-        } else {
-            nameEl.style.transform = 'none';
-        }
-    });
+/**
+ * 要素内の1行テキストを、はみ出す場合だけ横方向に縮めて枠内に収める。
+ * text-overflow による「…」は使わない（名前が読めなくなるため）。
+ */
+function fitTextToWidth(el) {
+    if (!el) return;
+
+    // 前回のscaleXが残っていると測定値が狂うので、先に戻してから測る
+    el.style.transform = 'none';
+
+    const available = el.clientWidth;
+    const natural = el.scrollWidth;
+    if (!available || !natural) return;
+
+    if (natural > available) {
+        el.style.transformOrigin = 'left center';
+        el.style.transform = `scaleX(${available / natural})`;
+    }
+}
+
+/** 詳細パネルを未選択状態に戻す */
+function clearInfoPanel() {
+    const visual = document.getElementById('info-visual-container');
+    if (visual) visual.innerHTML = "";
+
+    const nameEl = document.getElementById('info-name');
+    if (nameEl) {
+        nameEl.innerText = "No Selection";
+        nameEl.style.transform = 'none';
+    }
+    const set = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = text;
+    };
+    set('info-attr', "");
+    set('info-level', "");
+    set('info-power', "");
+    set('info-extra-stats', "");
+    set('info-text', "カードをタップして詳細を表示");
 }
 
 /** 相手の伏せカードを選んだときの情報パネル表示 */
@@ -1874,6 +1952,137 @@ function showHiddenCardInfo() {
     document.getElementById('info-power').innerText = "";
     document.getElementById('info-extra-stats').innerText = "";
     document.getElementById('info-text').innerText = "相手が伏せているため内容は確認できません。";
+}
+
+/**
+ * カード画像が用意されていない場合の差し替え表示。
+ * カードごとに違う絵文字（icon）を出して、見分けがつくようにする。
+ */
+function showCardArtFallback(img) {
+    const frame = img.parentElement;
+    if (!frame) return;
+    const icon = img.dataset.icon || '❔';
+    frame.innerHTML = `<span class="card-art-fallback">${icon}</span>`;
+}
+window.showCardArtFallback = showCardArtFallback;
+
+/**
+ * カードの現在位置（ゾーン要素）を探す。演出の起点・終点に使う。
+ */
+function findCardZoneElement(card, side) {
+    const prefix = (side === "player") ? "ply" : "opt";
+    const p = GAME_STATE[side];
+
+    const mIdx = p.field.monsters.indexOf(card);
+    if (mIdx !== -1) return document.getElementById(`${prefix}-monster-${mIdx}`);
+
+    const gIdx = p.field.magics.indexOf(card);
+    if (gIdx !== -1) return document.getElementById(`${prefix}-magic-${gIdx}`);
+
+    return null;
+}
+
+/**
+ * 効果が発動したカードを光らせて、何が起きたのかを分かるようにする。
+ * @returns {Promise} 演出が終わるまで待てる
+ */
+function showEffectActivation(card, side) {
+    return new Promise(resolve => {
+        const zone = findCardZoneElement(card, side);
+        if (!zone || GAME_STATE.isGameOver) { resolve(); return; }
+
+        const fx = document.createElement('div');
+        fx.className = 'vfx-effect-burst';
+        zone.appendChild(fx);
+
+        const label = document.createElement('div');
+        label.className = 'vfx-effect-label';
+        label.innerText = card.name;
+        zone.appendChild(label);
+
+        setTimeout(() => {
+            fx.remove();
+            label.remove();
+            resolve();
+        }, 650);
+    });
+}
+
+/**
+ * 攻撃の矢印演出。誰から誰に攻撃したかを見せる。
+ * defenderSlot が -1 ならダイレクトアタック（相手のLP表示へ向かう）。
+ */
+function showAttackArrow(attackerSide, attackerSlot, defenderSide, defenderSlot) {
+    return new Promise(resolve => {
+        const atkPrefix = (attackerSide === "player") ? "ply" : "opt";
+        const fromEl = document.getElementById(`${atkPrefix}-monster-${attackerSlot}`);
+
+        let toEl;
+        if (defenderSlot >= 0) {
+            const defPrefix = (defenderSide === "player") ? "ply" : "opt";
+            toEl = document.getElementById(`${defPrefix}-monster-${defenderSlot}`);
+        } else {
+            // ダイレクトアタックは相手のLP表示を狙う
+            toEl = document.getElementById(
+                defenderSide === "player" ? 'hud-player-status' : 'hud-opponent-status');
+        }
+
+        if (!fromEl || !toEl) { resolve(); return; }
+
+        const a = fromEl.getBoundingClientRect();
+        const b = toEl.getBoundingClientRect();
+        const x1 = a.left + a.width / 2, y1 = a.top + a.height / 2;
+        const x2 = b.left + b.width / 2, y2 = b.top + b.height / 2;
+        const length = Math.hypot(x2 - x1, y2 - y1);
+        const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+
+        const arrow = document.createElement('div');
+        arrow.className = 'vfx-attack-arrow';
+        arrow.style.left = `${x1}px`;
+        arrow.style.top = `${y1}px`;
+        arrow.style.width = `${length}px`;
+        arrow.style.transform = `rotate(${angle}deg)`;
+        document.body.appendChild(arrow);
+
+        // 攻撃を受けた側を揺らす
+        toEl.classList.add('shake-target');
+
+        setTimeout(() => {
+            arrow.remove();
+            toEl.classList.remove('shake-target');
+            resolve();
+        }, 520);
+    });
+}
+
+/**
+ * デッキからトラッシュへ1枚落ちる演出。
+ * 一気に消えると何が起きたか分からないので、1枚ずつ見せる。
+ */
+function animateMillCard(cardData, side) {
+    return new Promise(resolve => {
+        const deckEl = document.getElementById(`${side}-deck-zone`);
+        const trashEl = document.getElementById(`${side}-trash-zone`);
+        if (!deckEl || !trashEl || GAME_STATE.isGameOver) { resolve(); return; }
+
+        const from = deckEl.getBoundingClientRect();
+        const to = trashEl.getBoundingClientRect();
+
+        const el = createCardElement(cardData, 'animation');
+        el.classList.add('anim-milling-card');
+        el.style.left = `${from.left}px`;
+        el.style.top = `${from.top}px`;
+        document.body.appendChild(el);
+
+        requestAnimationFrame(() => {
+            el.style.left = `${to.left}px`;
+            el.style.top = `${to.top}px`;
+            el.style.opacity = '0.15';
+            el.style.transform = 'scale(0.8) rotate(8deg)';
+        });
+
+        setTimeout(() => { el.remove(); resolve(); }, 260);
+    });
 }
 
 /** 罠が発動したことを見せる演出 */

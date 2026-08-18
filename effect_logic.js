@@ -28,6 +28,17 @@ const EffectLogic = {
         }
 
         console.log(`EffectLogic: Resolving [${triggerFilter || "All"}] logic for ${cardData.name}`);
+
+        // フィールド上のカードの効果が動く時は、どのカードが発動したのかを見せる。
+        // ・常時効果(always)は演出しない（判定のたびに光ってしまう）
+        // ・対象がなくて空振りする効果も演出しない（無駄な待ち時間になる）
+        if (typeof showEffectActivation === "function"
+            && triggerFilter && triggerFilter !== "always"
+            && cardData.logic.some(a => a.trigger === triggerFilter)
+            && this.isEffectActivatable(cardData, side, triggerFilter)) {
+            await showEffectActivation(cardData, side);
+        }
+
         this._resolveDepth++;
 
         try {
@@ -53,6 +64,13 @@ const EffectLogic = {
                     }
                     // 使用済みフラグを立てる
                     cardData._usedLimits[limitKey] = GAME_STATE.turnCount;
+                }
+
+                // コスト（手札を捨てる／トラッシュを除外する等）を先に支払う。
+                // 払えなければそのアクションは発動しない。
+                if (action.cost && !(await this.payActionCost(action, side))) {
+                    console.log(`Cost not payable: ${cardData.name} (Action ${i})`);
+                    continue;
                 }
 
                 await this.executeAction(action, side, cardData);
@@ -273,7 +291,9 @@ const EffectLogic = {
      */
     async executeAction(action, side, sourceCard) {
         switch (action.type) {
-            case "heal": this.applyHeal(action, side); break;
+            // applyHeal は内部で on_lp_gain の連鎖を解決するので必ず待つ。
+            // await しないと、回復に反応する効果が後続処理とずれて動く。
+            case "heal": await this.applyHeal(action, side); break;
             case "draw_card":
                 if (typeof drawCard === "function") await drawCard(side, action.count || 1);
                 break;
@@ -286,6 +306,8 @@ const EffectLogic = {
             case "salvage": await this.applySalvage(action, side); break;
             case "global_buff": await this.applyGlobalBuff(action, side, sourceCard); break;
             case "bounce": await this.applyBounce(action, side, sourceCard); break;
+            case "damage": this.applyDamage(action, side); break;
+            case "destroy_magic": await this.applyDestroyMagic(action, side); break;
             case "apply_combat_effect": await this.applyCombatEffect(action, side, sourceCard); break;
             case "battle_protection":
             case "global_protection":
@@ -337,7 +359,15 @@ const EffectLogic = {
             }
 
             const card = p.deck.pop();
+
+            // 1枚ずつデッキ→トラッシュへ落として見せる。
+            // まとめて消えると何が起きたのか分からないため。
+            if (typeof animateMillCard === "function") {
+                await animateMillCard(card, side);
+            }
+
             sendCardToTrash(side, card);
+            if (typeof updateUI === "function") updateUI();
             await this.notifyCardSentToTrash(card, side);
             remaining--;
         }
@@ -373,6 +403,123 @@ const EffectLogic = {
                 await destroyMonster(t.side, t.slotIdx);
             }
         }
+    },
+
+    /** LPダメージを与える */
+    applyDamage(action, side) {
+        const targetSide = (action.targetSide === "opponent")
+            ? (side === "player" ? "opponent" : "player")
+            : side;
+        const amount = action.value || 0;
+        if (amount <= 0) return;
+
+        // 効果ダメージなので戦闘ダメージ軽減は通さず、そのまま与える
+        const p = GAME_STATE[targetSide];
+        p.lp = Math.max(0, p.lp - amount);
+        console.log(`${targetSide} took ${amount} effect damage. LP: ${p.lp}`);
+
+        if (typeof checkGameEnd === "function") checkGameEnd();
+    },
+
+    /** 魔術ゾーンのカードを破壊する（伏せカードも対象） */
+    async applyDestroyMagic(action, side) {
+        const targetSide = (action.targetSide === "opponent")
+            ? (side === "player" ? "opponent" : "player")
+            : side;
+        const p = GAME_STATE[targetSide];
+        const count = action.count || 1;
+        const filter = action.filter || {};
+
+        let candidates = [];
+        p.field.magics.forEach((m, i) => {
+            if (m && this._checkFilter(m, filter)) candidates.push(i);
+        });
+        if (candidates.length === 0) return;
+
+        const chosen = [];
+        for (let i = 0; i < count; i++) {
+            if (candidates.length === 0) break;
+
+            if (action.targetSelect === "manual" && side === "player" && GAME_STATE.turnPlayer === "player") {
+                const slot = await selectTargetUI(targetSide, "magic", candidates,
+                    `破壊する${targetSide === side ? "自分" : "相手"}の魔術を選択してください`);
+                if (slot === null) { this._selectionCancelled = true; break; }
+                chosen.push(slot);
+                candidates = candidates.filter(c => c !== slot);
+            } else {
+                const pick = candidates[Math.floor(Math.random() * candidates.length)];
+                chosen.push(pick);
+                candidates = candidates.filter(c => c !== pick);
+            }
+        }
+
+        for (const slot of chosen) {
+            const card = p.field.magics[slot];
+            if (!card) continue;
+            p.field.magics[slot] = null;
+            sendCardToTrash(targetSide, card);
+            if (typeof renderFieldCard === "function") renderFieldCard(targetSide, "magic", slot, null);
+            console.log(`${card.name} (magic) was destroyed.`);
+            await this.notifyCardSentToTrash(card, targetSide);
+        }
+        if (typeof updateUI === "function") updateUI();
+    },
+
+    /**
+     * アクションに付随するコストを支払う。
+     * 払えない場合は false を返し、そのアクションは実行しない。
+     */
+    async payActionCost(action, side) {
+        const cost = action.cost;
+        if (!cost) return true;
+
+        const p = GAME_STATE[side];
+
+        // 手札を捨てるコスト
+        if (cost.discardHand) {
+            const n = cost.discardHand;
+            if (p.hand.length < n) return false;
+
+            let discarded = [];
+            if (side === "player" && GAME_STATE.turnPlayer === "player" && typeof selectHandCardsUI === "function") {
+                const picks = await selectHandCardsUI(n);
+                discarded = picks.sort((a, b) => b - a).map(i => p.hand.splice(i, 1)[0]);
+            } else {
+                const score = (c) => (typeof CpuLogic !== "undefined") ? CpuLogic.discardScore(c) : 0;
+                for (let i = 0; i < n; i++) {
+                    if (p.hand.length === 0) break;
+                    p.hand.sort((a, b) => score(b) - score(a));
+                    discarded.push(p.hand.shift());
+                }
+            }
+            for (const card of discarded) {
+                sendCardToTrash(side, card);
+                await this.notifyCardSentToTrash(card, side);
+            }
+        }
+
+        // トラッシュを除外するコスト
+        if (cost.banishTrash) {
+            const n = cost.banishTrash;
+            if (p.trash.length < n) return false;
+            for (let i = 0; i < n; i++) {
+                const card = p.trash.pop();
+                if (card) banishCard(side, card);
+            }
+        }
+
+        if (typeof updateUI === "function") updateUI();
+        return true;
+    },
+
+    /** コストを支払えるだけの資源があるか（発動可能判定用・実際には払わない） */
+    canPayActionCost(action, side) {
+        const cost = action.cost;
+        if (!cost) return true;
+        const p = GAME_STATE[side];
+        if (cost.discardHand && p.hand.length < cost.discardHand) return false;
+        if (cost.banishTrash && p.trash.length < cost.banishTrash) return false;
+        return true;
     },
 
     /** 対象を持ち主の手札へ戻す（バウンス） */
@@ -736,6 +883,7 @@ const EffectLogic = {
         if (filter.attribute && card.attribute !== filter.attribute) return false;
         if (filter.category && (!card.categories || !card.categories.includes(filter.category))) return false;
         if (filter.type && card.type !== filter.type) return false;
+        if (filter.subType && card.subType !== filter.subType) return false;
         return true;
     },
 
@@ -897,6 +1045,9 @@ const EffectLogic = {
         if (actions.length === 0) return true;
 
         return actions.some(action => {
+            // コストを払えないものは発動できない
+            if (!this.canPayActionCost(action, side)) return false;
+
             if (action.type === "mill" || action.type === "draw_and_discard") return true;
             if (cardData.id === "s013") return true;
 
@@ -944,6 +1095,11 @@ const EffectLogic = {
                     return pool.some(c => this._checkFilter(c, action.filter || {}));
                 case "global_buff":
                     return p.field.monsters.some(m => m !== null);
+                case "destroy_magic":
+                    // 伏せカードも含め、対象の魔術ゾーンに何かあれば発動できる
+                    return p.field.magics.some(m => m !== null && this._checkFilter(m, action.filter || {}));
+                case "bounce":
+                    return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}));
                 default:
                     return true;
             }
