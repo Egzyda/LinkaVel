@@ -14,6 +14,7 @@
 const GAME_STATE = {
     // ターン管理
     turnCount: 1,           // 経過ターン数
+    turnSerial: 1,          // 手番の通し番号（罠の「伏せたターンは発動不可」判定用）
     isFirstTurnOfGame: true,// ゲーム開始直後のフラグ（先行1ターン目判定用）
     phase: "DRAW",
     phases: ["DRAW", "MAIN1", "BATTLE", "MAIN2", "END"],
@@ -76,6 +77,8 @@ function resetCardState(card) {
     delete card._usedLimits;
     delete card._usedProtections;
     delete card._usedTurn;
+    delete card._isSet;
+    delete card._setTurnSerial;
     return card;
 }
 
@@ -145,7 +148,7 @@ window.ensureAuth = ensureAuth;
  * 設計サイズ(480x900)を基準に等倍スケールを掛ける方式にしている。
  */
 const DESIGN_WIDTH = 480;
-const DESIGN_HEIGHT = 900;
+const DESIGN_HEIGHT = 720;
 
 function updateViewportScale() {
     const viewport = document.getElementById('game-viewport');
@@ -341,6 +344,7 @@ async function confirmDeckSelection(deckId, type) {
 
 function resetGameState() {
     GAME_STATE.turnCount = 1;
+    GAME_STATE.turnSerial = 1;
     GAME_STATE.isFirstTurnOfGame = true;
     GAME_STATE.phase = "DRAW";
     GAME_STATE.hasNormalSummoned = false;
@@ -556,6 +560,7 @@ function endTurn() {
 
     // ターン交代
     GAME_STATE.turnPlayer = (GAME_STATE.turnPlayer === "player") ? "opponent" : "player";
+    GAME_STATE.turnSerial++;
 
     // 先行1ターン目フラグの解除（後攻に回った時点で解除）
     if (GAME_STATE.isFirstTurnOfGame) {
@@ -758,6 +763,9 @@ async function executeSummon(side, cardData, slotIndex, costs = []) {
     }
     await EffectLogic.resolveEffects(cardData, side, "on_summon");
 
+    // 「相手がモンスターを召喚した時」に反応する罠の判定
+    await EffectLogic.notifySummon(side, [cardData]);
+
     // フラグ更新
     if (side === GAME_STATE.turnPlayer) {
         GAME_STATE.hasNormalSummoned = true;
@@ -779,24 +787,76 @@ async function executeSummon(side, cardData, slotIndex, costs = []) {
 function checkCanActivateMagic(cardData) {
     if (GAME_STATE.isGameOver) return false;
     if (GAME_STATE.phase !== "MAIN1" && GAME_STATE.phase !== "MAIN2") return false;
+    // 罠魔術は伏せてからでないと発動できない
+    if (cardData.subType === "trap") return false;
     const hasSpace = GAME_STATE.player.field.magics.some(m => m === null);
     if (!hasSpace) return false;
     return EffectLogic.isEffectActivatable(cardData, "player", "on_activate");
 }
 
+/** 魔術をセット（裏側で設置）できるか判定 */
+function checkCanSetMagic(cardData) {
+    if (GAME_STATE.isGameOver) return false;
+    if (GAME_STATE.phase !== "MAIN1" && GAME_STATE.phase !== "MAIN2") return false;
+    if (!cardData || cardData.type !== "magic") return false;
+    return GAME_STATE.player.field.magics.some(m => m === null);
+}
+
 /** 魔術発動試行 */
 function tryActivateMagic(cardData) {
     if (!checkCanActivateMagic(cardData)) return;
-    startMagicSlotSelection(cardData);
+    startMagicSlotSelection(cardData, false);
 }
 
-/** 魔術発動先の選択開始 */
-function startMagicSlotSelection(cardData) {
+/** 魔術セット試行（罠に限らず、通常・永続もブラフとして伏せられる） */
+function trySetMagic(cardData) {
+    if (!checkCanSetMagic(cardData)) return;
+    startMagicSlotSelection(cardData, true);
+}
+
+/**
+ * 伏せてある自分の魔術を表向きにして発動する
+ * 罠魔術は条件成立時に自動で発動するため、ここでは扱わない
+ */
+async function activateSetMagic(slotIdx) {
+    const p = GAME_STATE.player;
+    const card = p.field.magics[slotIdx];
+
+    if (!card || !card._isSet) return;
+    if (card.subType === "trap") return;
+    if (card._setTurnSerial === GAME_STATE.turnSerial) return; // 伏せたターンは発動できない
+    if (!EffectLogic.isEffectActivatable(card, "player", "on_activate")) return;
+
+    hideCardDetail();
+    card._isSet = false;
+    renderFieldCard("player", "magic", slotIdx, card);
+
+    await EffectLogic.resolveEffects(card, "player", "on_activate");
+
+    if (card.subType === "normal") {
+        setTimeout(() => {
+            if (p.field.magics[slotIdx] !== card) return;
+            p.field.magics[slotIdx] = null;
+            renderFieldCard("player", "magic", slotIdx, null);
+            sendCardToTrash("player", card);
+            updateUI();
+        }, 500);
+    } else {
+        updateUI();
+    }
+
+    console.log(`Set Magic Activated: ${card.name}`);
+}
+
+/** 魔術発動・セット先の選択開始 */
+function startMagicSlotSelection(cardData, asSet = false) {
     document.getElementById('floating-action-container').innerHTML = "";
     document.getElementById('field-surface').classList.add('selecting-mode');
     document.getElementById('game-viewport').classList.add('field-selecting');
     GAME_STATE.isSelectingSlot = true;
     GAME_STATE.pendingCard = cardData;
+    GAME_STATE.pendingSetMode = asSet;
+    showSelectionPrompt(asSet ? "カードを伏せる場所を選択してください" : "魔術を置く場所を選択してください");
 
     // イベントデリゲーション: 個別のonclickは設定せず、全体で監視する
     [0, 1, 2].forEach(i => {
@@ -1070,6 +1130,7 @@ function handleAttackSelectionClick(e) {
 async function finishMagicSlotSelection(slotIdx) {
     if (!GAME_STATE.pendingCard) return;
     const cardData = GAME_STATE.pendingCard;
+    const asSet = GAME_STATE.pendingSetMode;
     const p = GAME_STATE.player;
 
     // 効果解決（await）の前に選択モードを完全に終了させる
@@ -1078,6 +1139,17 @@ async function finishMagicSlotSelection(slotIdx) {
     // 1. 手札から削除（同名カードを取り違えないようオブジェクト同一性で検索）
     const handIndex = p.hand.indexOf(cardData);
     if (handIndex !== -1) p.hand.splice(handIndex, 1);
+
+    // セットの場合は裏側で置くだけ。効果は解決しない。
+    if (asSet) {
+        cardData._isSet = true;
+        cardData._setTurnSerial = GAME_STATE.turnSerial;
+        p.field.magics[slotIdx] = cardData;
+        renderFieldCard("player", "magic", slotIdx, cardData);
+        updateUI();
+        console.log(`Magic Set: ${cardData.name}`);
+        return;
+    }
 
     // 2. 一旦魔術ゾーンに配置して描画（効果解決中であることを示す）
     p.field.magics[slotIdx] = cardData;
@@ -1108,8 +1180,10 @@ async function finishMagicSlotSelection(slotIdx) {
 function cancelMagicSlotSelection() {
     document.getElementById('field-surface').classList.remove('selecting-mode');
     document.getElementById('game-viewport').classList.remove('field-selecting');
+    showSelectionPrompt(null);
     GAME_STATE.isSelectingSlot = false;
     GAME_STATE.pendingCard = null;
+    GAME_STATE.pendingSetMode = false;
 
     // イベントリスナ削除
     document.removeEventListener('click', handleSelectionClick);
@@ -1151,6 +1225,17 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
 
     const attackerSide = GAME_STATE.turnPlayer;
     const defenderSide = (attackerSide === "player") ? "opponent" : "player";
+
+    // 攻撃宣言時の罠を先に解決する（弱体化・強化・攻撃モンスターの破壊など）
+    const aborted = await EffectLogic.notifyAttackDeclared(
+        attackerSide, attacker, atkIdx, defender, defIdx);
+
+    if (aborted) {
+        console.log("Battle cancelled by trap effect.");
+        GAME_STATE.isAnimating = false;
+        updateUI();
+        return;
+    }
 
     if (!defender) {
         const pAtk = EffectLogic.getCurrentPower(attacker, attackerSide, atkIdx);
@@ -1295,6 +1380,9 @@ async function destroyMonster(side, slotIdx, reason = "effect") {
 
         // トラッシュ送りに伴う誘発（自身の on_sent_to_trash と、他カードの on_other_sent_to_trash）
         await EffectLogic.notifyCardSentToTrash(card, side);
+
+        // 「自分のモンスターが破壊された時」に反応する罠の判定
+        await EffectLogic.notifyMonsterDestroyed(side, card);
     }
 }
 
@@ -1414,6 +1502,14 @@ function createCardElement(cardData, location, slotIdx = null) {
     el.className = 'card-mini';
     el.dataset.id = cardData.id;
 
+    // セットされた魔術はフィールド上では裏向きに描画する
+    // （情報パネルやビューアでは中身を見せたいので、フィールド表示のときだけ）
+    const onField = (location === "ply-field" || location === "opt-field");
+    if (onField && cardData._isSet) {
+        el.classList.add('face-down');
+        if (location === "ply-field") el.classList.add('own-set');
+    }
+
     const isMonster = cardData.type === 'monster';
 
     // 現在のパワーを計算（バフ・デバフ・オーラ反映）
@@ -1436,7 +1532,7 @@ function createCardElement(cardData, location, slotIdx = null) {
                 <span class="card-name-text">${cardData.name}</span>
             </div>
             <div class="card-img-frame">
-                <img src="${cardData.image}" class="card-img-content" draggable="false">
+                <img src="${cardData.image}" class="card-img-content" onerror="this.onerror=null;this.src='img/card.webp';" draggable="false">
             </div>
             <div class="card-attribute-icon">
                 <img src="img/${attrEn}.webp" alt="${cardData.attribute}">
@@ -1479,6 +1575,13 @@ function createCardElement(cardData, location, slotIdx = null) {
 // ==========================================
 
 function showCardDetail(cardData, location, event, slotIdx = null) {
+    // 相手が伏せたカードの中身は見せない
+    if (cardData && cardData._isSet && location === "opt-field") {
+        showHiddenCardInfo();
+        hideCardDetail();
+        return;
+    }
+
     updateInfoPanel(cardData, location);
 
     // 対象要素の解決
@@ -1564,12 +1667,46 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
         btn.onclick = () => trySummon(cardData);
         buttons.push(btn);
     } else if (canShowMagic) {
-        const btn = document.createElement('button');
-        btn.className = 'btn-action-float';
-        btn.innerText = "発動";
-        btn.disabled = !checkCanActivateMagic(cardData);
-        btn.onclick = () => tryActivateMagic(cardData);
-        buttons.push(btn);
+        // 罠魔術は手札から直接発動できない（伏せてから条件成立で自動発動）
+        if (cardData.subType !== "trap") {
+            const btn = document.createElement('button');
+            btn.className = 'btn-action-float';
+            btn.innerText = "発動";
+            btn.disabled = !checkCanActivateMagic(cardData);
+            btn.onclick = () => tryActivateMagic(cardData);
+            buttons.push(btn);
+        }
+
+        const setBtn = document.createElement('button');
+        setBtn.className = 'btn-action-float set';
+        setBtn.innerText = "セット";
+        setBtn.disabled = !checkCanSetMagic(cardData);
+        setBtn.onclick = () => trySetMagic(cardData);
+        buttons.push(setBtn);
+    }
+
+    // 伏せてある自分の魔術を表向きにして発動する
+    if (location === "ply-field" && isMain && cardData.type === "magic" && cardData._isSet) {
+        if (cardData.subType !== "trap") {
+            const btn = document.createElement('button');
+            btn.className = 'btn-action-float';
+            btn.innerText = "発動";
+
+            const isFresh = cardData._setTurnSerial === GAME_STATE.turnSerial;
+            const activatable = EffectLogic.isEffectActivatable(cardData, "player", "on_activate");
+
+            if (isFresh) {
+                btn.disabled = true;
+                btn.innerText = "次のターンから";
+            } else if (!activatable) {
+                btn.disabled = true;
+                btn.innerText = "対象なし";
+            }
+
+            const effectiveIdx = slotIdx !== null ? slotIdx : GAME_STATE.player.field.magics.indexOf(cardData);
+            btn.onclick = () => activateSetMagic(effectiveIdx);
+            buttons.push(btn);
+        }
     }
 
     if (canShowAttack) {
@@ -1708,11 +1845,46 @@ function updateInfoPanel(cardData, location = null) {
     });
 }
 
+/** 相手の伏せカードを選んだときの情報パネル表示 */
+function showHiddenCardInfo() {
+    document.getElementById('info-visual-container').innerHTML =
+        `<div class="card-mini face-down"><div class="card-face card-back"></div></div>`;
+    document.getElementById('info-name').innerText = "セットされたカード";
+    document.getElementById('info-name').style.transform = 'none';
+    document.getElementById('info-attr').innerText = "";
+    document.getElementById('info-level').innerText = "";
+    document.getElementById('info-power').innerText = "";
+    document.getElementById('info-extra-stats').innerText = "";
+    document.getElementById('info-text').innerText = "相手が伏せているため内容は確認できません。";
+}
+
+/** 罠が発動したことを見せる演出 */
+function showTrapActivation(side, slotIdx, card) {
+    const prefix = (side === "player") ? "ply" : "opt";
+    const zone = document.getElementById(`${prefix}-magic-${slotIdx}`);
+    if (zone) {
+        const flash = document.createElement('div');
+        flash.className = 'vfx-landing-flash';
+        zone.appendChild(flash);
+        setTimeout(() => flash.remove(), 600);
+    }
+
+    const banner = document.getElementById('selection-prompt');
+    if (!banner) return;
+    banner.innerHTML = `<span>罠発動: ${card.name}</span>`;
+    banner.classList.add('active', 'trap-banner');
+    setTimeout(() => {
+        banner.classList.remove('active', 'trap-banner');
+        banner.innerHTML = "";
+    }, 1600);
+}
+
 /** 召喚先選択モードの開始 */
 function startSlotSelection(cardData) {
     document.getElementById('floating-action-container').innerHTML = "";
     document.getElementById('field-surface').classList.add('selecting-mode');
     document.getElementById('game-viewport').classList.add('field-selecting');
+    showSelectionPrompt("召喚する場所を選択してください");
     GAME_STATE.isSelectingSlot = true;
     GAME_STATE.pendingCard = cardData;
 
@@ -1747,6 +1919,7 @@ async function finishSlotSelection(slotIdx) {
 function cancelSlotSelection() {
     document.getElementById('field-surface').classList.remove('selecting-mode');
     document.getElementById('game-viewport').classList.remove('field-selecting');
+    showSelectionPrompt(null);
     GAME_STATE.isSelectingSlot = false;
     GAME_STATE.pendingCard = null;
     GAME_STATE.selectedCosts = [];

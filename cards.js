@@ -201,7 +201,7 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "水",
         categories: [],
-        text: "自分の水属性モンスターを1体選択する。このターン,そのモンスターと戦闘を行った相手モンスターを戦闘後に破壊する。",
+        text: "自分の水属性モンスターを1体選択する。このターン、そのモンスターと戦闘を行った相手モンスターを戦闘後に破壊する。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "apply_combat_effect", trigger: "on_activate", targetSelect: "manual", filter: { attribute: "水" }, effect: "destroy_opponent_after_combat", duration: "until_end_turn" }]
     },
@@ -395,11 +395,11 @@ const MASTER_CARDS = {
         level: 4,
         power: 2000,
         categories: ["聖界"],
-        text: "①召喚・特殊召喚時、LPを1000回復する。\n②1ターンに1度、LPが回復した時、ターン終了時まで自身のパワーを700アップする。",
+        text: "①召喚・特殊召喚時、LPを1000回復する。\n②1ターンに1度、LPが回復した時、ターン終了時まで自分の光属性モンスター全てのパワーを300アップする。",
         summonRequirement: { type: "normal", costCount: 3, costFilter: { minLevel: 1 } },
         logic: [
             { type: "heal", trigger: "on_summon", value: 1000 },
-            { type: "buff", trigger: "on_lp_gain", target: "self", value: 700, duration: "until_end_turn", countLimit: "once_per_turn" }
+            { type: "global_buff", trigger: "on_lp_gain", targetSide: "self", filter: { attribute: "光" }, value: 300, duration: "until_end_turn", countLimit: "once_per_turn" }
         ]
     },
     "m030": {
@@ -436,7 +436,7 @@ const MASTER_CARDS = {
         subType: "permanent",
         attribute: "光",
         categories: ["聖界"],
-        text: "自分のフィールドに聖界モンスターが存在する限り,自分が受ける戦闘ダメージを300ダウンする。",
+        text: "自分のフィールドに聖界モンスターが存在する限り、自分が受ける戦闘ダメージを300ダウンする。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "damage_reduction", trigger: "always", condition: "has_category_on_field", category: "聖界", value: 300 }]
     },
@@ -635,7 +635,7 @@ const MASTER_CARDS = {
         level: 2,
         power: 800,
         categories: [],
-        text: "このモンスターは1ターンに1度だけ,戦闘では破壊されない。",
+        text: "このモンスターは1ターンに1度だけ、戦闘では破壊されない。",
         summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
         logic: [{ type: "battle_protection", trigger: "always", countLimit: "once_per_turn", target: "self" }]
     },
@@ -688,6 +688,137 @@ const MASTER_CARDS = {
         text: "自分のデッキから2枚ドローし、その後手札を2枚選んで捨てる。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "draw_and_discard", trigger: "on_activate", drawCount: 2, discardCount: 2, discardType: "manual" }]
+    },
+
+    // =================================================================
+    // 追加カード (通常魔術・罠魔術)
+    // 罠魔術は伏せて設置し、条件を満たした瞬間に強制発動する。
+    // =================================================================
+    "s019": {
+        id: "s019",
+        image: "img/s019.webp",
+        name: "奇跡の復活",
+        type: "magic",
+        subType: "normal",
+        attribute: "無",
+        categories: [],
+        text: "自分のトラッシュからレベル3以下のモンスターを1体ランダムに特殊召喚する。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{ type: "special_summon", trigger: "on_activate", source: "trash", count: 1, filter: { maxLevel: 3 }, targetSelect: "random" }]
+    },
+    "s020": {
+        id: "s020",
+        image: "img/s020.webp",
+        name: "スモール・スプリング",
+        type: "magic",
+        subType: "trap",
+        attribute: "無",
+        categories: [],
+        text: "相手がレベル1のモンスターを1体以上召喚・特殊召喚した時に発動する。そのモンスターを全て持ち主の手札に戻す。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{
+            type: "bounce",
+            trigger: "on_opponent_summon",
+            condition: { summonedFilter: { level: 1 } },
+            targetSelect: "event",
+            filter: { level: 1 }
+        }]
+    },
+    "s021": {
+        id: "s021",
+        image: "img/s021.webp",
+        name: "威圧の罠",
+        type: "magic",
+        subType: "trap",
+        attribute: "無",
+        categories: [],
+        text: "相手がレベル2以上のモンスターで攻撃した時に発動する。そのモンスターのパワーを300ダウンさせる。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{
+            type: "buff",
+            trigger: "on_opponent_attack",
+            condition: { attackerFilter: { minLevel: 2 } },
+            targetSelect: "event_attacker",
+            value: -300,
+            duration: "until_end_turn"
+        }]
+    },
+    "s022": {
+        id: "s022",
+        image: "img/s022.webp",
+        name: "炎界の加護",
+        type: "magic",
+        subType: "trap",
+        attribute: "火",
+        categories: ["炎界"],
+        text: "相手が自分の火属性モンスターに攻撃した時に発動する。その自分モンスターのパワーを500アップさせる。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{
+            type: "buff",
+            trigger: "on_opponent_attack",
+            condition: { defenderFilter: { attribute: "火" } },
+            targetSelect: "event_defender",
+            value: 500,
+            duration: "until_end_turn"
+        }]
+    },
+    "s023": {
+        id: "s023",
+        image: "img/s023.webp",
+        name: "海界の奇跡",
+        type: "magic",
+        subType: "trap",
+        attribute: "水",
+        categories: ["海界"],
+        text: "自分のレベル2以上の水属性モンスターが破壊され、トラッシュに送られた時に発動する。そのモンスターを特殊召喚する。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{
+            type: "special_summon",
+            trigger: "on_own_monster_destroyed",
+            condition: { destroyedFilter: { attribute: "水", minLevel: 2 } },
+            source: "event"
+        }]
+    },
+    "s024": {
+        id: "s024",
+        image: "img/s024.webp",
+        name: "森界の壁",
+        type: "magic",
+        subType: "trap",
+        attribute: "草",
+        categories: ["森界"],
+        text: "相手が攻撃した時、そのモンスターのパワーが元々のパワーより300以上ダウンしている場合に発動する。その攻撃モンスターを破壊する。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{
+            type: "destroy",
+            trigger: "on_opponent_attack",
+            condition: { attackerWeakenedBy: 300 },
+            targetSelect: "event_attacker"
+        }]
+    },
+    "s025": {
+        id: "s025",
+        image: "img/s025.webp",
+        name: "聖界の雫",
+        type: "magic",
+        subType: "trap",
+        attribute: "光",
+        categories: ["聖界"],
+        text: "相手が攻撃した時に発動する。自分のLPを500回復する。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{ type: "heal", trigger: "on_opponent_attack", value: 500 }]
+    },
+    "s026": {
+        id: "s026",
+        image: "img/s026.webp",
+        name: "冥界の歪み",
+        type: "magic",
+        subType: "trap",
+        attribute: "闇",
+        categories: ["冥界"],
+        text: "相手がモンスターを召喚・特殊召喚した時に発動する。自分のデッキの上から5枚をトラッシュする。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{ type: "mill", trigger: "on_opponent_summon", count: 5 }]
     }
 };
 

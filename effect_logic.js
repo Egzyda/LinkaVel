@@ -36,6 +36,12 @@ const EffectLogic = {
                 if (triggerFilter && action.trigger !== triggerFilter) continue;
                 if (GAME_STATE.isGameOver) break;
 
+                // 誘発条件（オブジェクト形式）を満たさないアクションは実行しない
+                if (action.condition && typeof action.condition === "object"
+                    && !this._checkEventCondition(action, this._eventContext)) {
+                    continue;
+                }
+
                 // 1ターンに1度の制限チェック (インデックスで管理)
                 if (action.countLimit === "once_per_turn") {
                     cardData._usedLimits = cardData._usedLimits || {};
@@ -61,6 +67,154 @@ const EffectLogic = {
         } finally {
             this._resolveDepth--;
         }
+    },
+
+    // ==========================================
+    // 罠魔術（セット → 条件成立で強制発動）
+    // ==========================================
+
+    /**
+     * 罠のトリガーと「誰が持つ罠が反応するか」の対応。
+     * "opponent" = イベントを起こした側の相手が持つ罠
+     * "self"     = イベントを起こした側自身が持つ罠
+     */
+    TRAP_TRIGGERS: {
+        on_opponent_summon: "opponent",
+        on_opponent_attack: "opponent",
+        on_own_monster_destroyed: "self"
+    },
+
+    // 誘発元の情報（攻撃してきたモンスター等）。解決中のみ有効。
+    _eventContext: null,
+
+    /**
+     * 指定トリガーの罠を探し、条件を満たすものを順に強制発動する
+     * @param {string} trigger
+     * @param {string} eventSide - イベントを起こした側
+     * @param {Object} context   - 誘発元の情報
+     */
+    async fireTrapTrigger(trigger, eventSide, context) {
+        if (GAME_STATE.isGameOver) return;
+
+        const relation = this.TRAP_TRIGGERS[trigger];
+        if (!relation) return;
+
+        const watcherSide = (relation === "opponent")
+            ? (eventSide === "player" ? "opponent" : "player")
+            : eventSide;
+
+        // 解決中に魔術ゾーンが変動するため、対象を先に確定させる
+        const pending = GAME_STATE[watcherSide].field.magics.filter(card => {
+            if (!card || card.subType !== "trap" || !card._isSet) return false;
+            // 伏せたターンは発動できない
+            if (card._setTurnSerial === GAME_STATE.turnSerial) return false;
+
+            const actions = (card.logic || []).filter(a => a.trigger === trigger);
+            if (actions.length === 0) return false;
+            return actions.some(a => this._checkEventCondition(a, context));
+        });
+
+        for (const card of pending) {
+            if (GAME_STATE.isGameOver) return;
+            const slotIdx = GAME_STATE[watcherSide].field.magics.indexOf(card);
+            if (slotIdx === -1) continue; // 解決中に場を離れた
+            await this.activateTrap(card, watcherSide, slotIdx, trigger, context);
+        }
+    },
+
+    /** 罠を表向きにして解決し、トラッシュへ送る */
+    async activateTrap(card, side, slotIdx, trigger, context) {
+        console.log(`Trap Activated: ${card.name} (${side})`);
+
+        card._isSet = false;
+        if (typeof renderFieldCard === "function") renderFieldCard(side, "magic", slotIdx, card);
+        if (typeof showTrapActivation === "function") showTrapActivation(side, slotIdx, card);
+        await new Promise(r => setTimeout(r, 700)); // 発動を見せる間
+
+        const previous = this._eventContext;
+        this._eventContext = context;
+        try {
+            await this.resolveEffects(card, side, trigger);
+        } finally {
+            this._eventContext = previous;
+        }
+
+        // 罠は解決後トラッシュへ（通常魔術と同じ扱い）
+        const current = GAME_STATE[side].field.magics.indexOf(card);
+        if (current !== -1) {
+            GAME_STATE[side].field.magics[current] = null;
+            sendCardToTrash(side, card);
+            if (typeof renderFieldCard === "function") renderFieldCard(side, "magic", current, null);
+        }
+        if (typeof updateUI === "function") updateUI();
+    },
+
+    /** 誘発条件（オブジェクト形式）の判定 */
+    _checkEventCondition(action, context) {
+        const cond = action.condition;
+        if (!cond || typeof cond !== "object") return true;
+
+        const ctx = context || {};
+
+        if (cond.summonedFilter) {
+            const matched = (ctx.summoned || []).some(c => this._checkFilter(c, cond.summonedFilter));
+            if (!matched) return false;
+        }
+        if (cond.attackerFilter) {
+            if (!ctx.attacker || !this._checkFilter(ctx.attacker, cond.attackerFilter)) return false;
+        }
+        if (cond.defenderFilter) {
+            if (!ctx.defender || !this._checkFilter(ctx.defender, cond.defenderFilter)) return false;
+        }
+        if (cond.destroyedFilter) {
+            if (!ctx.destroyed || !this._checkFilter(ctx.destroyed, cond.destroyedFilter)) return false;
+        }
+        if (typeof cond.attackerWeakenedBy === "number") {
+            if (!ctx.attacker) return false;
+            // 「元々のパワーよりNダウン」= 掛けられたデバフの合計で判定する
+            // (is_weakened と同じ基準。常時オーラによる増減は数えない)
+            const downBy = -this.getTempBuffDelta(ctx.attacker);
+            if (downBy < cond.attackerWeakenedBy) return false;
+        }
+        return true;
+    },
+
+    /** モンスターの召喚・特殊召喚を罠に通知する */
+    async notifySummon(side, summonedCards) {
+        const cards = (summonedCards || []).filter(Boolean);
+        if (cards.length === 0) return;
+        await this.fireTrapTrigger("on_opponent_summon", side, {
+            summoned: cards,
+            summonedSide: side
+        });
+    },
+
+    /**
+     * 攻撃宣言を罠に通知する
+     * @returns {boolean} 攻撃を中止すべきなら true（攻撃モンスターや対象が失われた場合）
+     */
+    async notifyAttackDeclared(attackerSide, attacker, attackerSlot, defender, defenderSlot) {
+        const defenderSide = (attackerSide === "player") ? "opponent" : "player";
+
+        await this.fireTrapTrigger("on_opponent_attack", attackerSide, {
+            attacker, attackerSide, attackerSlot,
+            defender, defenderSide, defenderSlot
+        });
+
+        if (GAME_STATE.isGameOver) return true;
+        // 罠で攻撃モンスターが除去された場合は戦闘そのものが発生しない
+        if (GAME_STATE[attackerSide].field.monsters[attackerSlot] !== attacker) return true;
+        if (defender && GAME_STATE[defenderSide].field.monsters[defenderSlot] !== defender) return true;
+        return false;
+    },
+
+    /** モンスターが破壊されトラッシュへ送られたことを罠に通知する */
+    async notifyMonsterDestroyed(side, card) {
+        if (!card) return;
+        await this.fireTrapTrigger("on_own_monster_destroyed", side, {
+            destroyed: card,
+            destroyedSide: side
+        });
     },
 
     /**
@@ -132,6 +286,7 @@ const EffectLogic = {
             case "search": await this.applySearch(action, side); break;
             case "salvage": await this.applySalvage(action, side); break;
             case "global_buff": await this.applyGlobalBuff(action, side, sourceCard); break;
+            case "bounce": await this.applyBounce(action, side, sourceCard); break;
             case "apply_combat_effect": await this.applyCombatEffect(action, side, sourceCard); break;
             case "battle_protection":
             case "global_protection":
@@ -221,10 +376,64 @@ const EffectLogic = {
         }
     },
 
+    /** 対象を持ち主の手札へ戻す（バウンス） */
+    async applyBounce(action, side, sourceCard) {
+        const targets = await this._acquireTargets(action, side, sourceCard);
+
+        for (const t of targets) {
+            const p = GAME_STATE[t.side];
+            const idx = p.field.monsters.indexOf(t.card);
+            if (idx === -1) continue;
+
+            p.field.monsters[idx] = null;
+            p.hand.push(resetCardState(t.card));
+            if (typeof renderFieldCard === "function") renderFieldCard(t.side, "monster", idx, null);
+            console.log(`${t.card.name} was returned to its owner's hand.`);
+        }
+        if (typeof updateUI === "function") updateUI();
+    },
+
+    /**
+     * 誘発元（攻撃モンスター・召喚されたモンスター等）を対象として取得する
+     */
+    _acquireEventTargets(action, side) {
+        const ctx = this._eventContext || {};
+        const filter = action.filter || {};
+        const results = [];
+
+        const push = (card, cardSide) => {
+            if (!card || !cardSide) return;
+            // 場を離れている場合は対象にならない
+            const slotIdx = GAME_STATE[cardSide].field.monsters.indexOf(card);
+            if (slotIdx === -1) return;
+            if (!this._checkFilter(card, filter)) return;
+            results.push({ card, side: cardSide, slotIdx });
+        };
+
+        switch (action.targetSelect) {
+            case "event_attacker":
+                push(ctx.attacker, ctx.attackerSide);
+                break;
+            case "event_defender":
+                push(ctx.defender, ctx.defenderSide);
+                break;
+            default: // "event"
+                (ctx.summoned || []).forEach(c => push(c, ctx.summonedSide));
+                push(ctx.destroyed, ctx.destroyedSide);
+                break;
+        }
+        return results;
+    },
+
     /** ターゲット取得用内部メソッド */
     async _acquireTargets(action, side, sourceCard) {
         const targetSide = (action.targetSide === "opponent") ? (side === "player" ? "opponent" : "player") : side;
         const select = action.targetSelect || "auto";
+
+        // 誘発元を対象にする指定（罠魔術など）
+        if (select === "event" || select === "event_attacker" || select === "event_defender") {
+            return this._acquireEventTargets(action, side);
+        }
         const count = action.count || 1;
         const filter = action.filter || {};
         const p = GAME_STATE[targetSide];
@@ -355,8 +564,30 @@ const EffectLogic = {
     applySpecialSummon: async function(action, side) {
         const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
         const count = action.count || 1;
-        const source = action.source; // deck / trash / choice_deck_or_trash
+        const source = action.source; // deck / trash / choice_deck_or_trash / event
         const filter = action.filter || {};
+
+        // source: "event" は「誘発元になったそのカード」を蘇生する（海界の奇跡 等）
+        if (source === "event") {
+            const ctx = this._eventContext || {};
+            const target = ctx.destroyed;
+            if (!target) return;
+
+            const ownerSide = ctx.destroyedSide || side;
+            const trashIdx = GAME_STATE[ownerSide].trash.indexOf(target);
+            if (trashIdx === -1) return; // すでにトラッシュにない
+
+            const slotIdx = p.field.monsters.indexOf(null);
+            if (slotIdx === -1) return; // 空き枠がない
+
+            GAME_STATE[ownerSide].trash.splice(trashIdx, 1);
+            p.field.monsters[slotIdx] = target;
+            if (typeof renderFieldCard === "function") renderFieldCard(side, "monster", slotIdx, target);
+
+            await this.resolveEffects(target, side, "on_summon");
+            await this.notifySummon(side, [target]);
+            return;
+        }
 
         // 1. 候補カードの収集
         let pool = [];
@@ -379,6 +610,7 @@ const EffectLogic = {
         p.field.monsters.forEach((m, i) => { if (m === null) emptySlots.push(i); });
 
         // 4. 実行
+        const summonedCards = [];
         const summonLimit = Math.min(count, emptySlots.length, candidates.length);
         for (let i = 0; i < summonLimit; i++) {
             const randIdx = Math.floor(Math.random() * candidates.length);
@@ -407,9 +639,14 @@ const EffectLogic = {
                 renderFieldCard(side, "monster", slotIdx, targetCard);
             }
 
+            summonedCards.push(targetCard);
+
             // 連鎖：特殊召喚も「召喚成功時」として扱う (ロジック定義1.3準拠)
             await this.resolveEffects(targetCard, side, "on_summon");
         }
+
+        // 「1体以上召喚した時」の罠は、まとめて1回だけ判定する
+        await this.notifySummon(side, summonedCards);
     },
 
     /** サーチ処理 (デッキから手札) */
@@ -467,9 +704,18 @@ const EffectLogic = {
      * 個別に掛けられた一時的なデバフ(_tempBuffs)のみを見る。
      */
     isWeakened: function(card) {
-        if (!card || !card._tempBuffs || card._tempBuffs.length === 0) return false;
-        const delta = card._tempBuffs.reduce((sum, b) => sum + (b.value || 0), 0);
-        return delta < 0;
+        return this.getTempBuffDelta(card) < 0;
+    },
+
+    /**
+     * 個別に掛けられた一時バフ／デバフの合計値を返す（マイナスなら弱体化）
+     * 常時オーラ(always)は含めない。
+     * 含めると「森界の門」1枚で相手全員が常時弱体化扱いになり、
+     * 弱体化を条件とするカード（森界の怒り・森界の壁）が無条件化してしまう。
+     */
+    getTempBuffDelta: function(card) {
+        if (!card || !card._tempBuffs || card._tempBuffs.length === 0) return 0;
+        return card._tempBuffs.reduce((sum, b) => sum + (b.value || 0), 0);
     },
 
     /** 対象選択時にプレイヤーへ出す案内文 */

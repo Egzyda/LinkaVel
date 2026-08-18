@@ -157,6 +157,7 @@ const DeckBuilder = {
             if (this.filters.type !== "all") {
                 if (this.filters.type === "monster" && c.type !== "monster") return false;
                 if (this.filters.type === "magic" && c.type !== "magic") return false;
+                if (this.filters.type === "trap" && c.subType !== "trap") return false;
             }
             return true;
         });
@@ -216,7 +217,7 @@ const DeckBuilder = {
         }
 
         actions.style.display = "flex";
-        imgBox.innerHTML = `<img src="${card.image}">`;
+        imgBox.innerHTML = `<img src="${card.image}" onerror="this.onerror=null;this.src='img/card.webp';">`;
 
         const isMonster = card.type === "monster";
         const statsHtml = isMonster
@@ -445,7 +446,7 @@ const DeckBuilder = {
                     <span class="card-name-text">${cardData.name}</span>
                 </div>
                 <div class="card-img-frame">
-                    <img src="${cardData.image}" class="card-img-content" loading="lazy" draggable="false">
+                    <img src="${cardData.image}" class="card-img-content" onerror="this.onerror=null;this.src='img/card.webp';" loading="lazy" draggable="false">
                 </div>
                 <div class="card-attribute-icon">
                     <img src="img/${attrEn}.webp" alt="${cardData.attribute}">
