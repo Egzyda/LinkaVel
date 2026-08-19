@@ -1059,7 +1059,7 @@ const MASTER_CARDS = {
     // --- 新規追加カード ---
     "m043": {
         id: "m043",
-        image: "img/m043.webp",
+        icon: "GiAngelWings",
         name: "メタリック・ワイバーン",
         type: "monster",
         subType: "normal",
@@ -1072,7 +1072,7 @@ const MASTER_CARDS = {
     },
     "m044": {
         id: "m044",
-        image: "img/m044.webp",
+        icon: "GiFireShield",
         name: "ジェネラル・フォートレス",
         type: "monster",
         subType: "normal",
@@ -1085,7 +1085,7 @@ const MASTER_CARDS = {
     },
     "s028": {
         id: "s028",
-        image: "img/s028.webp",
+        icon: "GiCannon",
         name: "炎界加熱式砲台",
         type: "magic",
         subType: "permanent",
@@ -1097,7 +1097,7 @@ const MASTER_CARDS = {
     },
     "s029": {
         id: "s029",
-        image: "img/s029.webp",
+        icon: "GiVortex",
         name: "海界の儀式",
         type: "magic",
         subType: "normal",
@@ -1109,7 +1109,7 @@ const MASTER_CARDS = {
     },
     "s030": {
         id: "s030",
-        image: "img/s030.webp",
+        icon: "GiOak",
         name: "森界転生",
         type: "magic",
         subType: "normal",
@@ -1121,7 +1121,7 @@ const MASTER_CARDS = {
     },
     "s031": {
         id: "s031",
-        image: "img/s031.webp",
+        icon: "GiHolyWater",
         name: "聖界光波",
         type: "magic",
         subType: "normal",
@@ -1133,7 +1133,7 @@ const MASTER_CARDS = {
     },
     "s032": {
         id: "s032",
-        image: "img/s032.webp",
+        icon: "GiTombstone",
         name: "冥界の命綱",
         type: "magic",
         subType: "permanent",
@@ -1145,7 +1145,7 @@ const MASTER_CARDS = {
     },
     "s033": {
         id: "s033",
-        image: "img/s033.webp",
+        icon: "GiTerror",
         name: "魔術破壊",
         type: "magic",
         subType: "normal",
