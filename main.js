@@ -3070,3 +3070,24 @@ setTimeout(() => {
     document.addEventListener('click', handleGlobalInteract);
     console.log("Global Interaction Handler Attached.");
 }, 100);
+// --- 画像拡大ビューアー ---
+window.openImageViewer = function(htmlContent) {
+    const modal = document.getElementById('image-viewer-modal');
+    const container = document.getElementById('image-viewer-container');
+    if(modal && container) {
+        container.innerHTML = htmlContent;
+        // SVGが元の枠に合わせて大きくなりすぎないようにする
+        const svg = container.querySelector('svg');
+        if (svg) {
+            svg.style.width = '100%';
+            svg.style.height = '100%';
+        }
+        modal.style.display = 'flex';
+    }
+}
+window.closeImageViewer = function() {
+    const modal = document.getElementById('image-viewer-modal');
+    if(modal) {
+        modal.style.display = 'none';
+    }
+}

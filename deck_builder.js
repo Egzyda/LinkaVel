@@ -297,6 +297,8 @@ const DeckBuilder = {
 
         if (!card) {
             imgBox.innerHTML = "";
+            imgBox.onclick = null;
+            imgBox.style.cursor = "default";
             infoBox.innerHTML = `<div style="color:#666; display:flex; align-items:center; justify-content:center; height:100%;">カードを選択してください</div>`;
             actions.style.display = "none";
             return;
@@ -304,6 +306,12 @@ const DeckBuilder = {
 
         actions.style.display = "flex";
         imgBox.innerHTML = buildCardArtHtml(card);
+        imgBox.style.cursor = "pointer";
+        imgBox.onclick = () => {
+            if (window.openImageViewer) {
+                window.openImageViewer(buildCardArtHtml(card));
+            }
+        };
 
         const isMonster = card.type === "monster";
         const statsHtml = isMonster
