@@ -283,7 +283,7 @@ const EffectLogic = {
      * @param {Object} card - トラッシュに送られたカード
      * @param {string} side - そのカードの持ち主 ("player" | "opponent")
      */
-    async notifyCardSentToTrash(card, side) {
+    async notifyCardSentToTrash(card, side, location = "unknown") {
         if (!card || GAME_STATE.isGameOver) return;
 
         // 1. 他カードの誘発（アクア・サルベージ s006 等）
@@ -294,15 +294,21 @@ const EffectLogic = {
             for (const source of sources) {
                 if (!source || source === card || !source.logic) continue;
 
-                const matched = source.logic.some(action => {
-                    if (action.trigger !== "on_other_sent_to_trash") return false;
-                    // 「自分の」カードが送られた時のみ反応する（相手の破壊では誘発しない）
-                    if (watcherSide !== side) return false;
-                    return this._checkFilter(card, action.filter || {});
+                let matchedTrigger = null;
+                source.logic.forEach(action => {
+                    if (action.trigger === "on_other_sent_to_trash" || action.trigger === "on_card_trashed") {
+                        if (watcherSide === side && this._checkFilter(card, action.triggerFilter || action.filter || {})) {
+                            matchedTrigger = action.trigger;
+                        }
+                    } else if (action.trigger === "on_deck_trashed" && location === "deck") {
+                        if (watcherSide === side && this._checkFilter(card, action.triggerFilter || action.filter || {})) {
+                            matchedTrigger = action.trigger;
+                        }
+                    }
                 });
 
-                if (matched) {
-                    await this.resolveEffects(source, watcherSide, "on_other_sent_to_trash");
+                if (matchedTrigger) {
+                    await this.resolveEffects(source, watcherSide, matchedTrigger);
                 }
             }
         }
@@ -328,6 +334,7 @@ const EffectLogic = {
             case "mill": await this.applyMill(action, side); break;
             case "buff": await this.applyBuff(action, side, sourceCard); break;
             case "destroy": await this.applyDestroy(action, side); break;
+            case "banish": await this.applyBanish(action, side, sourceCard); break;
             case "draw_and_discard": await this.applyDrawAndDiscard(action, side); break;
             case "special_summon": await this.applySpecialSummon(action, side); break;
             case "search": await this.applySearch(action, side); break;
@@ -340,6 +347,7 @@ const EffectLogic = {
             case "battle_protection":
             case "global_protection":
             case "damage_reduction":
+            case "resist_magic":
                 // これらは判定フェーズで参照されるため実行時はログのみ
                 console.log(`Static Effect Active: ${action.type}`);
                 break;
@@ -401,7 +409,7 @@ const EffectLogic = {
 
             sendCardToTrash(side, card);
             if (typeof updateUI === "function") updateUI();
-            await this.notifyCardSentToTrash(card, side);
+            await this.notifyCardSentToTrash(card, side, "deck");
             remaining--;
         }
         console.log(`${side} milled ${count} cards.`);
@@ -425,7 +433,33 @@ const EffectLogic = {
                 turn: GAME_STATE.turnCount
             });
             console.log(`${t.card.name} received buff: ${value}`);
+            if (value > 0) {
+                this.notifyPowerUp(t.card, t.side);
+            }
         });
+    },
+
+    /** パワーアップを通知する */
+    async notifyPowerUp(card, side) {
+        if (!card || GAME_STATE.isGameOver) return;
+        for (const watcherSide of ["player", "opponent"]) {
+            const p = GAME_STATE[watcherSide];
+            const sources = [...p.field.monsters, ...p.field.magics];
+            for (const source of sources) {
+                if (!source || !source.logic) continue;
+                let matchedTrigger = null;
+                source.logic.forEach(action => {
+                    if (action.trigger === "on_power_up") {
+                        if (watcherSide === side && this._checkFilter(card, action.filter || {})) {
+                            matchedTrigger = action.trigger;
+                        }
+                    }
+                });
+                if (matchedTrigger) {
+                    await this.resolveEffects(source, watcherSide, matchedTrigger);
+                }
+            }
+        }
     },
 
     /** 破壊処理の実装 */
@@ -434,6 +468,28 @@ const EffectLogic = {
         for (const t of targets) {
             if (typeof destroyMonster === "function") {
                 await destroyMonster(t.side, t.slotIdx);
+            }
+        }
+    },
+
+    /** 除外処理の実装 */
+    async applyBanish(action, side, sourceCard) {
+        const targets = await this._acquireTargets(action, side, sourceCard);
+        for (const t of targets) {
+            const p = GAME_STATE[t.side];
+            const card = p.field.monsters[t.slotIdx];
+            if (card) {
+                // UIから削除
+                const prefix = (t.side === "player") ? "ply" : "opt";
+                const el = document.getElementById(`${prefix}-monster-${t.slotIdx}`);
+                if (el) el.innerHTML = "";
+                
+                if (typeof showToastMessage === "function") showToastMessage(`${card.name} が除外された`, t.side);
+                p.field.monsters[t.slotIdx] = null;
+                if (typeof banishCard === "function") {
+                    banishCard(t.side, card);
+                }
+                if (typeof updateUI === "function") updateUI();
             }
         }
     },
@@ -542,6 +598,56 @@ const EffectLogic = {
             }
         }
 
+        // LPを支払うコスト
+        if (cost.payLp) {
+            if (p.lp <= cost.payLp) return false;
+            p.lp -= cost.payLp;
+            if (typeof showDamageNumber === "function") showDamageNumber(side, cost.payLp, false);
+            console.log(`${side} paid ${cost.payLp} LP. Current LP: ${p.lp}`);
+        }
+
+        // 特定のカードをトラッシュするコスト
+        if (cost.sendToTrash) {
+            const n = cost.sendToTrash;
+            let candidates = [];
+            if (cost.location.includes("hand")) {
+                p.hand.forEach((c, idx) => {
+                    if (this._checkFilter(c, cost.filter)) candidates.push({ type: "hand", idx: idx, card: c });
+                });
+            }
+            if (cost.location.includes("field")) {
+                p.field.monsters.forEach((c, idx) => {
+                    if (c && this._checkFilter(c, cost.filter)) candidates.push({ type: "monster", idx: idx, card: c });
+                });
+                p.field.magics.forEach((c, idx) => {
+                    if (c && this._checkFilter(c, cost.filter)) candidates.push({ type: "magic", idx: idx, card: c });
+                });
+            }
+            if (candidates.length < n) return false;
+            
+            // 自動で選ぶ（今回は手札優先、それからモンスター、魔術の順で選ぶなど簡易ロジック）
+            for (let i = 0; i < n; i++) {
+                const target = candidates[i];
+                if (target.type === "hand") {
+                    const c = p.hand.splice(target.idx, 1)[0];
+                    sendCardToTrash(side, c);
+                    await this.notifyCardSentToTrash(c, side);
+                } else if (target.type === "monster") {
+                    const c = p.field.monsters[target.idx];
+                    p.field.monsters[target.idx] = null;
+                    if (typeof renderFieldCard === "function") renderFieldCard(side, "monster", target.idx, null);
+                    sendCardToTrash(side, c);
+                    await this.notifyCardSentToTrash(c, side);
+                } else if (target.type === "magic") {
+                    const c = p.field.magics[target.idx];
+                    p.field.magics[target.idx] = null;
+                    if (typeof renderFieldCard === "function") renderFieldCard(side, "magic", target.idx, null);
+                    sendCardToTrash(side, c);
+                    await this.notifyCardSentToTrash(c, side);
+                }
+            }
+        }
+
         if (typeof updateUI === "function") updateUI();
         return true;
     },
@@ -553,6 +659,18 @@ const EffectLogic = {
         const p = GAME_STATE[side];
         if (cost.discardHand && p.hand.length < cost.discardHand) return false;
         if (cost.banishTrash && p.trash.length < cost.banishTrash) return false;
+        if (cost.payLp && p.lp <= cost.payLp) return false;
+        if (cost.sendToTrash) {
+            let candidates = [];
+            if (cost.location.includes("hand")) {
+                candidates = candidates.concat(p.hand.filter(c => this._checkFilter(c, cost.filter)));
+            }
+            if (cost.location.includes("field")) {
+                candidates = candidates.concat(p.field.monsters.filter(c => c && this._checkFilter(c, cost.filter)));
+                candidates = candidates.concat(p.field.magics.filter(c => c && this._checkFilter(c, cost.filter)));
+            }
+            if (candidates.length < cost.sendToTrash) return false;
+        }
         return true;
     },
 
@@ -626,7 +744,13 @@ const EffectLogic = {
         if (action.targetSelect === "all") {
             return p.field.monsters
                 .map((m, i) => ({ card: m, side: targetSide, slotIdx: i }))
-                .filter(t => t.card !== null && this._checkFilter(t.card, filter));
+                .filter(t => {
+                    if (t.card === null || !this._checkFilter(t.card, filter)) return false;
+                    if (sourceCard && sourceCard.type === "magic" && targetSide !== side) {
+                        if (this.checkMagicProtection(t.card, targetSide)) return false;
+                    }
+                    return true;
+                });
         }
 
         let candidates = [];
@@ -634,6 +758,10 @@ const EffectLogic = {
             if (m && this._checkFilter(m, filter)) {
                 // 条件判定: is_weakened (森界の怒り等)
                 if (action.condition === "is_weakened" && !this.isWeakened(m, targetSide, i)) return;
+                // 魔術耐性判定
+                if (sourceCard && sourceCard.type === "magic" && targetSide !== side) {
+                    if (this.checkMagicProtection(m, targetSide)) return;
+                }
                 candidates.push({ card: m, side: targetSide, slotIdx: i });
             }
         });
@@ -847,12 +975,34 @@ const EffectLogic = {
             const randIdx = Math.floor(Math.random() * candidates.length);
             const targetCard = candidates.splice(randIdx, 1)[0];
 
-            // デッキから削除して手札へ (安全にインデックスを確認)
             const idx = p.deck.indexOf(targetCard);
             if (idx !== -1) {
                 p.deck.splice(idx, 1);
                 p.hand.push(targetCard);
                 console.log(`${side} searched ${targetCard.name}`);
+            }
+        }
+        
+        // followUp処理 (例: discard)
+        if (action.followUp && action.followUp.type === "discard") {
+            const discardCount = action.followUp.count || 1;
+            if (p.hand.length > 0) {
+                const actualCount = Math.min(discardCount, p.hand.length);
+                let discarded = [];
+                if (side === "player" && GAME_STATE.turnPlayer === "player" && typeof selectHandCardsUI === "function") {
+                    const picks = await selectHandCardsUI(actualCount);
+                    discarded = picks.sort((a, b) => b - a).map(idx => p.hand.splice(idx, 1)[0]);
+                } else {
+                    const score = (c) => (typeof CpuLogic !== "undefined") ? CpuLogic.discardScore(c) : 0;
+                    for (let i = 0; i < actualCount; i++) {
+                        p.hand.sort((a, b) => score(b) - score(a));
+                        discarded.push(p.hand.shift());
+                    }
+                }
+                for (const card of discarded) {
+                    sendCardToTrash(side, card);
+                    await this.notifyCardSentToTrash(card, side);
+                }
             }
         }
     },
@@ -995,6 +1145,27 @@ const EffectLogic = {
             default:
                 return true;
         }
+    },
+
+    /** 魔術耐性の判定 */
+    checkMagicProtection: function(card, side) {
+        let isProtected = false;
+        const p = GAME_STATE[side];
+        const allFields = [...p.field.monsters, ...p.field.magics];
+        
+        allFields.forEach(source => {
+            if (!source || !source.logic) return;
+            source.logic.forEach(action => {
+                if (action.trigger === "always" && action.type === "resist_magic" && action.targetSide === "self") {
+                    if (action.filter) {
+                        if (this._checkFilter(card, action.filter)) isProtected = true;
+                    } else {
+                        isProtected = true;
+                    }
+                }
+            });
+        });
+        return isProtected;
     },
 
     /** 戦闘破壊耐性の判定 */
@@ -1201,6 +1372,9 @@ const EffectLogic = {
                 duration: durationCount,
                 turn: GAME_STATE.turnCount
             });
+            if (value > 0) {
+                this.notifyPowerUp(t.card, t.side);
+            }
         });
         console.log(`Global Buff applied: ${value} to ${targets.length} targets.`);
     },

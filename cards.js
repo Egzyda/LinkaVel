@@ -62,7 +62,7 @@ const MASTER_CARDS = {
         level: 3,
         power: 1200,
         categories: ["炎界"],
-        text: "このモンスターを召喚・特殊召喚した時、自分のトラッシュからレベル1のモンスターを2体ランダムに特殊召喚する。",
+        text: "このモンスターを召喚・特殊召喚した時、自分のトラッシュからレベル1のモンスター2体をランダムに特殊召喚する。",
         summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
         logic: [{ type: "special_summon", trigger: "on_summon", source: "trash", count: 2, filter: { level: 1 }, targetSelect: "random", optional: false }]
     },
@@ -74,9 +74,9 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "火",
         level: 4,
-        power: 1700,
+        power: 2000,
         categories: ["炎界"],
-        text: "①1ターンに1度、自分のデッキからレベル2以下の【炎界】モンスターを1体ランダムに特殊召喚する。\n②このモンスターがフィールドに存在する限り、自分の火属性モンスターのパワーは300アップする。",
+        text: "①1ターンに1度、自分のデッキからレベル2以下の【炎界】モンスター1体をランダムに特殊召喚する。\n②このモンスターがフィールドに存在する限り、自分の火属性モンスターのパワーは300アップする。",
         summonRequirement: { type: "normal", costCount: 3, costFilter: { minLevel: 1 } },
         logic: [
             { type: "special_summon", trigger: "ignition", countLimit: "once_per_turn", source: "deck", count: 1, filter: { category: "炎界", maxLevel: 2 }, targetSelect: "random" },
@@ -91,9 +91,9 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "火",
         categories: ["炎界"],
-        text: "自分のデッキからレベル1の炎属性モンスターをランダムに2体特殊召喚する。",
+        text: "自分のデッキからレベル1の炎属性モンスターをランダムに1体特殊召喚する。",
         summonRequirement: { type: "magic_activation" },
-        logic: [{ type: "special_summon", trigger: "on_activate", source: "deck", count: 2, filter: { level: 1, attribute: "火" }, targetSelect: "random" }]
+        logic: [{ type: "special_summon", trigger: "on_activate", source: "deck", count: 1, filter: { level: 1, attribute: "火" }, targetSelect: "random" }]
     },
     "s002": {
         id: "s002",
@@ -103,7 +103,7 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "火",
         categories: ["炎界"],
-        text: "自分のトラッシュからレベル2の【炎界】モンスターを1体ランダムに特殊召喚する。",
+        text: "自分のトラッシュからレベル2の【炎界】モンスター1体をランダムに特殊召喚する。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "special_summon", trigger: "on_activate", source: "trash", count: 1, filter: { level: 2, category: "炎界" }, targetSelect: "random" }]
     },
@@ -115,9 +115,9 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "火",
         categories: [],
-        text: "自分のフィールドの火属性モンスター1体のパワーを、相手ターン終了時まで500アップする。",
+        text: "自分フィールドの火属性モンスター1体のパワーを500アップする。",
         summonRequirement: { type: "magic_activation" },
-        logic: [{ type: "buff", trigger: "on_activate", targetSelect: "manual", filter: { attribute: "火" }, value: 500, duration: "until_opponent_end" }]
+        logic: [{ type: "buff", trigger: "on_activate", targetSelect: "manual", filter: { attribute: "火" }, value: 500, duration: "permanent" }]
     },
 
     // =================================================================
@@ -131,11 +131,11 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "水",
         level: 1,
-        power: 400,
+        power: 200,
         categories: [],
-        text: "このモンスターがトラッシュに送られた時、自分は2枚ドローする。",
+        text: "このモンスターがトラッシュに送られた時、1枚ドローする。",
         summonRequirement: { type: "normal", costCount: 0, costFilter: null },
-        logic: [{ type: "draw_card", trigger: "on_sent_to_trash", count: 2 }]
+        logic: [{ type: "draw_card", trigger: "on_sent_to_trash", count: 1 }]
     },
     "m007": {
         id: "m007",
@@ -145,9 +145,9 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "水",
         level: 1,
-        power: 300,
+        power: 100,
         categories: ["海界"],
-        text: "このモンスターがトラッシュに送られた時、自分のデッキから水属性のレベル1モンスターを2体ランダムに特殊召喚する。",
+        text: "このモンスターがトラッシュに送られた時、自分のデッキから水属性のレベル1モンスター2体をランダムに特殊召喚する。",
         summonRequirement: { type: "normal", costCount: 0, costFilter: null },
         logic: [{ type: "special_summon", trigger: "on_sent_to_trash", source: "deck", count: 2, filter: { attribute: "水", level: 1 }, targetSelect: "random" }]
     },
@@ -159,7 +159,7 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "水",
         level: 2,
-        power: 800,
+        power: 1000,
         categories: ["海界"],
         text: "",
         summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
@@ -187,7 +187,7 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "水",
         level: 4,
-        power: 2100,
+        power: 2400,
         categories: ["海界"],
         text: "このモンスターがトラッシュに送られた時、自分のデッキ・トラッシュからレベル2以下の【海界】モンスターをランダムに2体特殊召喚する。",
         summonRequirement: { type: "normal", costCount: 3, costFilter: { minLevel: 1 } },
@@ -201,7 +201,7 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "水",
         categories: [],
-        text: "自分の水属性モンスターを1体選択する。このターン、そのモンスターと戦闘を行った相手モンスターを戦闘後に破壊する。",
+        text: "自分の水属性モンスター1体を選択する。このターン、そのモンスターと戦闘を行った相手フィールドのモンスターを戦闘後に破壊する。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "apply_combat_effect", trigger: "on_activate", targetSelect: "manual", filter: { attribute: "水" }, effect: "destroy_opponent_after_combat", duration: "until_end_turn" }]
     },
@@ -255,11 +255,11 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "草",
         level: 1,
-        power: 200,
+        power: 300,
         categories: ["森界"],
-        text: "このモンスターを召喚・特殊召喚した時、相手モンスター1体のパワーを400ダウンさせる。",
+        text: "このモンスターを召喚・特殊召喚した時、相手フィールドのモンスター1体のパワーを300ダウンさせる。",
         summonRequirement: { type: "normal", costCount: 0, costFilter: null },
-        logic: [{ type: "buff", trigger: "on_summon", targetSelect: "manual", targetSide: "opponent", value: -400, duration: "until_end_turn" }]
+        logic: [{ type: "buff", trigger: "on_summon", targetSelect: "manual", targetSide: "opponent", value: -300, duration: "until_end_turn" }]
     },
     "m013": {
         id: "m013",
@@ -269,11 +269,11 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "草",
         level: 2,
-        power: 900,
+        power: 800,
         categories: ["森界"],
-        text: "このモンスターを召喚・特殊召喚した時、相手モンスター全てのパワーを400ダウンさせる。",
+        text: "このモンスターを召喚・特殊召喚した時、相手フィールドのモンスター全てのパワーを300ダウンさせる。",
         summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
-        logic: [{ type: "global_buff", trigger: "on_summon", targetSide: "opponent", value: -400, duration: "until_end_turn" }]
+        logic: [{ type: "global_buff", trigger: "on_summon", targetSide: "opponent", value: -300, duration: "until_end_turn" }]
     },
     "m014": {
         id: "m014",
@@ -297,9 +297,9 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "草",
         level: 4,
-        power: 1700,
+        power: 2100,
         categories: ["森界"],
-        text: "このモンスターを召喚・特殊召喚した時、相手モンスター全てのパワーを500ダウンさせる。",
+        text: "このモンスターを召喚・特殊召喚した時、相手フィールドのモンスター全てのパワーを500ダウンさせる。",
         summonRequirement: { type: "normal", costCount: 3, costFilter: { minLevel: 1 } },
         logic: [{ type: "global_buff", trigger: "on_summon", targetSide: "opponent", value: -500, duration: "until_end_turn" }]
     },
@@ -311,7 +311,7 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "草",
         categories: ["森界"],
-        text: "パワーが元々の数値より低下している相手モンスター1体を選択して破壊する。",
+        text: "パワーが元々の数値より低下している相手フィールドのモンスター1体を選択して破壊する。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "destroy", trigger: "on_activate", targetSelect: "manual", targetSide: "opponent", condition: "is_weakened" }]
     },
@@ -335,7 +335,7 @@ const MASTER_CARDS = {
         subType: "permanent",
         attribute: "草",
         categories: ["森界"],
-        text: "自分フィールド上に【森界】モンスターが存在する限り、相手モンスターのパワーは200ダウンする。",
+        text: "自分フィールド上に【森界】モンスターが存在する限り、相手フィールドのモンスターのパワーは200ダウンする。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "global_buff", trigger: "always", condition: "has_category_on_field", category: "森界", targetSide: "opponent", value: -200 }]
     },
@@ -351,7 +351,7 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "光",
         level: 1,
-        power: 300,
+        power: 400,
         categories: ["聖界"],
         text: "このモンスターを召喚・特殊召喚した時、自分のLPを500回復する。",
         summonRequirement: { type: "normal", costCount: 0, costFilter: null },
@@ -365,7 +365,7 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "光",
         level: 1,
-        power: 500,
+        power: 400,
         categories: ["聖界"],
         text: "このモンスターは1ターンに1度だけ、戦闘では破壊されない。",
         summonRequirement: { type: "normal", costCount: 0, costFilter: null },
@@ -381,7 +381,7 @@ const MASTER_CARDS = {
         level: 2,
         power: 800,
         categories: ["聖界"],
-        text: "このモンスターがフィールドに存在する限り、自分フィールドの光属性モンスターは1ターンに1度だけ戦闘では破壊されない。",
+        text: "このモンスターがフィールドに存在する限り、自分フィールドの光属性モンスターはそれぞれ1ターンに1度だけ戦闘では破壊されない。",
         summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
         logic: [{ type: "global_protection", trigger: "always", filter: { attribute: "光" }, countLimit: "once_per_turn" }]
     },
@@ -395,11 +395,11 @@ const MASTER_CARDS = {
         level: 4,
         power: 2000,
         categories: ["聖界"],
-        text: "①召喚・特殊召喚時、LPを1000回復する。\n②1ターンに1度、LPが回復した時、ターン終了時まで自分の光属性モンスター全てのパワーを300アップする。",
+        text: "①このカードが召喚・特殊召喚した時、自分のLPを1000回復する。\n②1ターンに1度、自分のLPが回復した時、自分の光属性モンスター全てのパワーを300アップする。",
         summonRequirement: { type: "normal", costCount: 3, costFilter: { minLevel: 1 } },
         logic: [
             { type: "heal", trigger: "on_summon", value: 1000 },
-            { type: "global_buff", trigger: "on_lp_gain", targetSide: "self", filter: { attribute: "光" }, value: 300, duration: "until_end_turn", countLimit: "once_per_turn" }
+            { type: "global_buff", trigger: "on_lp_gain", targetSide: "self", filter: { attribute: "光" }, value: 300, duration: "permanent", countLimit: "once_per_turn" }
         ]
     },
     "m030": {
@@ -424,9 +424,9 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "光",
         categories: [],
-        text: "自分のLPを500回復し、自分のデッキからレベル1の光属性モンスターをランダムに1体手札に加える。",
+        text: "自分のLPを500回復し、自分のデッキからレベル1の光属性モンスターをランダムに2体手札に加える。",
         summonRequirement: { type: "magic_activation" },
-        logic: [{ type: "heal", trigger: "on_activate", value: 500 }, { type: "search", trigger: "on_activate", count: 1, filter: { level: 1, attribute: "光" }, targetSelect: "random" }]
+        logic: [{ type: "heal", trigger: "on_activate", value: 500 }, { type: "search", trigger: "on_activate", count: 2, filter: { level: 1, attribute: "光" }, targetSelect: "random" }]
     },
     "s011": {
         id: "s011",
@@ -436,7 +436,7 @@ const MASTER_CARDS = {
         subType: "permanent",
         attribute: "光",
         categories: ["聖界"],
-        text: "自分のフィールドに聖界モンスターが存在する限り、自分が受ける戦闘ダメージを300ダウンする。",
+        text: "自分フィールドに聖界モンスターが存在する限り、自分が受ける戦闘ダメージを300ダウンする。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "damage_reduction", trigger: "always", condition: "has_category_on_field", category: "聖界", value: 300 }]
     },
@@ -466,7 +466,7 @@ const MASTER_CARDS = {
         level: 1,
         power: 400,
         categories: ["冥界"],
-        text: "このモンスターを召喚・特殊召喚した時、自分のデッキの上から3枚をトラッシュする。",
+        text: "このモンスターを召喚・特殊召喚した時、自分のデッキの上から3枚トラッシュする。",
         summonRequirement: { type: "normal", costCount: 0, costFilter: null },
         logic: [{ type: "mill", trigger: "on_summon", count: 3 }]
     },
@@ -478,7 +478,7 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "闇",
         level: 1,
-        power: 500,
+        power: 400,
         categories: ["冥界"],
         text: "このモンスターを召喚・特殊召喚した時、自分のトラッシュから【冥界】魔術をランダムに1枚手札に加える。",
         summonRequirement: { type: "normal", costCount: 0, costFilter: null },
@@ -494,7 +494,7 @@ const MASTER_CARDS = {
         level: 2,
         power: 900,
         categories: ["冥界"],
-        text: "1ターンに1度、自分のデッキの上から3枚をトラッシュする。",
+        text: "1ターンに1度、自分のデッキの上から3枚トラッシュする。",
         summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
         logic: [{ type: "mill", trigger: "ignition", count: 3, countLimit: "once_per_turn" }]
     },
@@ -506,11 +506,11 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "闇",
         level: 4,
-        power: 2000,
+        power: 2300,
         categories: ["冥界"],
-        text: "1ターンに1度、自分のトラッシュから闇属性モンスター1体をランダムに特殊召喚する。",
+        text: "1ターンに1度、【冥界】モンスターが自分のトラッシュに送られた時、相手フィールドのモンスター1体をランダムに破壊する。",
         summonRequirement: { type: "normal", costCount: 3, costFilter: { minLevel: 1 } },
-        logic: [{ type: "special_summon", trigger: "ignition", source: "trash", count: 1, filter: { attribute: "闇", type: "monster" }, targetSelect: "random", optional: true, countLimit: "once_per_turn" }]
+        logic: [{ type: "destroy", trigger: "on_card_trashed", triggerFilter: { category: "冥界", type: "monster" }, targetSide: "opponent", targetSelect: "random", count: 1, countLimit: "once_per_turn" }]
     },
     "m031": {
         id: "m031",
@@ -537,7 +537,7 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "闇",
         categories: [],
-        text: "自分のデッキの上から5枚をトラッシュする。その後、自分のトラッシュから闇属性モンスター1枚を手札に加える。",
+        text: "自分のデッキの上から5枚トラッシュする。その後、自分のトラッシュから闇属性モンスター1枚を手札に加える。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "mill", trigger: "on_activate", count: 5 }, { type: "salvage", trigger: "on_activate", filter: { attribute: "闇", type: "monster" }, targetSelect: "random" }]
     },
@@ -549,7 +549,7 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "闇",
         categories: ["冥界"],
-        text: "自分と相手のフィールドのモンスターを1体ずつ選択して破壊する。",
+        text: "自分と相手フィールドのモンスターを1体ずつ選択して破壊する。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "destroy", trigger: "on_activate", targetSide: "self", targetSelect: "manual", count: 1 }, { type: "destroy", trigger: "on_activate", targetSide: "opponent", targetSelect: "manual", count: 1 }]
     },
@@ -621,7 +621,7 @@ const MASTER_CARDS = {
         level: 1,
         power: 200,
         categories: [],
-        text: "召喚・特殊召喚時、デッキから2枚ドローし、その後手札を1枚選んで捨てる。",
+        text: "このモンスターが召喚・特殊召喚した時、2枚ドローし、その後手札を1枚選択して捨てる。",
         summonRequirement: { type: "normal", costCount: 0, costFilter: null },
         logic: [{ type: "draw_and_discard", trigger: "on_summon", drawCount: 2, discardCount: 1, discardType: "manual" }]
     },
@@ -647,9 +647,9 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "無",
         level: 2,
-        power: 600,
+        power: 800,
         categories: [],
-        text: "召喚・特殊召喚時、自分のモンスター1体のパワーをターン終了時まで300アップする。",
+        text: "このカードが召喚・特殊召喚した時、自分フィールドのモンスター1体のパワーをターン終了時まで300アップする。",
         summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
         logic: [{ type: "buff", trigger: "on_summon", targetSelect: "manual", value: 300, duration: "until_end_turn" }]
     },
@@ -661,7 +661,7 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "無",
         categories: [],
-        text: "自分モンスター1体のパワーを300アップする。",
+        text: "自分フィールドのモンスター1体のパワーを300アップする。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "buff", trigger: "on_activate", targetSelect: "manual", value: 300, duration: "until_end_turn" }]
     },
@@ -673,7 +673,7 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "無",
         categories: [],
-        text: "相手モンスター1体のパワーを300ダウンさせる。",
+        text: "相手フィールドのモンスター1体のパワーを300ダウンさせる。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "buff", trigger: "on_activate", targetSide: "opponent", targetSelect: "manual", value: -300, duration: "until_end_turn" }]
     },
@@ -685,7 +685,7 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "無",
         categories: [],
-        text: "自分のデッキから2枚ドローし、その後手札を2枚選んで捨てる。",
+        text: "2枚ドローし、その後手札を2枚選択して捨てる。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "draw_and_discard", trigger: "on_activate", drawCount: 2, discardCount: 2, discardType: "manual" }]
     },
@@ -703,7 +703,7 @@ const MASTER_CARDS = {
         subType: "normal",
         attribute: "無",
         categories: [],
-        text: "自分のトラッシュからレベル3以下のモンスターを1体ランダムに特殊召喚する。",
+        text: "自分のトラッシュからレベル3以下のモンスター1体をランダムに特殊召喚する。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "special_summon", trigger: "on_activate", source: "trash", count: 1, filter: { maxLevel: 3 }, targetSelect: "random" }]
     },
@@ -716,7 +716,7 @@ const MASTER_CARDS = {
         subType: "trap",
         attribute: "無",
         categories: [],
-        text: "相手がレベル1のモンスターを1体以上召喚・特殊召喚した時に発動する。そのモンスターを全て持ち主の手札に戻す。",
+        text: "相手がレベル1のモンスター1体以上を召喚・特殊召喚した時に発動する。そのモンスターを全て持ち主の手札に戻す。",
         summonRequirement: { type: "magic_activation" },
         logic: [{
             type: "bounce",
@@ -735,14 +735,14 @@ const MASTER_CARDS = {
         subType: "trap",
         attribute: "無",
         categories: [],
-        text: "相手がレベル2以上のモンスターで攻撃した時に発動する。そのモンスターのパワーを300ダウンさせる。",
+        text: "相手がレベル3以上のモンスターで攻撃した時に発動する。そのモンスターのパワーを500ダウンさせる。",
         summonRequirement: { type: "magic_activation" },
         logic: [{
             type: "buff",
             trigger: "on_opponent_attack",
-            condition: { attackerFilter: { minLevel: 2 } },
+            condition: { attackerFilter: { minLevel: 3 } },
             targetSelect: "event_attacker",
-            value: -300,
+            value: -500,
             duration: "until_end_turn"
         }]
     },
@@ -846,7 +846,7 @@ const MASTER_CARDS = {
         level: 1,
         power: 300,
         categories: [],
-        text: "1ターンに1度、自分の手札を1枚トラッシュに送って発動できる。相手の魔術ゾーンのカード1枚を選んで破壊する。伏せられたカードも選べる。",
+        text: "1ターンに1度、自分の手札を1枚トラッシュに送って発動できる。相手フィールドの魔術1枚を選択して破壊する。",
         summonRequirement: { type: "normal", costCount: 0, costFilter: null },
         logic: [{
             type: "destroy_magic",
@@ -869,9 +869,9 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "火",
         level: 2,
-        power: 700,
+        power: 900,
         categories: ["炎界"],
-        text: "このモンスターを召喚・特殊召喚した時、自分のデッキから【炎界】魔術を1枚ランダムに手札に加える。",
+        text: "このモンスターを召喚・特殊召喚した時、自分のデッキから【炎界】魔術1枚をランダムに手札に加える。",
         summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
         logic: [{ type: "search", trigger: "on_summon", count: 1, filter: { category: "炎界", type: "magic" }, targetSelect: "random" }]
     },
@@ -884,11 +884,11 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "火",
         level: 3,
-        power: 1300,
+        power: 1200,
         categories: ["炎界"],
-        text: "このモンスターが戦闘で相手モンスターを破壊した時、相手に400ダメージを与える。",
+        text: "このモンスターが召喚・特殊召喚した時、自分の炎属性モンスター1体のパワーを500アップする。",
         summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
-        logic: [{ type: "damage", trigger: "on_battle_destroy", targetSide: "opponent", value: 400 }]
+        logic: [{ type: "buff", trigger: "on_summon", targetSelect: "manual", filter: { attribute: "火" }, value: 500, duration: "permanent" }]
     },
 
     // --- 水属性（海界） ---
@@ -919,11 +919,11 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "水",
         level: 2,
-        power: 700,
+        power: 900,
         categories: ["海界"],
-        text: "このモンスターを召喚・特殊召喚した時、自分のデッキの上から3枚をトラッシュする。",
+        text: "このモンスターを召喚・特殊召喚した時、自分のデッキの上から2枚をトラッシュする。",
         summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
-        logic: [{ type: "mill", trigger: "on_summon", count: 3 }]
+        logic: [{ type: "mill", trigger: "on_summon", count: 2 }]
     },
 
     // --- 草属性（森界） ---
@@ -936,7 +936,7 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "草",
         level: 2,
-        power: 700,
+        power: 900,
         categories: ["森界"],
         text: "このモンスターを召喚・特殊召喚した時、自分のデッキから罠魔術を1枚ランダムに手札に加える。",
         summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
@@ -953,10 +953,10 @@ const MASTER_CARDS = {
         level: 3,
         power: 1000,
         categories: ["森界"],
-        text: "このモンスターを召喚・特殊召喚した時、相手モンスター全てのパワーをターン終了時まで300ダウンする。その後、パワーが元々の数値より低下している相手モンスター1体を選んで破壊する。",
+        text: "このモンスターを召喚・特殊召喚した時、相手フィールドのモンスター全てのパワーを300ダウンする。その後、パワーが元々の数値より低下している相手フィールドのモンスター1体を選択して破壊する。",
         summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
         logic: [
-            { type: "global_buff", trigger: "on_summon", targetSide: "opponent", value: -300, duration: "until_end_turn" },
+            { type: "global_buff", trigger: "on_summon", targetSide: "opponent", value: -300, duration: "permanent" },
             { type: "destroy", trigger: "on_summon", targetSide: "opponent", targetSelect: "manual", condition: "is_weakened", count: 1 }
         ]
     },
@@ -971,9 +971,9 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "光",
         level: 2,
-        power: 700,
+        power: 800,
         categories: ["聖界"],
-        text: "①このモンスターを召喚・特殊召喚した時、自分のLPを400回復する。\n②1ターンに1度、自分のLPが回復した時、自分のデッキから【聖界】カードを1枚ランダムに手札に加える。",
+        text: "①このモンスターを召喚・特殊召喚した時、自分のLPを400回復する。\n②1ターンに1度、自分のLPが回復した時、自分のデッキから【聖界】カード1枚をランダムに手札に加える。",
         summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
         logic: [
             { type: "heal", trigger: "on_summon", value: 400 },
@@ -991,11 +991,11 @@ const MASTER_CARDS = {
         level: 3,
         power: 1200,
         categories: ["聖界"],
-        text: "①このモンスターを召喚・特殊召喚した時、自分のLPを800回復する。\n②このモンスターがフィールドに存在する限り、自分が受ける戦闘ダメージは300ダウンする。",
+        text: "①このモンスターを召喚・特殊召喚した時、自分のLPを800回復する。\n②このモンスターが自分フィールドに存在する限り、自分のモンスターは相手の魔術の効果を受けない。",
         summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
         logic: [
             { type: "heal", trigger: "on_summon", value: 800 },
-            { type: "damage_reduction", trigger: "always", value: 300 }
+            { type: "resist_magic", trigger: "always", targetSide: "self" }
         ]
     },
 
@@ -1009,9 +1009,9 @@ const MASTER_CARDS = {
         subType: "effect",
         attribute: "闇",
         level: 2,
-        power: 700,
+        power: 900,
         categories: ["冥界"],
-        text: "このモンスターを召喚・特殊召喚した時、自分のデッキの上から3枚をトラッシュする。その後、自分のトラッシュから【冥界】魔術を1枚ランダムに手札に加える。",
+        text: "このモンスターを召喚・特殊召喚した時、自分のデッキの上から3枚トラッシュする。その後、自分のトラッシュから【冥界】魔術を1枚ランダムに手札に加える。",
         summonRequirement: { type: "normal", costCount: 1, costFilter: { minLevel: 1 } },
         logic: [
             { type: "mill", trigger: "on_summon", count: 3 },
@@ -1022,14 +1022,14 @@ const MASTER_CARDS = {
         id: "m042",
         image: "img/m042.webp",
         icon: "GiCrownedSkull",
-        name: "冥界の骸兵長 ネクロス",
+        name: "冥界の骸兵長 ネクローズ",
         type: "monster",
         subType: "effect",
         attribute: "闇",
         level: 3,
         power: 1100,
         categories: ["冥界"],
-        text: "このモンスターを召喚・特殊召喚した時、自分のトラッシュのカード3枚を除外して発動できる。相手モンスター1体を選んで破壊する。",
+        text: "このモンスターを召喚・特殊召喚した時、自分のトラッシュのカード3枚を除外して発動できる。相手フィールドのモンスター1体を選択して破壊する。",
         summonRequirement: { type: "normal", costCount: 2, costFilter: { minLevel: 1 } },
         logic: [{
             type: "destroy",
@@ -1054,174 +1054,110 @@ const MASTER_CARDS = {
         text: "自分のトラッシュから罠魔術を1枚ランダムに手札に加える。",
         summonRequirement: { type: "magic_activation" },
         logic: [{ type: "salvage", trigger: "on_activate", count: 1, filter: { type: "magic", subType: "trap" }, targetSelect: "random" }]
+    },
+    
+    // --- 新規追加カード ---
+    "m043": {
+        id: "m043",
+        image: "img/m043.webp",
+        name: "メタリック・ワイバーン",
+        type: "monster",
+        subType: "normal",
+        attribute: "無",
+        level: 4,
+        power: 2500,
+        categories: [],
+        text: "全身が硬い金属で覆われたワイバーン。その一撃は岩を砕く。",
+        summonRequirement: { type: "normal", costCount: 3, costFilter: { minLevel: 1 } }
+    },
+    "m044": {
+        id: "m044",
+        image: "img/m044.webp",
+        name: "ジェネラル・フォートレス",
+        type: "monster",
+        subType: "normal",
+        attribute: "無",
+        level: 5,
+        power: 3000,
+        categories: [],
+        text: "難攻不落の巨大な要塞。圧倒的な防御力と火力を誇る。",
+        summonRequirement: { type: "normal", costCount: 3, costFilter: { type: "monster", subType: "normal", minLevel: 1 } }
+    },
+    "s028": {
+        id: "s028",
+        image: "img/s028.webp",
+        name: "炎界加熱式砲台",
+        type: "magic",
+        subType: "permanent",
+        attribute: "火",
+        categories: ["炎界"],
+        text: "1ターンに1度、自分の火属性モンスターのパワーがアップした時、1枚ドローする。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{ type: "draw_card", trigger: "on_power_up", targetSide: "self", filter: { attribute: "火" }, count: 1, countLimit: "once_per_turn" }]
+    },
+    "s029": {
+        id: "s029",
+        image: "img/s029.webp",
+        name: "海界の儀式",
+        type: "magic",
+        subType: "normal",
+        attribute: "水",
+        categories: ["海界"],
+        text: "自分のデッキからレベル3以上の【海界】モンスター2枚をランダムに手札に加え、その後手札を2枚選択して捨てる。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{ type: "search", trigger: "on_activate", count: 2, filter: { category: "海界", type: "monster", minLevel: 3 }, targetSelect: "random", followUp: { type: "discard", count: 2, targetSelect: "manual" } }]
+    },
+    "s030": {
+        id: "s030",
+        image: "img/s030.webp",
+        name: "森界転生",
+        type: "magic",
+        subType: "normal",
+        attribute: "草",
+        categories: ["森界"],
+        text: "自分フィールドまたは手札から【森界】カード1枚をトラッシュし、2枚ドローする。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{ type: "draw_card", trigger: "on_activate", count: 2, cost: { sendToTrash: 1, filter: { category: "森界" }, location: ["field", "hand"] } }]
+    },
+    "s031": {
+        id: "s031",
+        image: "img/s031.webp",
+        name: "聖界光波",
+        type: "magic",
+        subType: "normal",
+        attribute: "光",
+        categories: ["聖界"],
+        text: "自分のLPを2000払い、相手のモンスター1体を選択して除外する。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{ type: "banish", trigger: "on_activate", targetSide: "opponent", targetSelect: "manual", count: 1, cost: { payLp: 2000 } }]
+    },
+    "s032": {
+        id: "s032",
+        image: "img/s032.webp",
+        name: "冥界の命綱",
+        type: "magic",
+        subType: "permanent",
+        attribute: "闇",
+        categories: ["冥界"],
+        text: "1ターンに1度、闇属性のカードが自分のデッキからトラッシュに送られた時、自分のトラッシュから闇属性のカードをランダムに2枚手札に加える。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{ type: "salvage", trigger: "on_deck_trashed", filter: { attribute: "闇" }, count: 2, targetSelect: "random", countLimit: "once_per_turn" }]
+    },
+    "s033": {
+        id: "s033",
+        image: "img/s033.webp",
+        name: "魔術破壊",
+        type: "magic",
+        subType: "normal",
+        attribute: "無",
+        categories: [],
+        text: "自分の手札1枚をトラッシュし、相手フィールドの魔術1枚を破壊する。",
+        summonRequirement: { type: "magic_activation" },
+        logic: [{ type: "destroy_magic", trigger: "on_activate", targetSide: "opponent", targetSelect: "manual", count: 1, cost: { discardHand: 1 } }]
     }
 };
 
-// ==========================================
-// デッキレシピ定義 (各30枚)
-// ==========================================
-const DECK_RECIPES = {
-    "starter_fire": {
-        name: "燃え盛る炎界",
-        cards: [
-            "m001", "m001", "m001", // フレイムタイガー
-            "m003", "m003", "m003", // 炎界の鼠 チューチャン
-            "m027", "m027", "m027", // リサーチ・ポッド
-            "m002", "m002", "m002", // 炎界の指揮官 モエス
-            "m025", "m025", "m025", // ガード・メカニクス
-            "m004", "m004", "m004", // 炎界の戦士 ブレイズ
-            "m005", "m005", "m005", // 炎界王 ヴァルトガス
-            "s001", "s001", "s001", // 炎界召集
-            "s002", "s002", "s002", // 炎界蘇生
-            "s003", "s003", "s003"  // フレイムラッシュ
-        ]
-    },
-    "starter_water": {
-        name: "静かなる海界",
-        cards: [
-            "m006", "m006", "m006", // アクア・キャット
-            "m007", "m007", "m007", // 海界の稚魚 クリオ
-            "m027", "m027", "m027", // リサーチ・ポッド
-            "m009", "m009", "m009", // 海界の槍騎士 スピア
-            "m028", "m028", "m028", // バリア・ジェネレーター
-            "m026", "m026", "m026", // アサルト・フレーム
-            "m010", "m010", "m010", // 海界王 シータイド
-            "s004", "s004", "s004", // 海の突撃
-            "s005", "s005", "s005", // 海界への帰還
-            "s006", "s006", "s006"  // アクア・サルベージ
-        ]
-    },
-    "starter_grass": {
-        name: "静寂の森界",
-        cards: [
-            "m011", "m011", "m011", // グリーン・リザード
-            "m012", "m012", "m012", // 森界の弓兵 モリファス
-            "m027", "m027", "m027", // リサーチ・ポッド
-            "m013", "m013", "m013", // 森界の番人 ボルフ
-            "m025", "m025", "m025", // ガード・メカニクス
-            "m014", "m014", "m014", // 森界の剣闘士 クジャシ
-            "m015", "m015", "m015", // 森界王 シルヴァス
-            "s007", "s007", "s007", // 森界の怒り
-            "s008", "s008", "s008", // 新緑召集
-            "s009", "s009", "s009"  // 森界の門
-        ]
-    },
-    "starter_light": {
-        name: "輝ける聖界",
-        cards: [
-            "m016", "m016", "m016", // 聖界の精霊 ピック
-            "m017", "m017", "m017", // 聖域の盾兵 シルディン
-            "m027", "m027", "m027", // リサーチ・ポッド
-            "m030", "m030", "m030", // 聖界の祈祷師 ウラーウェス
-            "m018", "m018", "m018", // 聖界の騎士 ジャスティス
-            "m026", "m026", "m026", // アサルト・フレーム
-            "m019", "m019", "m019", // 聖界王 レオニダス
-            "s010", "s010", "s010", // 聖なる祈り
-            "s011", "s011", "s011", // 聖界の結界
-            "s012", "s012", "s012"  // 光の導き
-        ]
-    },
-    "starter_dark": {
-        name: "深淵の冥界",
-        cards: [
-            "m020", "m020", "m020", // 冥界の番犬 ボスディ
-            "m021", "m021", "m021", // 冥界騎士 ゾグドルゴス
-            "m027", "m027", "m027", // リサーチ・ポッド
-            "m022", "m022", "m022", // 冥界の魔術師 ソルン
-            "s018", "s018", "s018", // マインド・リサーチ
-            "m031", "m031", "m031", // 冥界の亡霊 ソルゴス
-            "m023", "m023", "m023", // 冥界王 ハイヤデスード
-            "s013", "s013", "s013", // 闇の生贄
-            "s014", "s014", "s014", // 冥界からの迎え
-            "s015", "s015", "s015"  // 冥界の呼び声
-        ]
-    },
 
-    // =================================================================
-    // 上級デッキ（拡張セット込み・強めの構成）
-    // 従来のスターターは残したまま、選択肢として追加する
-    // =================================================================
-    "advanced_fire": {
-        name: "灼熱の炎界王",
-        cards: [
-            "m003", "m003", "m003", // 炎界の鼠 チューチャン (Lv1/500)
-            "m001", "m001", "m001", // フレイムタイガー (Lv1/相手ターン800)
-            "m002", "m002", "m002", // 炎界の指揮官 モエス (召喚時デッキからLv1)
-            "m033", "m033", "m033", // 炎界の伝令 フレアス (炎界魔術サーチ)
-            "m004", "m004", "m004", // 炎界の戦士 ブレイズ (トラッシュからLv1×2)
-            "m034", "m034",         // 炎界の砲手 ドラグバレル (戦闘破壊で400ダメージ)
-            "m005", "m005",         // 炎界王 ヴァルトガス
-            "s001", "s001", "s001", // 炎界召集
-            "s002", "s002",         // 炎界蘇生
-            "s022", "s022", "s022", // 炎界の加護 (罠)
-            "s003", "s003", "s003"  // フレイムラッシュ
-        ]
-    },
-    "advanced_water": {
-        name: "深淵の海界王",
-        cards: [
-            "m007", "m007", "m007", // 海界の稚魚 クリオ (墓地送りで展開)
-            "m006", "m006", "m006", // アクア・キャット (墓地送りで2ドロー)
-            "m036", "m036", "m036", // 海界の羅針 ナビス (召喚時3枚墓地)
-            "m009", "m009", "m009", // 海界の槍騎士 スピア (墓地送りで魔術回収)
-            "m035", "m035", "m035", // 海界の潮騎士 タイダル (2枚墓地/墓地送りで蘇生)
-            "m010", "m010",         // 海界王 シータイド
-            "s005", "s005", "s005", // 海界への帰還
-            "s006", "s006",         // アクア・サルベージ
-            "s023", "s023", "s023", // 海界の奇跡 (罠)
-            "s019", "s019",         // 奇跡の復活
-            "s004", "s004", "s004"  // 海の突撃
-        ]
-    },
-    "advanced_grass": {
-        name: "深緑の森界王",
-        cards: [
-            "m011", "m011", "m011", // グリーン・リザード (Lv1/500)
-            "m012", "m012", "m012", // 森界の弓兵 モリファス (召喚時-400)
-            "m013", "m013", "m013", // 森界の番人 ボルフ (召喚時 全体-400)
-            "m037", "m037", "m037", // 森界の罠師 ヴァイン (罠サーチ)
-            "m014", "m014",         // 森界の剣闘士 クジャシ (森界魔術サーチ)
-            "m038", "m038", "m038", // 森界の巨木 エルドラント (全体-300→除去)
-            "m015", "m015",         // 森界王 シルヴァス
-            "s009", "s009",         // 森界の門
-            "s007", "s007", "s007", // 森界の怒り
-            "s024", "s024", "s024", // 森界の壁 (罠)
-            "s008", "s008", "s008"  // 新緑召集
-        ]
-    },
-    "advanced_light": {
-        name: "聖光の聖界王",
-        cards: [
-            "m016", "m016", "m016", // 聖界の精霊 ピック (召喚時500回復)
-            "m017", "m017", "m017", // 聖界の盾兵 シルディン (戦闘破壊耐性)
-            "m030", "m030", "m030", // 聖界の祈祷師 ウラーウェス (毎ターン600回復)
-            "m039", "m039", "m039", // 聖界の癒し手 ルミナ (回復で聖界サーチ)
-            "m018", "m018",         // 聖界の騎士 ジャスティス (光属性に耐性付与)
-            "m040", "m040", "m040", // 聖界の審判者 セラフィム (800回復/ダメージ軽減)
-            "m019", "m019",         // 聖界王 レオニダス
-            "s010", "s010", "s010", // 聖なる祈り
-            "s011", "s011",         // 聖界の結界
-            "s025", "s025", "s025", // 聖界の雫 (罠)
-            "s012", "s012", "s012"  // 光の導き
-        ]
-    },
-    "advanced_dark": {
-        name: "冥闇の冥界王",
-        cards: [
-            "m021", "m021", "m021", // 冥界騎士 ゾグドルゴス (冥界魔術回収)
-            "m020", "m020", "m020", // 冥界の番犬 ボスディ (召喚時3枚墓地)
-            "m022", "m022", "m022", // 冥界の魔術師 ソルン (毎ターン3枚墓地)
-            "m041", "m041", "m041", // 冥界の墓守 グレイヴ (3枚墓地→魔術回収)
-            "m031", "m031", "m031", // 冥界の亡霊 ソルゴス (墓地肥やし→蘇生)
-            "m042", "m042",         // 冥界の骸兵長 ネクロス (トラッシュ3枚除外→除去)
-            "m023", "m023",         // 冥界王 ハイヤデスード
-            "s013", "s013", "s013", // 闇の生贄
-            "s015", "s015", "s015", // 冥界の呼び声
-            "s026", "s026",         // 冥界の歪み (罠)
-            "s014", "s014", "s014"  // 冥界からの迎え
-        ]
-    }
-};
 
 /**
  * IDからカードデータのディープコピーを取得する
