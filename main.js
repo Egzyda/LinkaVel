@@ -265,6 +265,7 @@ async function renderDeckSelection(target = "player") {
 
     // 1. ユーザーデッキ (Firestore) を先に表示。
     //    3秒以内に認証できなければタイムアウトしてスキップ（Loading固まり防止）。
+    let userDeckLoaded = false;
     if (typeof DeckBuilder !== 'undefined') {
         try {
             const user = await ensureAuthWithTimeout(3000);
@@ -273,10 +274,22 @@ async function renderDeckSelection(target = "player") {
                 userDecks.forEach(deck => {
                     html += createDeckItemHtml(deck.id, deck.name, "user", true, target);
                 });
+                userDeckLoaded = true;
             }
         } catch (e) {
             console.warn("ユーザーデッキ取得に失敗しました（スターターデッキのみ表示）:", e);
         }
+    }
+
+    // ユーザーデッキが読み込めなかった場合は再読み込みボタンを表示
+    if (!userDeckLoaded && typeof DeckBuilder !== 'undefined') {
+        html += `
+            <button class="menu-btn" style="font-size:0.8rem; opacity:0.8;" onclick="renderDeckSelection('${target}')">
+                <span class="btn-icon">🔄</span>
+                <span class="btn-text">自分のデッキを再読み込み</span>
+            </button>
+            <hr style="border:0; border-top:1px solid #333; margin:10px 0; width:100%;">
+        `;
     }
 
     // 2. スターターデッキは必ず表示
