@@ -720,7 +720,7 @@ body {
 
 /* メニュー画面はindex.htmlのクラスを使用 */
 #menu-screen.active {
-    background: radial-gradient(circle at center, #1a1a1a, #000);
+    background: radial-gradient(circle at center, rgba(26, 26, 26, 0.6), rgba(0, 0, 0, 0.8));
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -1413,7 +1413,7 @@ body {
  * 画面自体はスクロールさせない。デッキ一覧だけをスクロール領域にすることで、
  * デッキが増えてもタイトルが押し上げられて画面外に消えることがなくなる。 */
 #deck-select-screen.active {
-    background: radial-gradient(circle at center, #1a1a1a, #000);
+    background: radial-gradient(circle at center, rgba(26, 26, 26, 0.6), rgba(0, 0, 0, 0.8));
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -1690,7 +1690,7 @@ body {
 #tutorial-screen.active {
     display: flex !important;
     justify-content: center;
-    background: radial-gradient(circle at center, #1a1a1a, #000);
+    background: radial-gradient(circle at center, rgba(26, 26, 26, 0.6), rgba(0, 0, 0, 0.8));
 }
 
 #tutorial-view {
@@ -1699,7 +1699,7 @@ body {
     height: 100%;
     display: flex;
     flex-direction: column;
-    background: #0a0a0a;
+    background: rgba(10, 10, 10, 0.7);
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
 }

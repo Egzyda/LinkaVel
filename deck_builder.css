@@ -6,7 +6,7 @@
     flex-direction: column;
     height: 100%;
     width: 100%;
-    background-color: #0a0a0a;
+    background-color: transparent;
     color: #f0f0f0;
     overflow: hidden;
     position: relative;
@@ -22,7 +22,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 0 10px;
-    background: #151515;
+    background: rgba(21, 21, 21, 0.8);
     border-bottom: 1px solid #333;
     flex-shrink: 0;
 }
@@ -60,7 +60,7 @@
     padding: 6px 12px;
     border-radius: 4px;
     border: 1px solid #444;
-    background: #222;
+    background: rgba(34, 34, 34, 0.8);
     color: #fff;
     font-size: 0.75rem;
     cursor: pointer;
@@ -79,7 +79,7 @@
 /* --- 2. Current Deck Area (Top) --- */
 .current-deck-area {
     flex: 0 0 25%; /* 画面の25% */
-    background: #1a1a1a;
+    background: rgba(26, 26, 26, 0.75);
     border-bottom: 1px solid #333;
     display: flex;
     flex-direction: column;
@@ -88,7 +88,7 @@
 
 .deck-stats-bar {
     height: 24px;
-    background: #222;
+    background: rgba(34, 34, 34, 0.8);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -146,7 +146,7 @@
 /* --- 3. Detail Area (Middle) --- */
 .builder-detail-area {
     flex: 0 0 20%; /* 画面の20%で固定。中身が長くてもこの高さは超えない */
-    background: rgba(20, 20, 20, 0.95);
+    background: rgba(20, 20, 20, 0.7);
     border-bottom: 1px solid #333;
     display: flex;
     padding: 8px;
@@ -256,14 +256,14 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: #000;
+    background: rgba(0, 0, 0, 0.7);
     overflow: hidden;
 }
 
 /* 横スクロールさせず、狭い画面では折り返して全部見えるようにする */
 .library-filter-bar {
     padding: 6px;
-    background: #222;
+    background: rgba(34, 34, 34, 0.8);
     border-bottom: 1px solid #333;
     display: flex;
     flex-wrap: wrap;
@@ -418,7 +418,7 @@
 
 /* デッキ管理画面用スタイル */
 .deck-manage-item {
-    background: #222;
+    background: rgba(34, 34, 34, 0.8);
     border: 1px solid #444;
     border-radius: 8px;
     padding: 10px;
