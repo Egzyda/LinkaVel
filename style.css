@@ -720,7 +720,9 @@ body {
 
 /* メニュー画面はindex.htmlのクラスを使用 */
 #menu-screen.active {
-    background: radial-gradient(circle at center, rgba(26, 26, 26, 0.6), rgba(0, 0, 0, 0.8));
+    background: radial-gradient(circle at center, rgba(26, 26, 26, 0.6), rgba(0, 0, 0, 0.8)),
+                url('img/bg_menu.webp') no-repeat center center;
+    background-size: cover, cover;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -1413,7 +1415,9 @@ body {
  * 画面自体はスクロールさせない。デッキ一覧だけをスクロール領域にすることで、
  * デッキが増えてもタイトルが押し上げられて画面外に消えることがなくなる。 */
 #deck-select-screen.active {
-    background: radial-gradient(circle at center, rgba(26, 26, 26, 0.6), rgba(0, 0, 0, 0.8));
+    background: radial-gradient(circle at center, rgba(26, 26, 26, 0.6), rgba(0, 0, 0, 0.8)),
+                url('img/bg_menu.webp') no-repeat center center;
+    background-size: cover, cover;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -1690,7 +1694,9 @@ body {
 #tutorial-screen.active {
     display: flex !important;
     justify-content: center;
-    background: radial-gradient(circle at center, rgba(26, 26, 26, 0.6), rgba(0, 0, 0, 0.8));
+    background: radial-gradient(circle at center, rgba(26, 26, 26, 0.6), rgba(0, 0, 0, 0.8)),
+                url('img/bg_menu.webp') no-repeat center center;
+    background-size: cover, cover;
 }
 
 #tutorial-view {
@@ -2590,17 +2596,13 @@ body {
     }
 }
 
-/* 背景画像の追加 */
-#menu-screen, #deck-select-screen, #tutorial-screen {
-    background: url('img/bg_menu.webp') no-repeat center center;
-    background-size: cover;
-}
+/* デッキ編集画面・デュエル画面の背景画像 */
 #deck-screen {
     background: url('img/bg_deck.webp') no-repeat center center;
     background-size: cover;
 }
 #game-screen {
-    background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('img/bg_duel.webp') no-repeat center center;
-    background-size: cover;
-    background-blend-mode: overlay;
+    background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)),
+                url('img/bg_duel.webp') no-repeat center center;
+    background-size: cover, cover;
 }
