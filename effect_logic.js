@@ -1273,29 +1273,23 @@ const EffectLogic = {
             const targetSide = (action.targetSide === "opponent") ? (side === "player" ? "opponent" : "player") : side;
             const p = GAME_STATE[targetSide];
 
-            // 相手の魔術に対する耐性(聖界の審判者 等)を持つ場合、その相手はそもそも
-            // 対象にできない。ここで見ておかないと「発動できる」と表示されるのに
-            // 実際に解決すると対象が無くて何も起きない、という状態になる。
-            const isMagicBlocked = (m) => cardData.type === "magic" && targetSide !== side
-                && this.checkMagicProtection(m, targetSide);
-
             switch (action.type) {
                 case "buff":
                     return p.field.monsters.some((m, i) => {
-                        if (!m || !this._checkFilter(m, action.filter || {}) || isMagicBlocked(m)) return false;
+                        if (!m || !this._checkFilter(m, action.filter || {})) return false;
                         // デバフの場合、既にパワー0なら発動不可
                         if (action.value < 0 && this.getCurrentPower(m, targetSide, i) <= 0) return false;
                         return true;
                     });
                 case "destroy":
                     return p.field.monsters.some((m, i) => {
-                        if (!m || !this._checkFilter(m, action.filter || {}) || isMagicBlocked(m)) return false;
+                        if (!m || !this._checkFilter(m, action.filter || {})) return false;
                         // 条件(is_weakened等)のチェック
                         if (action.condition === "is_weakened" && !this.isWeakened(m, targetSide, i)) return false;
                         return true;
                     });
                 case "apply_combat_effect":
-                    return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}) && !isMagicBlocked(m));
+                    return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}));
                 case "special_summon": {
                     // フィールドに空きがない場合は発動不可
                     if (!p.field.monsters.includes(null)) return false;
@@ -1315,16 +1309,16 @@ const EffectLogic = {
                     const pool = (action.type === "search") ? p.deck : p.trash;
                     return pool.some(c => this._checkFilter(c, action.filter || {}));
                 case "global_buff":
-                    return p.field.monsters.some(m => m !== null && !isMagicBlocked(m));
+                    return p.field.monsters.some(m => m !== null);
                 case "destroy_magic":
                     // 伏せカードも含め、対象の魔術ゾーンに何かあれば発動できる
                     return p.field.magics.some(m => m !== null && this._checkFilter(m, action.filter || {}));
                 case "bounce":
-                    return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}) && !isMagicBlocked(m));
+                    return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}));
                 case "banish":
                     // 対象なしで発動できてしまうと、LP等のコストだけ払って
                     // 何も起きない状態になる(聖界光波 s031 等)
-                    return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}) && !isMagicBlocked(m));
+                    return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}));
                 default:
                     return true;
             }
