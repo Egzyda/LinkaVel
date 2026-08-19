@@ -1,16 +1,16 @@
-/* ==========================================
-   1. 基本設定 & テーマ変数
+﻿/* ==========================================
+   1. 蝓ｺ譛ｬ險ｭ螳・& 繝・・繝槫､画焚
    ========================================== */
 :root {
     --bg-dark: #0a0a0a;
     --bg-panel: rgba(20, 20, 20, 0.85);
-    /* グラスモーフィズム用 */
+    /* 繧ｰ繝ｩ繧ｹ繝｢繝ｼ繝輔ぅ繧ｺ繝逕ｨ */
     --text-main: #f0f0f0;
     --accent-blue: #00d2ff;
     --accent-red: #ff4b2b;
     --zone-border: rgba(255, 255, 255, 0.15);
 
-    /* カードサイズ計算 (画面幅基準) */
+    /* 繧ｫ繝ｼ繝峨し繧､繧ｺ險育ｮ・(逕ｻ髱｢蟷・渕貅・ */
     --card-width: 14vw;
     --card-height: 19vw;
     --card-max-width: 65px;
@@ -43,17 +43,17 @@ body {
     background: radial-gradient(circle at center, #1f1f1f 0%, #000000 100%);
 }
 
-/* 画面切り替え */
+/* 逕ｻ髱｢蛻・ｊ譖ｿ縺・*/
 .screen {
     position: absolute;
     inset: 0;
     z-index: 10;
-    /* 非表示状態：activeクラスがない時のみ消す */
+    /* 髱櫁｡ｨ遉ｺ迥ｶ諷具ｼ啾ctive繧ｯ繝ｩ繧ｹ縺後↑縺・凾縺ｮ縺ｿ豸医☆ */
     display: none;
 }
 
 .screen.active {
-    /* displayプロパティを指定しないことで、個別の設定(flex等)を活かす */
+    /* display繝励Ο繝代ユ繧｣繧呈欠螳壹＠縺ｪ縺・％縺ｨ縺ｧ縲∝句挨縺ｮ險ｭ螳・flex遲・繧呈ｴｻ縺九☆ */
     display: revert;
     animation: fadeIn 0.5s ease;
 }
@@ -69,14 +69,14 @@ body {
 }
 
 /* ==========================================
-   2. UIレイヤー (HUD)
+   2. UI繝ｬ繧､繝､繝ｼ (HUD)
    ========================================== */
 #ui-layer {
     position: absolute;
     inset: 0;
     z-index: 100;
     pointer-events: none;
-    /* フィールド操作を阻害しない */
+    /* 繝輔ぅ繝ｼ繝ｫ繝画桃菴懊ｒ髦ｻ螳ｳ縺励↑縺・*/
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -86,12 +86,12 @@ body {
     pointer-events: auto;
 }
 
-/* 左上：カード情報パネル */
+/* 蟾ｦ荳奇ｼ壹き繝ｼ繝画ュ蝣ｱ繝代ロ繝ｫ */
 #card-info-panel {
     position: absolute;
     top: calc(10px + env(safe-area-inset-top));
     left: 10px;
-    /* 右上の降参ボタンと重ならないよう、狭い画面では自動的に縮める */
+    /* 蜿ｳ荳翫・髯榊盾繝懊ち繝ｳ縺ｨ驥阪↑繧峨↑縺・ｈ縺・∫強縺・判髱｢縺ｧ縺ｯ閾ｪ蜍慕噪縺ｫ邵ｮ繧√ｋ */
     width: min(280px, calc(100% - 110px));
     height: 150px;
     background: var(--bg-panel);
@@ -138,14 +138,14 @@ body {
     justify-content: space-between;
     font-weight: bold;
     min-width: 0;
-    /* 名前を縮める前の一瞬だけはみ出すので、ここで隠す */
+    /* 蜷榊燕繧堤ｸｮ繧√ｋ蜑阪・荳迸ｬ縺縺代・縺ｿ蜃ｺ縺吶・縺ｧ縲√％縺薙〒髫縺・*/
     overflow: hidden;
 }
 
 /*
- * 長い名前は「…」で切らず、JS(fitTextToWidth)が scaleX で横に縮めて収める。
- * そのため要素側では overflow / text-overflow を指定しない
- * （指定すると先に省略記号が確定してしまい、縮めても切れたままになる）。
+ * 髟ｷ縺・錐蜑阪・縲娯ｦ縲阪〒蛻・ｉ縺壹゛S(fitTextToWidth)縺・scaleX 縺ｧ讓ｪ縺ｫ邵ｮ繧√※蜿弱ａ繧九・
+ * 縺昴・縺溘ａ隕∫ｴ蛛ｴ縺ｧ縺ｯ overflow / text-overflow 繧呈欠螳壹＠縺ｪ縺・
+ * ・域欠螳壹☆繧九→蜈医↓逵∫払險伜捷縺檎｢ｺ螳壹＠縺ｦ縺励∪縺・∫ｸｮ繧√※繧ょ・繧後◆縺ｾ縺ｾ縺ｫ縺ｪ繧具ｼ峨・
  */
 #info-name {
     white-space: nowrap;
@@ -195,16 +195,16 @@ body {
     overflow-y: auto;
     white-space: normal;
     word-break: break-all;
-    /* 内部でのスクロールを発火させる */
+    /* 蜀・Κ縺ｧ縺ｮ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ繧堤匱轣ｫ縺輔○繧・*/
     min-height: 0;
-    /* スマホでの縦スクロールを許可 */
+    /* 繧ｹ繝槭・縺ｧ縺ｮ邵ｦ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ繧定ｨｱ蜿ｯ */
     touch-action: pan-y;
-    /* スクロールバー非表示 (Firefox, IE/Edge) */
+    /* 繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ繝舌・髱櫁｡ｨ遉ｺ (Firefox, IE/Edge) */
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
 
-/* スクロールバー非表示 (Chrome, Safari) */
+/* 繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ繝舌・髱櫁｡ｨ遉ｺ (Chrome, Safari) */
 #info-text::-webkit-scrollbar {
     display: none;
 }
@@ -230,7 +230,7 @@ body {
     position: absolute;
     right: 10px;
     top: 55%;
-    /* フィールド中央の高さに合わせて調整 */
+    /* 繝輔ぅ繝ｼ繝ｫ繝我ｸｭ螟ｮ縺ｮ鬮倥＆縺ｫ蜷医ｏ縺帙※隱ｿ謨ｴ */
     transform: translateY(-50%);
     background: rgba(0, 0, 0, 0.8);
     border: 1px solid var(--accent-blue);
@@ -260,7 +260,7 @@ body {
 }
 
 /* ==========================================
-   3. 3Dフィールド
+   3. 3D繝輔ぅ繝ｼ繝ｫ繝・
    ========================================== */
 .status-zone {
     display: flex;
@@ -315,9 +315,9 @@ body {
     position: relative;
     width: 95%;
     max-width: 400px;
-    /* スマホ幅に最適化 */
+    /* 繧ｹ繝槭・蟷・↓譛驕ｩ蛹・*/
     transform: rotateX(42deg) scale(1.0);
-    /* 少し引いて全体を見せる */
+    /* 蟆代＠蠑輔＞縺ｦ蜈ｨ菴薙ｒ隕九○繧・*/
     transform-style: preserve-3d;
     display: flex;
     flex-direction: column;
@@ -397,18 +397,18 @@ body {
 }
 
 .opponent-field {
-    /* レイアウト（並び順）は維持し、3D空間のみを定義 */
+    /* 繝ｬ繧､繧｢繧ｦ繝茨ｼ井ｸｦ縺ｳ鬆・ｼ峨・邯ｭ謖√＠縲・D遨ｺ髢薙・縺ｿ繧貞ｮ夂ｾｩ */
     transform-style: preserve-3d;
 }
 
-/* 相手側の全コンテンツ（カード・文字・バッジ）を180度回転させて正対させる */
+/* 逶ｸ謇句・縺ｮ蜈ｨ繧ｳ繝ｳ繝・Φ繝・ｼ医き繝ｼ繝峨・譁・ｭ励・繝舌ャ繧ｸ・峨ｒ180蠎ｦ蝗櫁ｻ｢縺輔○縺ｦ豁｣蟇ｾ縺輔○繧・*/
 .opponent-field .card-mini,
 .opponent-field .zone span,
 #opt-deck-count {
     transform: rotateZ(180deg);
 }
 
-/* 3Dフィールド上で文字を見やすく起こすための共通補正（相手側） */
+/* 3D繝輔ぅ繝ｼ繝ｫ繝我ｸ翫〒譁・ｭ励ｒ隕九ｄ縺吶￥襍ｷ縺薙☆縺溘ａ縺ｮ蜈ｱ騾夊｣懈ｭ｣・育嶌謇句・・・*/
 .opponent-field .zone span,
 #opt-deck-count {
     transform: rotateZ(180deg) rotateX(-35deg);
@@ -420,7 +420,7 @@ body {
     gap: 8px;
 }
 
-/* ゾーンスタイル */
+/* 繧ｾ繝ｼ繝ｳ繧ｹ繧ｿ繧､繝ｫ */
 .zone {
     width: var(--card-width);
     height: var(--card-height);
@@ -436,9 +436,9 @@ body {
     transition: all 0.2s;
 }
 
-/* ゾーンのヒットエリアを拡大（操作性向上）
-   ゾーン間の隙間は8pxなので、拡張は左右4pxまでに留める。
-   これ以上広げると隣のゾーンと判定が食い合い、境目のタップが隣のスロットに吸われる。 */
+/* 繧ｾ繝ｼ繝ｳ縺ｮ繝偵ャ繝医お繝ｪ繧｢繧呈僑螟ｧ・域桃菴懈ｧ蜷台ｸ奇ｼ・
+   繧ｾ繝ｼ繝ｳ髢薙・髫咎俣縺ｯ8px縺ｪ縺ｮ縺ｧ縲∵僑蠑ｵ縺ｯ蟾ｦ蜿ｳ4px縺ｾ縺ｧ縺ｫ逡吶ａ繧九・
+   縺薙ｌ莉･荳雁ｺ・￡繧九→髫｣縺ｮ繧ｾ繝ｼ繝ｳ縺ｨ蛻､螳壹′鬟溘＞蜷医＞縲∝｢・岼縺ｮ繧ｿ繝・・縺碁團縺ｮ繧ｹ繝ｭ繝・ヨ縺ｫ蜷ｸ繧上ｌ繧九・*/
 .zone::after {
     content: '';
     position: absolute;
@@ -447,10 +447,10 @@ body {
     right: -4px;
     bottom: -10px;
     z-index: 5;
-    /* カードより手前、ただしUIやオーバーレイより下 */
+    /* 繧ｫ繝ｼ繝峨ｈ繧頑焔蜑阪√◆縺縺誘I繧・が繝ｼ繝舌・繝ｬ繧､繧医ｊ荳・*/
 }
 
-/* ゾーンの識別色 */
+/* 繧ｾ繝ｼ繝ｳ縺ｮ隴伜挨濶ｲ */
 .monster-zone {
     border-color: rgba(255, 166, 0, 0.2);
 }
@@ -466,7 +466,7 @@ body {
     opacity: 0.7;
 }
 
-/* 除外ゾーン：トラッシュと区別できるよう紫系で示す */
+/* 髯､螟悶だ繝ｼ繝ｳ・壹ヨ繝ｩ繝・す繝･縺ｨ蛹ｺ蛻･縺ｧ縺阪ｋ繧医≧邏ｫ邉ｻ縺ｧ遉ｺ縺・*/
 .banish-zone {
     border-color: rgba(186, 104, 255, 0.45);
     background: rgba(120, 60, 180, 0.08);
@@ -498,12 +498,12 @@ body {
     transform: rotateX(-35deg) rotateZ(180deg);
 }
 
-/* ゾーン内のテキスト (Deck/Trash) */
+/* 繧ｾ繝ｼ繝ｳ蜀・・繝・く繧ｹ繝・(Deck/Trash) */
 .zone span {
     font-size: 0.6rem;
     color: rgba(255, 255, 255, 0.3);
     transform: rotateX(-35deg);
-    /* 3Dの中で文字を起こす */
+    /* 3D縺ｮ荳ｭ縺ｧ譁・ｭ励ｒ襍ｷ縺薙☆ */
     z-index: 10;
     pointer-events: none;
 }
@@ -512,7 +512,7 @@ body {
     overflow: visible !important;
 }
 
-/* カード背面の設定 */
+/* 繧ｫ繝ｼ繝芽レ髱｢縺ｮ險ｭ螳・*/
 .card-back {
     background-image: url('img/card.webp');
     background-size: cover;
@@ -520,7 +520,7 @@ body {
     border: 2px solid #444 !important;
 }
 
-/* 段階的な厚みの表現 (X軸のズレを0にして垂直に積み上げる) */
+/* 谿ｵ髫守噪縺ｪ蜴壹∩縺ｮ陦ｨ迴ｾ (X霆ｸ縺ｮ繧ｺ繝ｬ繧・縺ｫ縺励※蝙ら峩縺ｫ遨阪∩荳翫￡繧・ */
 .stack-stage-1 {
     box-shadow: 0 1px 0 #222;
 }
@@ -533,7 +533,7 @@ body {
     box-shadow: 0 1px 0 #222, 0 2px 0 #151515, 0 3px 0 #000, 0 4px 0 #000, 0 5px 0 #000;
 }
 
-/* 相手側は画面奥に向かって厚みを出す */
+/* 逶ｸ謇句・縺ｯ逕ｻ髱｢螂･縺ｫ蜷代°縺｣縺ｦ蜴壹∩繧貞・縺・*/
 .opponent-field .stack-stage-1 {
     box-shadow: 0 -1px 0 #222;
 }
@@ -546,17 +546,17 @@ body {
     box-shadow: 0 -1px 0 #222, 0 -2px 0 #151515, 0 -3px 0 #000, 0 -4px 0 #000, 0 -5px 0 #000;
 }
 
-/* ゾーン内のカードは単体の影を消してスタックと一体化させる */
+/* 繧ｾ繝ｼ繝ｳ蜀・・繧ｫ繝ｼ繝峨・蜊倅ｽ薙・蠖ｱ繧呈ｶ医＠縺ｦ繧ｹ繧ｿ繝・け縺ｨ荳菴灘喧縺輔○繧・*/
 .zone .card-mini {
     box-shadow: none !important;
 }
 
-/* 相手側のゾーンテキスト(Deck/Trash)の向きを補正 */
+/* 逶ｸ謇句・縺ｮ繧ｾ繝ｼ繝ｳ繝・く繧ｹ繝・Deck/Trash)縺ｮ蜷代″繧定｣懈ｭ｣ */
 .opponent-field .zone span {
     transform: rotateX(-35deg) rotateZ(180deg);
 }
 
-/* バッジ (デッキ枚数など) */
+/* 繝舌ャ繧ｸ (繝・ャ繧ｭ譫壽焚縺ｪ縺ｩ) */
 #ply-deck-count-badge,
 #opt-deck-count {
     position: absolute;
@@ -570,13 +570,13 @@ body {
     transform: rotateX(-35deg);
 }
 
-/* 相手側の枚数バッジの向きを補正 */
+/* 逶ｸ謇句・縺ｮ譫壽焚繝舌ャ繧ｸ縺ｮ蜷代″繧定｣懈ｭ｣ */
 #opt-deck-count {
     transform: rotateX(-35deg) rotateZ(180deg);
 }
 
 /* ==========================================
-   4. 手札エリア
+   4. 謇区惆繧ｨ繝ｪ繧｢
    ========================================== */
 #player-hand-container {
     position: absolute;
@@ -590,17 +590,17 @@ body {
     align-items: center;
     justify-content: center;
     pointer-events: none;
-    /* 追加: クリックを透過させて背後のトラッシュ等を押せるようにする */
+    /* 霑ｽ蜉: 繧ｯ繝ｪ繝・け繧帝城℃縺輔○縺ｦ閭悟ｾ後・繝医Λ繝・す繝･遲峨ｒ謚ｼ縺帙ｋ繧医≧縺ｫ縺吶ｋ */
 }
 
 #player-hand {
     display: flex;
     justify-content: center;
-    /* カードを少し重ねる */
+    /* 繧ｫ繝ｼ繝峨ｒ蟆代＠驥阪・繧・*/
     margin-bottom: -10px;
 }
 
-/* カード共通スタイル */
+/* 繧ｫ繝ｼ繝牙・騾壹せ繧ｿ繧､繝ｫ */
 .card-mini {
     width: var(--card-width);
     height: var(--card-height);
@@ -613,22 +613,22 @@ body {
     box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.6);
     cursor: pointer;
     /*
-     * margin-left はトランジションさせない。
-     * renderHand() は毎回カードを作り直したうえで、実寸を測ってから
-     * margin-left で重なり量を決めるため、遷移を付けると描画のたびに
-     * 手札全体が 0 → 目的値へスライドし直して揺れて見える。
-     * （ドロー演出中は飛び先の座標もずれる）
+     * margin-left 縺ｯ繝医Λ繝ｳ繧ｸ繧ｷ繝ｧ繝ｳ縺輔○縺ｪ縺・・
+     * renderHand() 縺ｯ豈主屓繧ｫ繝ｼ繝峨ｒ菴懊ｊ逶ｴ縺励◆縺・∴縺ｧ縲∝ｮ溷ｯｸ繧呈ｸｬ縺｣縺ｦ縺九ｉ
+     * margin-left 縺ｧ驥阪↑繧企㍼繧呈ｱｺ繧√ｋ縺溘ａ縲・・遘ｻ繧剃ｻ倥￠繧九→謠冗判縺ｮ縺溘・縺ｫ
+     * 謇区惆蜈ｨ菴薙′ 0 竊・逶ｮ逧・､縺ｸ繧ｹ繝ｩ繧､繝峨＠逶ｴ縺励※謠ｺ繧後※隕九∴繧九・
+     * ・医ラ繝ｭ繝ｼ貍泌・荳ｭ縺ｯ鬟帙・蜈医・蠎ｧ讓吶ｂ縺壹ｌ繧具ｼ・
      */
     transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s ease;
-    /* overflow: hiddenを削除して3D表現を有効化 */
+    /* overflow: hidden繧貞炎髯､縺励※3D陦ｨ迴ｾ繧呈怏蜉ｹ蛹・*/
     container-type: inline-size;
     background-color: #1a1a1a;
     transform-style: preserve-3d;
     pointer-events: auto;
-    /* 追加: コンテナがnoneでもカード本体は操作可能にする */
+    /* 霑ｽ蜉: 繧ｳ繝ｳ繝・リ縺系one縺ｧ繧ゅき繝ｼ繝画悽菴薙・謫堺ｽ懷庄閭ｽ縺ｫ縺吶ｋ */
 }
 
-/* カードの表裏構造 */
+/* 繧ｫ繝ｼ繝峨・陦ｨ陬乗ｧ矩 */
 .card-face {
     position: absolute;
     inset: 0;
@@ -652,7 +652,7 @@ body {
 }
 
 /* ==========================================
-   セットされた魔術（裏側表示）
+   繧ｻ繝・ヨ縺輔ｌ縺滄ｭ碑｡難ｼ郁｣丞・陦ｨ遉ｺ・・
    ========================================== */
 .card-mini.face-down .card-front {
     visibility: hidden;
@@ -664,26 +664,26 @@ body {
     visibility: visible;
 }
 
-/* 自分が伏せたカードは、自分の場だと分かるよう縁を色分けする */
+/* 閾ｪ蛻・′莨上○縺溘き繝ｼ繝峨・縲∬・蛻・・蝣ｴ縺縺ｨ蛻・°繧九ｈ縺・ｸ√ｒ濶ｲ蛻・￠縺吶ｋ */
 .card-mini.face-down.own-set {
     border-color: var(--accent-blue) !important;
     box-shadow: 0 0 8px rgba(0, 210, 255, 0.4);
 }
 
-/* 罠発動時のバナー */
+/* 鄂逋ｺ蜍墓凾縺ｮ繝舌リ繝ｼ */
 #selection-prompt.trap-banner {
     border-color: #ff4b2b;
     color: #ff8a6b;
     background: rgba(30, 0, 0, 0.9);
 }
 
-/* セットボタン */
+/* 繧ｻ繝・ヨ繝懊ち繝ｳ */
 .btn-action-float.set {
     background: #444;
     border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* アニメーション用一時カード */
+/* 繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ逕ｨ荳譎ゅき繝ｼ繝・*/
 .anim-drawing-card {
     position: fixed;
     z-index: 5000;
@@ -691,7 +691,7 @@ body {
     transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-/* ゾーン内では枠に100%フィットさせる */
+/* 繧ｾ繝ｼ繝ｳ蜀・〒縺ｯ譫縺ｫ100%繝輔ぅ繝・ヨ縺輔○繧・*/
 .zone .card-mini {
     width: 100%;
     height: 100%;
@@ -699,7 +699,7 @@ body {
 }
 
 /* ==========================================
-   5. その他 (Detail Overlay, Menu)
+   5. 縺昴・莉・(Detail Overlay, Menu)
    ========================================== */
 #card-detail-overlay {
     position: absolute;
@@ -718,7 +718,7 @@ body {
     box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
 }
 
-/* メニュー画面はindex.htmlのクラスを使用 */
+/* 繝｡繝九Η繝ｼ逕ｻ髱｢縺ｯindex.html縺ｮ繧ｯ繝ｩ繧ｹ繧剃ｽｿ逕ｨ */
 #menu-screen.active {
     background: radial-gradient(circle at center, #1a1a1a, #000);
     display: flex;
@@ -774,7 +774,7 @@ body {
     margin-right: 15px;
 }
 
-/* ビューポートの安定化 */
+/* 繝薙Η繝ｼ繝昴・繝医・螳牙ｮ壼喧 */
 #game-viewport {
     position: relative;
     width: 100%;
@@ -782,33 +782,33 @@ body {
     overflow: hidden;
 }
 
-/* カードタイプ別背景色・文字色 */
+/* 繧ｫ繝ｼ繝峨ち繧､繝怜挨閭梧勹濶ｲ繝ｻ譁・ｭ苓牡 */
 .bg-normal {
     background: #ffeb3b;
     color: #000;
 }
 
-/* 通常モンスターは鮮やかな黄色 */
+/* 騾壼ｸｸ繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺ｯ魄ｮ繧・°縺ｪ鮟・牡 */
 .bg-effect {
     background: #ff9900;
     color: #000;
 }
 
-/* 効果モンスターはオレンジ */
+/* 蜉ｹ譫懊Δ繝ｳ繧ｹ繧ｿ繝ｼ縺ｯ繧ｪ繝ｬ繝ｳ繧ｸ */
 .bg-magic {
     background: #111111;
     color: #fff;
 }
 
-/* 魔術カードは黒ベース */
+/* 鬲碑｡薙き繝ｼ繝峨・鮟偵・繝ｼ繧ｹ */
 
-/* モンスター名の文字色を強制的に黒に固定 */
+/* 繝｢繝ｳ繧ｹ繧ｿ繝ｼ蜷阪・譁・ｭ苓牡繧貞ｼｷ蛻ｶ逧・↓鮟偵↓蝗ｺ螳・*/
 .bg-normal .card-name-text,
 .bg-effect .card-name-text {
     color: #000 !important;
 }
 
-/* スケーラブル名称エリア */
+/* 繧ｹ繧ｱ繝ｼ繝ｩ繝悶Ν蜷咲ｧｰ繧ｨ繝ｪ繧｢ */
 .card-name-box {
     position: absolute;
     top: 3%;
@@ -833,7 +833,7 @@ body {
     text-align: center;
 }
 
-/* 固定画像エリア (正方形) */
+/* 蝗ｺ螳夂判蜒上お繝ｪ繧｢ (豁｣譁ｹ蠖｢) */
 .card-img-frame {
     position: absolute;
     top: 17%;
@@ -852,7 +852,7 @@ body {
     object-fit: cover;
 }
 
-/* 属性バッジ (右下隅) */
+/* 螻樊ｧ繝舌ャ繧ｸ (蜿ｳ荳矩嚆) */
 .card-attribute-icon {
     position: absolute;
     bottom: 3%;
@@ -871,7 +871,7 @@ body {
     object-fit: contain;
 }
 
-/* ステータスクラスター (左下隅) */
+/* 繧ｹ繝・・繧ｿ繧ｹ繧ｯ繝ｩ繧ｹ繧ｿ繝ｼ (蟾ｦ荳矩嚆) */
 .card-status-cluster {
     position: absolute;
     bottom: 3%;
@@ -904,7 +904,7 @@ body {
     font-style: italic;
 }
 
-/* 浮遊アクションボタン */
+/* 豬ｮ驕翫い繧ｯ繧ｷ繝ｧ繝ｳ繝懊ち繝ｳ */
 .floating-actions {
     position: fixed;
     z-index: 2000;
@@ -912,7 +912,7 @@ body {
     flex-direction: column;
     gap: 8px;
     pointer-events: auto;
-    /* アニメーションを削除し、初期状態を非表示に設定 */
+    /* 繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ繧貞炎髯､縺励∝・譛溽憾諷九ｒ髱櫁｡ｨ遉ｺ縺ｫ險ｭ螳・*/
     opacity: 0;
     transition: opacity 0.1s ease;
 }
@@ -953,7 +953,7 @@ body {
     border-color: #666;
 }
 
-/* スロットハイライト */
+/* 繧ｹ繝ｭ繝・ヨ繝上う繝ｩ繧､繝・*/
 .zone.highlight {
     border: 3px solid #fff !important;
     box-shadow: 0 0 20px #fff, inset 0 0 10px #fff !important;
@@ -972,7 +972,7 @@ body {
     }
 }
 
-/* コスト選択ハイライト (黄色) */
+/* 繧ｳ繧ｹ繝磯∈謚槭ワ繧､繝ｩ繧､繝・(鮟・牡) */
 .zone.cost-highlight {
     border: 3px solid #ffff00 !important;
     box-shadow: 0 0 20px #ffff00, inset 0 0 10px #ffff00 !important;
@@ -988,9 +988,9 @@ body {
 }
 
 /* ==========================================
-   コスト選択（手札 → 除外）
+   繧ｳ繧ｹ繝磯∈謚橸ｼ域焔譛ｭ 竊・髯､螟厄ｼ・
    ========================================== */
-/* コスト選択中は手札も操作対象にする */
+/* 繧ｳ繧ｹ繝磯∈謚樔ｸｭ縺ｯ謇区惆繧よ桃菴懷ｯｾ雎｡縺ｫ縺吶ｋ */
 #game-viewport.field-selecting.cost-selecting #player-hand-container {
     pointer-events: auto !important;
     opacity: 1;
@@ -1001,7 +1001,7 @@ body {
     box-shadow: 0 0 14px #b06cff, 0 6px 12px rgba(0, 0, 0, 0.7);
 }
 
-/* コストにできない手札（フィルタ対象外・召喚しようとしているカード自身）は選べないと分かるように沈める */
+/* 繧ｳ繧ｹ繝医↓縺ｧ縺阪↑縺・焔譛ｭ・医ヵ繧｣繝ｫ繧ｿ蟇ｾ雎｡螟悶・蜿ｬ蝟壹＠繧医≧縺ｨ縺励※縺・ｋ繧ｫ繝ｼ繝芽・霄ｫ・峨・驕ｸ縺ｹ縺ｪ縺・→蛻・°繧九ｈ縺・↓豐医ａ繧・*/
 #game-viewport.cost-selecting #player-hand .card-mini:not(.cost-highlight):not(.cost-selected) {
     opacity: 0.4;
     filter: grayscale(0.6);
@@ -1014,9 +1014,9 @@ body {
     z-index: 900 !important;
 }
 
-/* 除外予定であることを示すバッジ */
+/* 髯､螟紋ｺ亥ｮ壹〒縺ゅｋ縺薙→繧堤､ｺ縺吶ヰ繝・ず */
 #player-hand .card-mini.cost-selected::after {
-    content: '除外';
+    content: '髯､螟・;
     position: absolute;
     top: -10px;
     left: 50%;
@@ -1032,9 +1032,9 @@ body {
 }
 
 /*
- * 操作用フローティングUIの土台。
- * 選択モード中はフィールドが z-index:2000 まで上がるため、それより上に置く。
- * 全面を覆うので、コンテナ自体はクリックを透過させ、子要素だけが受け取る。
+ * 謫堺ｽ懃畑繝輔Ο繝ｼ繝・ぅ繝ｳ繧ｰUI縺ｮ蝨溷床縲・
+ * 驕ｸ謚槭Δ繝ｼ繝我ｸｭ縺ｯ繝輔ぅ繝ｼ繝ｫ繝峨′ z-index:2000 縺ｾ縺ｧ荳翫′繧九◆繧√√◎繧後ｈ繧贋ｸ翫↓鄂ｮ縺上・
+ * 蜈ｨ髱｢繧定ｦ・≧縺ｮ縺ｧ縲√さ繝ｳ繝・リ閾ｪ菴薙・繧ｯ繝ｪ繝・け繧帝城℃縺輔○縲∝ｭ占ｦ∫ｴ縺縺代′蜿励￠蜿悶ｋ縲・
  */
 #floating-action-container {
     position: absolute;
@@ -1044,11 +1044,11 @@ body {
 }
 
 /*
- * コスト選択バーは画面上部に置く。
- * フィールドの上（padding-top:210px より上）なので、どの画面サイズでも
- * 場のモンスターに被らない。下寄せにすると画面が低い端末や PC 表示で
- * フィールドを覆ってしまい、コストにするモンスターが選べなくなる。
- * 選択中は代わりにカード情報パネルを隠して場所を空ける。
+ * 繧ｳ繧ｹ繝磯∈謚槭ヰ繝ｼ縺ｯ逕ｻ髱｢荳企Κ縺ｫ鄂ｮ縺上・
+ * 繝輔ぅ繝ｼ繝ｫ繝峨・荳奇ｼ・adding-top:210px 繧医ｊ荳奇ｼ峨↑縺ｮ縺ｧ縲√←縺ｮ逕ｻ髱｢繧ｵ繧､繧ｺ縺ｧ繧・
+ * 蝣ｴ縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺ｫ陲ｫ繧峨↑縺・ゆｸ句ｯ・○縺ｫ縺吶ｋ縺ｨ逕ｻ髱｢縺御ｽ弱＞遶ｯ譛ｫ繧・PC 陦ｨ遉ｺ縺ｧ
+ * 繝輔ぅ繝ｼ繝ｫ繝峨ｒ隕・▲縺ｦ縺励∪縺・√さ繧ｹ繝医↓縺吶ｋ繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺碁∈縺ｹ縺ｪ縺上↑繧九・
+ * 驕ｸ謚樔ｸｭ縺ｯ莉｣繧上ｊ縺ｫ繧ｫ繝ｼ繝画ュ蝣ｱ繝代ロ繝ｫ繧帝國縺励※蝣ｴ謇繧堤ｩｺ縺代ｋ縲・
  */
 .cost-select-bar {
     position: absolute;
@@ -1067,7 +1067,7 @@ body {
     pointer-events: auto;
 }
 
-/* コスト選択中はカード情報パネルを隠し、上部をバーに明け渡す */
+/* 繧ｳ繧ｹ繝磯∈謚樔ｸｭ縺ｯ繧ｫ繝ｼ繝画ュ蝣ｱ繝代ロ繝ｫ繧帝國縺励∽ｸ企Κ繧偵ヰ繝ｼ縺ｫ譏弱￠貂｡縺・*/
 #game-viewport.cost-selecting #card-info-panel {
     opacity: 0;
     pointer-events: none;
@@ -1118,7 +1118,7 @@ body {
     border-color: #666;
 }
 
-/* 対象選択中の案内バナー */
+/* 蟇ｾ雎｡驕ｸ謚樔ｸｭ縺ｮ譯亥・繝舌リ繝ｼ */
 #selection-prompt {
     position: absolute;
     top: calc(170px + env(safe-area-inset-top));
@@ -1138,7 +1138,7 @@ body {
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.15s;
-    /* フィールド(選択中 z-index:2000)より上に出す。#game-viewport 直下に置いている */
+    /* 繝輔ぅ繝ｼ繝ｫ繝・驕ｸ謚樔ｸｭ z-index:2000)繧医ｊ荳翫↓蜃ｺ縺吶・game-viewport 逶ｴ荳九↓鄂ｮ縺・※縺・ｋ */
     z-index: 2600;
     display: flex;
     flex-direction: column;
@@ -1156,14 +1156,14 @@ body {
     opacity: 1;
 }
 
-/* 相手ターン中のUIロック */
+/* 逶ｸ謇九ち繝ｼ繝ｳ荳ｭ縺ｮUI繝ｭ繝・け */
 .disabled-ui {
     filter: grayscale(0.8) brightness(0.7);
     pointer-events: none !important;
     opacity: 0.7;
 }
 
-/* 手札選択時の強調表示 (浮き上がり演出) */
+/* 謇区惆驕ｸ謚樊凾縺ｮ蠑ｷ隱ｿ陦ｨ遉ｺ (豬ｮ縺堺ｸ翫′繧頑ｼ泌・) */
 #player-hand .card-mini.selected {
     transform: translateY(-15px);
     z-index: 999 !important;
@@ -1172,22 +1172,22 @@ body {
 }
 
 /* ==========================================
-   6. リザルトモーダル (Transparent Version)
+   6. 繝ｪ繧ｶ繝ｫ繝医Δ繝ｼ繝繝ｫ (Transparent Version)
    ========================================== */
 #game-result-overlay {
     position: absolute;
     inset: 0;
     background: transparent;
-    /* 完全透明 */
+    /* 螳悟・騾乗・ */
     display: none;
     justify-content: center;
     align-items: center;
     z-index: 3000;
     pointer-events: auto;
-    /* モーダル表示中はここで入力をブロック */
+    /* 繝｢繝ｼ繝繝ｫ陦ｨ遉ｺ荳ｭ縺ｯ縺薙％縺ｧ蜈･蜉帙ｒ繝悶Ο繝・け */
 }
 
-/* クラス制御に変更 */
+/* 繧ｯ繝ｩ繧ｹ蛻ｶ蠕｡縺ｫ螟画峩 */
 #game-result-overlay.active {
     display: flex;
     animation: fadeIn 0.5s ease forwards;
@@ -1195,7 +1195,7 @@ body {
 
 .result-modal-content {
     background: transparent;
-    /* 背景なし */
+    /* 閭梧勹縺ｪ縺・*/
     padding: 30px 40px;
     text-align: center;
     transform: scale(0.8);
@@ -1209,20 +1209,20 @@ body {
 
 #result-title {
     font-size: 3.5rem;
-    /* より大きく強調 */
+    /* 繧医ｊ螟ｧ縺阪￥蠑ｷ隱ｿ */
     margin-bottom: 15px;
     letter-spacing: 4px;
     font-family: 'Exo 2';
     font-weight: 800;
 }
 
-/* 勝利スタイル - テキスト発光のみ強化 */
+/* 蜍晏茜繧ｹ繧ｿ繧､繝ｫ - 繝・く繧ｹ繝育匱蜈峨・縺ｿ蠑ｷ蛹・*/
 .result-win #result-title {
     color: var(--accent-blue);
     text-shadow: 0 0 30px rgba(0, 210, 255, 0.8), 0 5px 20px rgba(0, 0, 0, 1);
 }
 
-/* 敗北スタイル - テキスト発光のみ強化 */
+/* 謨怜圏繧ｹ繧ｿ繧､繝ｫ - 繝・く繧ｹ繝育匱蜈峨・縺ｿ蠑ｷ蛹・*/
 .result-lose #result-title {
     color: var(--accent-red);
     text-shadow: 0 0 30px rgba(255, 75, 43, 0.8), 0 5px 20px rgba(0, 0, 0, 1);
@@ -1237,7 +1237,7 @@ body {
 
 .result-home-btn {
     background: rgba(0, 0, 0, 0.4);
-    /* ボタン認識用にわずかに暗く */
+    /* 繝懊ち繝ｳ隱崎ｭ倡畑縺ｫ繧上★縺九↓證励￥ */
     border: 2px solid #fff;
     color: #fff;
     padding: 12px 40px;
@@ -1247,7 +1247,7 @@ body {
     cursor: pointer;
     transition: all 0.2s;
     text-shadow: none;
-    /* ボタン内の文字影はリセット */
+    /* 繝懊ち繝ｳ蜀・・譁・ｭ怜ｽｱ縺ｯ繝ｪ繧ｻ繝・ヨ */
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
 }
 
@@ -1269,7 +1269,7 @@ body {
 }
 
 /* ==========================================
-   7. スタートモーダル (DUEL)
+   7. 繧ｹ繧ｿ繝ｼ繝医Δ繝ｼ繝繝ｫ (DUEL)
    ========================================== */
 #game-start-overlay {
     position: absolute;
@@ -1344,9 +1344,9 @@ body {
     }
 }
 
-/* 選択モード中のフィールド制御 */
+/* 驕ｸ謚槭Δ繝ｼ繝我ｸｭ縺ｮ繝輔ぅ繝ｼ繝ｫ繝牙宛蠕｡ */
 .selecting-mode .card-mini {
-    /* カードを透過させず、タップイベントがゾーンに届くように調整 */
+    /* 繧ｫ繝ｼ繝峨ｒ騾城℃縺輔○縺壹√ち繝・・繧､繝吶Φ繝医′繧ｾ繝ｼ繝ｳ縺ｫ螻翫￥繧医≧縺ｫ隱ｿ謨ｴ */
     pointer-events: auto;
 }
 
@@ -1357,11 +1357,11 @@ body {
 }
 
 /*
- * 選択モード中（召喚先・コスト・魔術設置・効果対象の選択）は、
- * 対象になり得ないゾーン（トラッシュ・除外・デッキ・無関係なモンスター等）を
- * 見た目でも操作でも無効化する。
- * これが無いと、選択候補のすぐ隣にあるトラッシュ/除外ゾーンへの
- * 誤タップでビューアが割り込んでしまう。
+ * 驕ｸ謚槭Δ繝ｼ繝我ｸｭ・亥小蝟壼・繝ｻ繧ｳ繧ｹ繝医・鬲碑｡楢ｨｭ鄂ｮ繝ｻ蜉ｹ譫懷ｯｾ雎｡縺ｮ驕ｸ謚橸ｼ峨・縲・
+ * 蟇ｾ雎｡縺ｫ縺ｪ繧雁ｾ励↑縺・だ繝ｼ繝ｳ・医ヨ繝ｩ繝・す繝･繝ｻ髯､螟悶・繝・ャ繧ｭ繝ｻ辟｡髢｢菫ゅ↑繝｢繝ｳ繧ｹ繧ｿ繝ｼ遲会ｼ峨ｒ
+ * 隕九◆逶ｮ縺ｧ繧よ桃菴懊〒繧ら┌蜉ｹ蛹悶☆繧九・
+ * 縺薙ｌ縺檎┌縺・→縲・∈謚槫呵｣懊・縺吶＄髫｣縺ｫ縺ゅｋ繝医Λ繝・す繝･/髯､螟悶だ繝ｼ繝ｳ縺ｸ縺ｮ
+ * 隱､繧ｿ繝・・縺ｧ繝薙Η繝ｼ繧｢縺悟牡繧願ｾｼ繧薙〒縺励∪縺・・
  */
 .selecting-mode .zone:not(.highlight):not(.cost-highlight):not(.cost-selected) {
     pointer-events: none;
@@ -1371,9 +1371,9 @@ body {
 }
 
 /*
- * 選択モード中にフィールドを最前面へ昇格し、
- * 手札やUIの干渉を遮断するグローバルクラス。
- * JS側で #game-viewport に .field-selecting を付与して使う。
+ * 驕ｸ謚槭Δ繝ｼ繝我ｸｭ縺ｫ繝輔ぅ繝ｼ繝ｫ繝峨ｒ譛蜑埼擇縺ｸ譏・ｼ縺励・
+ * 謇区惆繧ФI縺ｮ蟷ｲ貂峨ｒ驕ｮ譁ｭ縺吶ｋ繧ｰ繝ｭ繝ｼ繝舌Ν繧ｯ繝ｩ繧ｹ縲・
+ * JS蛛ｴ縺ｧ #game-viewport 縺ｫ .field-selecting 繧剃ｻ倅ｸ弱＠縺ｦ菴ｿ縺・・
  */
 #game-viewport.field-selecting #field-perspective-wrapper {
     z-index: 2000 !important;
@@ -1393,7 +1393,7 @@ body {
     pointer-events: none !important;
 }
 
-/* :has() 対応ブラウザ向けのフォールバックも維持 */
+/* :has() 蟇ｾ蠢懊ヶ繝ｩ繧ｦ繧ｶ蜷代￠縺ｮ繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ繧らｶｭ謖・*/
 #field-perspective-wrapper:has(.selecting-mode) {
     z-index: 2000 !important;
     pointer-events: none;
@@ -1403,15 +1403,15 @@ body {
     pointer-events: auto;
 }
 
-/* ドロー演出用：スロット確保中の透明状態 */
+/* 繝峨Ο繝ｼ貍泌・逕ｨ・壹せ繝ｭ繝・ヨ遒ｺ菫昜ｸｭ縺ｮ騾乗・迥ｶ諷・*/
 .card-mini.entering {
     opacity: 0;
     pointer-events: none;
 }
 
-/* デッキ選択画面のレイアウト
- * 画面自体はスクロールさせない。デッキ一覧だけをスクロール領域にすることで、
- * デッキが増えてもタイトルが押し上げられて画面外に消えることがなくなる。 */
+/* 繝・ャ繧ｭ驕ｸ謚樒判髱｢縺ｮ繝ｬ繧､繧｢繧ｦ繝・
+ * 逕ｻ髱｢閾ｪ菴薙・繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ縺輔○縺ｪ縺・ゅョ繝・く荳隕ｧ縺縺代ｒ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ鬆伜沺縺ｫ縺吶ｋ縺薙→縺ｧ縲・
+ * 繝・ャ繧ｭ縺悟｢励∴縺ｦ繧ゅち繧､繝医Ν縺梧款縺嶺ｸ翫￡繧峨ｌ縺ｦ逕ｻ髱｢螟悶↓豸医∴繧九％縺ｨ縺後↑縺上↑繧九・*/
 #deck-select-screen.active {
     background: radial-gradient(circle at center, #1a1a1a, #000);
     display: flex;
@@ -1428,7 +1428,7 @@ body {
     padding: 0 10px;
 }
 
-/* 「Opponent Deck」でも1行に収まる大きさにして、一覧の高さを稼ぐ */
+/* 縲薫pponent Deck縲阪〒繧・陦後↓蜿弱∪繧句､ｧ縺阪＆縺ｫ縺励※縲∽ｸ隕ｧ縺ｮ鬮倥＆繧堤ｨｼ縺・*/
 #deck-select-screen .game-title {
     font-size: 1.9rem;
     letter-spacing: 2px;
@@ -1443,7 +1443,7 @@ body {
     flex-shrink: 0;
 }
 
-/* デッキ一覧が画面に収まらない場合にスクロールさせる */
+/* 繝・ャ繧ｭ荳隕ｧ縺檎判髱｢縺ｫ蜿弱∪繧峨↑縺・ｴ蜷医↓繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ縺輔○繧・*/
 #deck-select-screen #deck-list-container {
     flex: 1 1 auto;
     min-height: 0;
@@ -1456,13 +1456,13 @@ body {
 }
 
 /* ==========================================
-   8. トラッシュ閲覧モーダル
+   8. 繝医Λ繝・す繝･髢ｲ隕ｧ繝｢繝ｼ繝繝ｫ
    ========================================== */
 #trash-viewer-modal {
     position: absolute;
     inset: 0;
     display: none;
-    /* 初期状態は非表示 */
+    /* 蛻晄悄迥ｶ諷九・髱櫁｡ｨ遉ｺ */
     justify-content: center;
     align-items: center;
     z-index: 2500;
@@ -1512,16 +1512,16 @@ body {
     display: flex;
     gap: 6px;
     overflow-x: auto;
-    /* body の touch-action:none を打ち消してタッチスクロールを許可する */
+    /* body 縺ｮ touch-action:none 繧呈遠縺｡豸医＠縺ｦ繧ｿ繝・メ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ繧定ｨｱ蜿ｯ縺吶ｋ */
     touch-action: pan-x;
     padding: 5px 2px;
     min-height: auto;
-    /* 横スクロールを滑らかにする */
+    /* 讓ｪ繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ繧呈ｻ代ｉ縺九↓縺吶ｋ */
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
 }
 
-/* スクロールバーのカスタマイズ */
+/* 繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ繝舌・縺ｮ繧ｫ繧ｹ繧ｿ繝槭う繧ｺ */
 #trash-card-list::-webkit-scrollbar {
     height: 6px;
 }
@@ -1536,7 +1536,7 @@ body {
     border-radius: 3px;
 }
 
-/* モーダル内のカードは重ならないように固定 */
+/* 繝｢繝ｼ繝繝ｫ蜀・・繧ｫ繝ｼ繝峨・驥阪↑繧峨↑縺・ｈ縺・↓蝗ｺ螳・*/
 #trash-card-list .card-mini {
     flex: 0 0 var(--card-width);
     width: var(--card-width);
@@ -1554,7 +1554,7 @@ body {
     border-color: var(--accent-blue) !important;
 }
 
-/* フィールドのトラッシュゾーン内のカードはクリックを透過させ、ゾーンの閲覧イベントを優先させる */
+/* 繝輔ぅ繝ｼ繝ｫ繝峨・繝医Λ繝・す繝･繧ｾ繝ｼ繝ｳ蜀・・繧ｫ繝ｼ繝峨・繧ｯ繝ｪ繝・け繧帝城℃縺輔○縲√だ繝ｼ繝ｳ縺ｮ髢ｲ隕ｧ繧､繝吶Φ繝医ｒ蜆ｪ蜈医＆縺帙ｋ */
 .trash-zone .card-mini,
 .trash-zone .card-mini * {
     pointer-events: none !important;
@@ -1564,7 +1564,7 @@ body {
     pointer-events: auto !important;
 }
 
-/* トラッシュ枚数バッジのスタイル */
+/* 繝医Λ繝・す繝･譫壽焚繝舌ャ繧ｸ縺ｮ繧ｹ繧ｿ繧､繝ｫ */
 #ply-trash-count-badge,
 #opt-trash-count-badge {
     position: absolute;
@@ -1585,19 +1585,19 @@ body {
     transform: rotateX(-35deg) rotateZ(180deg);
 }
 
-/* 手札選択モーダル専用スタイル */
+/* 謇区惆驕ｸ謚槭Δ繝ｼ繝繝ｫ蟆ら畑繧ｹ繧ｿ繧､繝ｫ */
 #selection-modal {
     position: absolute;
     inset: 0;
     display: none;
     background: transparent;
-    /* 背景を暗くしない */
+    /* 閭梧勹繧呈囓縺上＠縺ｪ縺・*/
     z-index: 3000;
     justify-content: center;
     align-items: flex-end;
-    /* 下寄せ */
+    /* 荳句ｯ・○ */
     pointer-events: none;
-    /* 背後のタップを阻害しないための設定（子要素で戻す） */
+    /* 閭悟ｾ後・繧ｿ繝・・繧帝仆螳ｳ縺励↑縺・◆繧√・險ｭ螳夲ｼ亥ｭ占ｦ∫ｴ縺ｧ謌ｻ縺呻ｼ・*/
 }
 
 #selection-modal .modal-content {
@@ -1605,10 +1605,10 @@ body {
     max-width: 650px;
     border-top: 2px solid var(--accent-red);
     background: rgba(5, 5, 5, 0.95);
-    /* モーダル内の背景を濃く */
+    /* 繝｢繝ｼ繝繝ｫ蜀・・閭梧勹繧呈ｿ・￥ */
     padding: 15px 15px calc(15px + env(safe-area-inset-bottom));
     pointer-events: auto;
-    /* タップを有効化 */
+    /* 繧ｿ繝・・繧呈怏蜉ｹ蛹・*/
     box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.8);
 }
 
@@ -1665,7 +1665,7 @@ body {
     justify-content: center;
     align-items: center;
     z-index: 4500;
-    /* Result Modal(3000)より上 */
+    /* Result Modal(3000)繧医ｊ荳・*/
     background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(2px);
 }
@@ -1685,7 +1685,7 @@ body {
 }
 
 /* ==========================================
-   8.5 チュートリアル画面 (遊び方)
+   8.5 繝√Η繝ｼ繝医Μ繧｢繝ｫ逕ｻ髱｢ (驕翫・譁ｹ)
    ========================================== */
 #tutorial-screen.active {
     display: flex !important;
@@ -1807,7 +1807,7 @@ body {
 }
 
 .tut-list li::before {
-    content: '▸';
+    content: '笆ｸ';
     position: absolute;
     left: 0;
     color: var(--accent-blue);
@@ -1817,7 +1817,7 @@ body {
     color: #fff;
 }
 
-/* フェイズの流れ図 */
+/* 繝輔ぉ繧､繧ｺ縺ｮ豬√ｌ蝗ｳ */
 .tut-phase-flow {
     display: flex;
     flex-wrap: wrap;
@@ -1856,7 +1856,7 @@ body {
     font-size: 0.9rem;
 }
 
-/* 場のミニ図解（実際のゾーンCSSを縮小して再利用） */
+/* 蝣ｴ縺ｮ繝溘ル蝗ｳ隗｣・亥ｮ滄圀縺ｮ繧ｾ繝ｼ繝ｳCSS繧堤ｸｮ蟆上＠縺ｦ蜀榊茜逕ｨ・・*/
 .tut-field-diagram {
     display: flex;
     flex-direction: column;
@@ -1911,7 +1911,7 @@ body {
     background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15), transparent);
 }
 
-/* カード実例 */
+/* 繧ｫ繝ｼ繝牙ｮ滉ｾ・*/
 .tut-example-row {
     display: flex;
     gap: 12px;
@@ -1942,10 +1942,10 @@ body {
     font-size: 0.78rem;
     line-height: 1.6;
     color: #ccc;
-    /* display:flex にすると <br>/<strong> を含むテキストが
-       断片ごとに別のフレックスアイテムとして扱われ、各断片が
-       勝手に折り返されて縦書きのようにバラバラになる。
-       通常のブロックのまま、縦中央寄せは親フレックス側の align-self に任せる。 */
+    /* display:flex 縺ｫ縺吶ｋ縺ｨ <br>/<strong> 繧貞性繧繝・く繧ｹ繝医′
+       譁ｭ迚・＃縺ｨ縺ｫ蛻･縺ｮ繝輔Ξ繝・け繧ｹ繧｢繧､繝・Β縺ｨ縺励※謇ｱ繧上ｌ縲∝推譁ｭ迚・′
+       蜍晄焔縺ｫ謚倥ｊ霑斐＆繧後※邵ｦ譖ｸ縺阪・繧医≧縺ｫ繝舌Λ繝舌Λ縺ｫ縺ｪ繧九・
+       騾壼ｸｸ縺ｮ繝悶Ο繝・け縺ｮ縺ｾ縺ｾ縲∫ｸｦ荳ｭ螟ｮ蟇・○縺ｯ隕ｪ繝輔Ξ繝・け繧ｹ蛛ｴ縺ｮ align-self 縺ｫ莉ｻ縺帙ｋ縲・*/
     align-self: center;
 }
 
@@ -1998,10 +1998,10 @@ body {
 /* VFX Layer Constraint */
 .card-mini {
     overflow: visible !important;
-    /* エフェクトが枠外にはみ出るのを許可 */
+    /* 繧ｨ繝輔ぉ繧ｯ繝医′譫螟悶↓縺ｯ縺ｿ蜃ｺ繧九・繧定ｨｱ蜿ｯ */
 }
 
-/* 1. LP変動演出 */
+/* 1. LP螟牙虚貍泌・ */
 .hud-lp {
     transition: color 0.2s;
 }
@@ -2018,7 +2018,7 @@ body {
     transform: scale(1.1);
 }
 
-/* 2. 波紋エフェクト (Ripple) */
+/* 2. 豕｢邏九お繝輔ぉ繧ｯ繝・(Ripple) */
 .vfx-ripple {
     position: absolute;
     top: 50%;
@@ -2057,7 +2057,7 @@ body {
     }
 }
 
-/* 3. 召喚ランディング (Landing) */
+/* 3. 蜿ｬ蝟壹Λ繝ｳ繝・ぅ繝ｳ繧ｰ (Landing) */
 .vfx-landing-flash {
     position: absolute;
     inset: -10px;
@@ -2087,8 +2087,8 @@ body {
     }
 }
 
-/* 4. 戦闘演出 (Attack & Damage) */
-/* 振動 */
+/* 4. 謌ｦ髣俶ｼ泌・ (Attack & Damage) */
+/* 謖ｯ蜍・*/
 .shake-target {
     animation: shake-anim 0.3s cubic-bezier(.36, .07, .19, .97) both;
 }
@@ -2117,7 +2117,7 @@ body {
     }
 }
 
-/* スラッシュ（斬撃） */
+/* 繧ｹ繝ｩ繝・す繝･・域脈謦・ｼ・*/
 .vfx-slash-line {
     position: absolute;
     top: 50%;
@@ -2150,8 +2150,8 @@ body {
     }
 }
 
-/* 6. 効果発動・攻撃の演出 */
-/* 効果を発動したカードを一瞬光らせる */
+/* 6. 蜉ｹ譫懃匱蜍輔・謾ｻ謦・・貍泌・ */
+/* 蜉ｹ譫懊ｒ逋ｺ蜍輔＠縺溘き繝ｼ繝峨ｒ荳迸ｬ蜈峨ｉ縺帙ｋ */
 .vfx-effect-burst {
     position: absolute;
     inset: -8px;
@@ -2164,12 +2164,12 @@ body {
 }
 
 @keyframes effect-burst {
-    0% { opacity: 0; transform: scale(1.3); }
+    0% { opacity: 0; transform: scale(0.9); }
     25% { opacity: 1; transform: scale(1); }
-    100% { opacity: 0; transform: scale(1.05); }
+    100% { opacity: 0; transform: scale(1.4); }
 }
 
-/* 被ダメージの数値。各プレイヤーの手札あたりに出してLP表示へ飛ばす */
+/* 陲ｫ繝繝｡繝ｼ繧ｸ縺ｮ謨ｰ蛟､縲ょ推繝励Ξ繧､繝､繝ｼ縺ｮ謇区惆縺ゅ◆繧翫↓蜃ｺ縺励※LP陦ｨ遉ｺ縺ｸ鬟帙・縺・*/
 .vfx-damage-number {
     position: fixed;
     transform: translate(-50%, -50%);
@@ -2186,7 +2186,7 @@ body {
                 font-size 0.55s ease-in;
 }
 
-/* 回復はLPが増えるので色を変える */
+/* 蝗槫ｾｩ縺ｯLP縺悟｢励∴繧九・縺ｧ濶ｲ繧貞､峨∴繧・*/
 .vfx-damage-number.heal {
     color: #4ade80;
     text-shadow: 0 0 10px rgba(74, 222, 128, 0.9), 0 2px 4px #000;
@@ -2201,7 +2201,7 @@ body {
     animation: damage-pop 0.3s ease-out;
 }
 
-/* LPが減った時の画面揺れ */
+/* LP縺梧ｸ帙▲縺滓凾縺ｮ逕ｻ髱｢謠ｺ繧・*/
 @keyframes viewport-shake {
     0%, 100% { transform: translate(0, 0); }
     15% { transform: translate(-5px, 3px); }
@@ -2214,7 +2214,7 @@ body {
     animation: viewport-shake 0.4s ease-out;
 }
 
-/* LP数値そのものも一瞬赤く光らせる */
+/* LP謨ｰ蛟､縺昴・繧ゅ・繧ゆｸ迸ｬ襍､縺丞・繧峨○繧・*/
 @keyframes lp-flash {
     0%, 100% { color: inherit; transform: scale(1); }
     35% { color: var(--accent-red); transform: scale(1.2); }
@@ -2223,7 +2223,7 @@ body {
     animation: lp-flash 0.45s ease-out;
 }
 
-/* カード上の状態バッジ（攻撃可能／攻撃済み／効果使用済み） */
+/* 繧ｫ繝ｼ繝我ｸ翫・迥ｶ諷九ヰ繝・ず・域判謦・庄閭ｽ・乗判謦・ｸ医∩・丞柑譫應ｽｿ逕ｨ貂医∩・・*/
 .card-state-badge {
     position: absolute;
     top: 2px;
@@ -2248,13 +2248,13 @@ body {
     display: block;
 }
 
-/* 攻撃可能: はっきり光らせる */
+/* 謾ｻ謦・庄閭ｽ: 縺ｯ縺｣縺阪ｊ蜈峨ｉ縺帙ｋ */
 .card-state-badge.can-attack {
     color: #ffd23f;
     filter: drop-shadow(0 0 3px rgba(255, 210, 63, 0.8));
 }
 
-/* 攻撃済み: くすませて区別する */
+/* 謾ｻ謦・ｸ医∩: 縺上☆縺ｾ縺帙※蛹ｺ蛻･縺吶ｋ */
 .card-state-badge.attacked {
     color: #7b8290;
     opacity: 0.85;
@@ -2263,7 +2263,7 @@ body {
     opacity: 0.6;
 }
 
-/* 効果使用済みは攻撃バッジと重ならないよう左上に出す */
+/* 蜉ｹ譫應ｽｿ逕ｨ貂医∩縺ｯ謾ｻ謦・ヰ繝・ず縺ｨ驥阪↑繧峨↑縺・ｈ縺・ｷｦ荳翫↓蜃ｺ縺・*/
 .card-state-badge.used-effect {
     top: 2px;
     right: auto;
@@ -2272,12 +2272,12 @@ body {
     filter: drop-shadow(0 0 3px rgba(255, 157, 92, 0.7));
 }
 
-/* 相手のカードは180度回転しているのでバッジだけ正対させる */
+/* 逶ｸ謇九・繧ｫ繝ｼ繝峨・180蠎ｦ蝗櫁ｻ｢縺励※縺・ｋ縺ｮ縺ｧ繝舌ャ繧ｸ縺縺第ｭ｣蟇ｾ縺輔○繧・*/
 .opponent-field .card-state-badge {
     transform: rotateZ(180deg);
 }
 
-/* 召喚の演出。周囲が軽く光るだけの短いもの */
+/* 蜿ｬ蝟壹・貍泌・縲ょ捉蝗ｲ縺瑚ｻｽ縺丞・繧九□縺代・遏ｭ縺・ｂ縺ｮ */
 .vfx-summon-glow {
     position: absolute;
     inset: -6px;
@@ -2290,12 +2290,12 @@ body {
 }
 
 @keyframes summon-glow {
-    0% { opacity: 0; transform: scale(1.25); }
-    40% { opacity: 1; transform: scale(1); }
-    100% { opacity: 0; transform: scale(1); }
+    0% { opacity: 0; transform: scale(0.9); }
+    40% { opacity: 1; transform: scale(1.1); }
+    100% { opacity: 0; transform: scale(1.3); }
 }
 
-/* モンスター破壊の演出。いきなり消えたように見せない */
+/* 繝｢繝ｳ繧ｹ繧ｿ繝ｼ遐ｴ螢翫・貍泌・縲ゅ＞縺阪↑繧頑ｶ医∴縺溘ｈ縺・↓隕九○縺ｪ縺・*/
 .vfx-destroy-burst {
     position: absolute;
     inset: -6px;
@@ -2312,9 +2312,9 @@ body {
     100% { opacity: 0; transform: scale(1.5); }
 }
 
-/* 破壊されるカード本体が砕けて落ちる。
- * 相手のカードは rotateZ(180deg) で正対させているので、
- * その向きを --destroy-base で引き継がないと破壊の瞬間だけ向きが変わってしまう。 */
+/* 遐ｴ螢翫＆繧後ｋ繧ｫ繝ｼ繝画悽菴薙′遐輔￠縺ｦ關ｽ縺｡繧九・
+ * 逶ｸ謇九・繧ｫ繝ｼ繝峨・ rotateZ(180deg) 縺ｧ豁｣蟇ｾ縺輔○縺ｦ縺・ｋ縺ｮ縺ｧ縲・
+ * 縺昴・蜷代″繧・--destroy-base 縺ｧ蠑輔″邯吶′縺ｪ縺・→遐ｴ螢翫・迸ｬ髢薙□縺大髄縺阪′螟峨ｏ縺｣縺ｦ縺励∪縺・・*/
 @keyframes destroy-card {
     0% { opacity: 1; transform: var(--destroy-base) scale(1); filter: brightness(1); }
     25% { opacity: 1; transform: var(--destroy-base) scale(1.06) rotate(-3deg); filter: brightness(2.2); }
@@ -2329,7 +2329,7 @@ body {
     --destroy-base: rotateZ(180deg);
 }
 
-/* 攻撃の矢印（誰が誰を攻撃したか） */
+/* 謾ｻ謦・・遏｢蜊ｰ・郁ｪｰ縺瑚ｪｰ繧呈判謦・＠縺溘°・・*/
 .vfx-attack-arrow {
     position: fixed;
     height: 4px;
@@ -2341,7 +2341,7 @@ body {
     animation: attack-arrow 0.9s ease-out forwards;
 }
 
-/* 矢じり */
+/* 遏｢縺倥ｊ */
 .vfx-attack-arrow::after {
     content: '';
     position: absolute;
@@ -2360,7 +2360,7 @@ body {
     100% { opacity: 0; clip-path: inset(0 0 0 0); }
 }
 
-/* デッキ→トラッシュへ落ちるカード */
+/* 繝・ャ繧ｭ竊偵ヨ繝ｩ繝・す繝･縺ｸ關ｽ縺｡繧九き繝ｼ繝・*/
 .anim-milling-card {
     position: fixed;
     z-index: 4500;
@@ -2369,8 +2369,8 @@ body {
 }
 
 /* ==========================================
-   相手の場と詳細エリアの間の帯
-   相手の手札（裏向き）と、効果発動トーストをここに出す
+   逶ｸ謇九・蝣ｴ縺ｨ隧ｳ邏ｰ繧ｨ繝ｪ繧｢縺ｮ髢薙・蟶ｯ
+   逶ｸ謇九・謇区惆・郁｣丞髄縺搾ｼ峨→縲∝柑譫懃匱蜍輔ヨ繝ｼ繧ｹ繝医ｒ縺薙％縺ｫ蜃ｺ縺・
    ========================================== */
 #opponent-band {
     position: absolute;
@@ -2385,7 +2385,7 @@ body {
     justify-content: center;
 }
 
-/* 相手の手札（裏向き） */
+/* 逶ｸ謇九・謇区惆・郁｣丞髄縺搾ｼ・*/
 #opponent-hand {
     display: flex;
     justify-content: center;
@@ -2407,12 +2407,12 @@ body {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7), -1px 0 0 rgba(0, 0, 0, 0.5);
 }
 
-/* 少し重ねつつ、1枚1枚の輪郭は分かるようにする */
+/* 蟆代＠驥阪・縺､縺､縲・譫・譫壹・霈ｪ驛ｭ縺ｯ蛻・°繧九ｈ縺・↓縺吶ｋ */
 .opp-hand-card:not(:first-child) {
     margin-left: -4px;
 }
 
-/* 新しく引いたカードだけ軽く差し込む */
+/* 譁ｰ縺励￥蠑輔＞縺溘き繝ｼ繝峨□縺題ｻｽ縺丞ｷｮ縺苓ｾｼ繧 */
 @keyframes oppHandDeal {
     from { transform: translateY(-10px) scale(0.85); opacity: 0; }
     to   { transform: none; opacity: 1; }
@@ -2421,7 +2421,7 @@ body {
     animation: oppHandDeal 0.25s ease-out;
 }
 
-/* 効果発動トースト（手札の上に重ねて出す） */
+/* 蜉ｹ譫懃匱蜍輔ヨ繝ｼ繧ｹ繝茨ｼ域焔譛ｭ縺ｮ荳翫↓驥阪・縺ｦ蜃ｺ縺呻ｼ・*/
 #effect-toast {
     position: absolute;
     left: 50%;
@@ -2461,7 +2461,7 @@ body {
     color: var(--accent-red);
 }
 
-/* 画像未作成カードの代替表示（Game-icons.net アイコン） */
+/* 逕ｻ蜒乗悴菴懈・繧ｫ繝ｼ繝峨・莉｣譖ｿ陦ｨ遉ｺ・・ame-icons.net 繧｢繧､繧ｳ繝ｳ・・*/
 .card-art-fallback {
     width: 100%;
     height: 100%;
@@ -2472,7 +2472,7 @@ body {
     user-select: none;
 }
 
-/* 画像カードと同じく枠いっぱいに収まる正方形タイルにアイコンを収める */
+/* 逕ｻ蜒上き繝ｼ繝峨→蜷後§縺乗棧縺・▲縺ｱ縺・↓蜿弱∪繧区ｭ｣譁ｹ蠖｢繧ｿ繧､繝ｫ縺ｫ繧｢繧､繧ｳ繝ｳ繧貞庶繧√ｋ */
 .card-art-fallback-inner {
     aspect-ratio: 1 / 1;
     height: 100%;
@@ -2497,7 +2497,7 @@ body {
     line-height: 1;
 }
 
-/* デッキビルダーの詳細欄では固定サイズで出す */
+/* 繝・ャ繧ｭ繝薙Ν繝繝ｼ縺ｮ隧ｳ邏ｰ谺・〒縺ｯ蝗ｺ螳壹し繧､繧ｺ縺ｧ蜃ｺ縺・*/
 .detail-img-box .card-art-fallback {
     border-radius: 4px;
     border: 1px solid #555;
@@ -2506,7 +2506,7 @@ body {
     padding: 16%;
 }
 
-/* 5. フライト演出用クラス (JSで動的に制御) */
+/* 5. 繝輔Λ繧､繝域ｼ泌・逕ｨ繧ｯ繝ｩ繧ｹ (JS縺ｧ蜍慕噪縺ｫ蛻ｶ蠕｡) */
 .card-mini.flying-effect {
     position: fixed !important;
     z-index: 5000 !important;
@@ -2522,12 +2522,12 @@ body {
 }
 
 /* ==========================================
-   10. PC対応レイアウト
+   10. PC蟇ｾ蠢懊Ξ繧､繧｢繧ｦ繝・
    ========================================== */
 /*
- * PCでは「スマホ設計のレイアウトを保ったまま、画面サイズに合わせて等倍拡大」する。
- * 幅だけ広げるとカードが65pxの豆粒のまま余白だけ増えてしまうため、
- * 設計サイズ(480x900)に固定して JS 側(updateViewportScale)で scale を掛ける。
+ * PC縺ｧ縺ｯ縲後せ繝槭・險ｭ險医・繝ｬ繧､繧｢繧ｦ繝医ｒ菫昴▲縺溘∪縺ｾ縲∫判髱｢繧ｵ繧､繧ｺ縺ｫ蜷医ｏ縺帙※遲牙肴僑螟ｧ縲阪☆繧九・
+ * 蟷・□縺大ｺ・￡繧九→繧ｫ繝ｼ繝峨′65px縺ｮ雎・ｲ偵・縺ｾ縺ｾ菴咏區縺縺大｢励∴縺ｦ縺励∪縺・◆繧√・
+ * 險ｭ險医し繧､繧ｺ(480x900)縺ｫ蝗ｺ螳壹＠縺ｦ JS 蛛ｴ(updateViewportScale)縺ｧ scale 繧呈寺縺代ｋ縲・
  */
 @media (min-width: 481px) {
 
@@ -2549,13 +2549,13 @@ body {
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
     }
 
-    /* 拡大後もクリックしやすいよう、PCでは当たり判定の拡張を控えめにする */
+    /* 諡｡螟ｧ蠕後ｂ繧ｯ繝ｪ繝・け縺励ｄ縺吶＞繧医≧縲￣C縺ｧ縺ｯ蠖薙◆繧雁愛螳壹・諡｡蠑ｵ繧呈而縺医ａ縺ｫ縺吶ｋ */
     .zone::after {
         top: -6px;
         bottom: -6px;
     }
 
-    /* デッキビルダーもPC幅で間延びしないように中央寄せ */
+    /* 繝・ャ繧ｭ繝薙Ν繝繝ｼ繧１C蟷・〒髢灘ｻｶ縺ｳ縺励↑縺・ｈ縺・↓荳ｭ螟ｮ蟇・○ */
     #deck-builder-view {
         max-width: 900px;
         margin: 0 auto;
@@ -2564,7 +2564,7 @@ body {
     }
 }
 
-/* 画面が低い環境（横向きスマホ等）ではフィールドの上下余白を詰める */
+/* 逕ｻ髱｢縺御ｽ弱＞迺ｰ蠅・ｼ域ｨｪ蜷代″繧ｹ繝槭・遲会ｼ峨〒縺ｯ繝輔ぅ繝ｼ繝ｫ繝峨・荳贋ｸ倶ｽ咏區繧定ｩｰ繧√ｋ */
 @media (max-height: 700px) and (max-width: 480px) {
     #field-perspective-wrapper {
         padding-top: 170px;
@@ -2588,4 +2588,22 @@ body {
         width: 22px;
         height: 30px;
     }
+}
+
+
+/* 背景画像の追加 */
+#menu-screen, #deck-select-screen, #tutorial-screen {
+    background: url('img/bg_menu.webp') no-repeat center center;
+    background-size: cover;
+}
+
+#deck-screen {
+    background: url('img/bg_deck.webp') no-repeat center center;
+    background-size: cover;
+}
+
+#game-screen {
+    background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('img/bg_duel.webp') no-repeat center center;
+    background-size: cover;
+    background-blend-mode: overlay;
 }

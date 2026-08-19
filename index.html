@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>LinkaVel Card Game</title>
 
-    <!-- アプリアイコン（ブラウザタブ / ホーム画面に追加） -->
+    <!-- 繧｢繝励Μ繧｢繧､繧ｳ繝ｳ・医ヶ繝ｩ繧ｦ繧ｶ繧ｿ繝・/ 繝帙・繝逕ｻ髱｢縺ｫ霑ｽ蜉・・-->
     <link rel="icon" type="image/png" href="img/icon.png">
     <link rel="apple-touch-icon" href="img/icon.png">
     <link rel="manifest" href="manifest.json">
@@ -22,6 +22,7 @@
     <div id="app-container">
 
         <div id="menu-screen" class="screen active">
+            <button id="force-reload-btn" class="menu-btn" style="position: absolute; bottom: 10px; right: 10px; font-size: 12px; padding: 5px 10px; width: auto; z-index: 9999;" onclick="location.reload(true)">🔄 最新版に更新</button>
             <div class="menu-header">
                 <h1 class="game-title">LinkaVel</h1>
                 <p class="game-subtitle">Card Game</p>
@@ -29,20 +30,20 @@
 
             <div class="menu-options">
                 <button class="menu-btn" onclick="startSinglePlay()">
-                    <span class="btn-icon">👤</span>
-                    <span class="btn-text">SOLO MODE - <small>CPU対戦</small></span>
+                    <span class="btn-icon">側</span>
+                    <span class="btn-text">SOLO MODE - <small>CPU蟇ｾ謌ｦ</small></span>
                 </button>
                 <button class="menu-btn disabled">
-                    <span class="btn-icon">🌐</span>
-                    <span class="btn-text">ROOM MATCH - <small>近日公開</small></span>
+                    <span class="btn-icon">倹</span>
+                    <span class="btn-text">ROOM MATCH - <small>霑第律蜈ｬ髢・/small></span>
                 </button>
                 <button class="menu-btn" onclick="openDeckEditor()">
-                    <span class="btn-icon">🃏</span>
-                    <span class="btn-text">DECK BUILD - <small>デッキ編成</small></span>
+                    <span class="btn-icon">ワ</span>
+                    <span class="btn-text">DECK BUILD - <small>繝・ャ繧ｭ邱ｨ謌・/small></span>
                 </button>
                 <button class="menu-btn" onclick="openTutorial()">
-                    <span class="btn-icon">📖</span>
-                    <span class="btn-text">HOW TO PLAY - <small>遊び方</small></span>
+                    <span class="btn-icon">当</span>
+                    <span class="btn-text">HOW TO PLAY - <small>驕翫・譁ｹ</small></span>
                 </button>
             </div>
         </div>
@@ -82,7 +83,7 @@
                                     </div>
                                     <div id="info-extra-stats"></div>
                                 </div>
-                                <div id="info-text">カードをタップして詳細を表示</div>
+                                <div id="info-text">繧ｫ繝ｼ繝峨ｒ繧ｿ繝・・縺励※隧ｳ邏ｰ繧定｡ｨ遉ｺ</div>
                             </div>
                         </div>
                     </div>
@@ -92,9 +93,9 @@
                         <span id="next-phase-display">MAIN1</span>
                     </button>
 
-                    <button id="surrender-btn">降参</button>
+                    <button id="surrender-btn">髯榊盾</button>
 
-                    <!-- 相手の場と詳細エリアの間の帯。相手の手札と効果トーストを出す -->
+                    <!-- 逶ｸ謇九・蝣ｴ縺ｨ隧ｳ邏ｰ繧ｨ繝ｪ繧｢縺ｮ髢薙・蟶ｯ縲ら嶌謇九・謇区惆縺ｨ蜉ｹ譫懊ヨ繝ｼ繧ｹ繝医ｒ蜃ｺ縺・-->
                     <div id="opponent-band">
                         <div id="opponent-hand"></div>
                         <div id="effect-toast"></div>
@@ -149,22 +150,15 @@
                     <div id="player-hand"></div>
                 </div>
 
-                <!--
-                  操作用のフローティングUI。
-                  #ui-layer の中に置くと、#ui-layer(z-index:100)が作る重ね合わせ文脈に
-                  閉じ込められ、選択モード中に z-index:2000 へ昇格するフィールドの下に
-                  潜ってボタンが押せなくなるため、#game-viewport 直下に置く。
-                -->
-                <div id="floating-action-container"></div>
-                <div id="selection-prompt"></div>
             </div>
 
-
+            <div id="floating-action-container"></div>
+            <div id="selection-prompt"></div>
 
             <div id="game-start-overlay">
                 <div class="start-modal-content">
                     <h2 id="start-title">DUEL</h2>
-                    <p id="start-message">準備中...</p>
+                    <p id="start-message">貅門ｙ荳ｭ...</p>
                     <button class="start-btn" onclick="beginDuel()">START</button>
                 </div>
             </div>
@@ -172,8 +166,8 @@
             <div id="game-result-overlay">
                 <div class="result-modal-content">
                     <h2 id="result-title">VICTORY</h2>
-                    <p id="result-message">相手のLPを0にしました</p>
-                    <button class="result-home-btn" onclick="backToMenu()">HOMEに戻る</button>
+                    <p id="result-message">逶ｸ謇九・LP繧・縺ｫ縺励∪縺励◆</p>
+                    <button class="result-home-btn" onclick="backToMenu()">HOME縺ｫ謌ｻ繧・/button>
                 </div>
             </div>
 
@@ -181,8 +175,8 @@
             <div id="trash-viewer-modal" class="modal-overlay" onclick="closeTrashViewer()">
                 <div class="modal-content" onclick="event.stopPropagation()">
                     <div id="trash-viewer-header">
-                        <span id="trash-viewer-title">トラッシュ</span>
-                        <button class="modal-close-btn" onclick="closeTrashViewer()">×</button>
+                        <span id="trash-viewer-title">繝医Λ繝・す繝･</span>
+                        <button class="modal-close-btn" onclick="closeTrashViewer()">ﾃ・/button>
                     </div>
                     <div id="trash-card-list"></div>
                 </div>
@@ -192,11 +186,11 @@
             <div id="selection-modal" class="modal-overlay">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <span id="selection-title">捨てるカードを選択</span>
+                        <span id="selection-title">謐ｨ縺ｦ繧九き繝ｼ繝峨ｒ驕ｸ謚・/span>
                     </div>
                     <div id="selection-card-list" class="horizontal-list"></div>
                     <div class="modal-footer">
-                        <button id="selection-confirm-btn" class="menu-btn disabled">確定 (残り <span id="selection-needed-count">0</span>枚)</button>
+                        <button id="selection-confirm-btn" class="menu-btn disabled">遒ｺ螳・(谿九ｊ <span id="selection-needed-count">0</span>譫・</button>
                     </div>
                 </div>
             </div>
@@ -205,7 +199,7 @@
         <div id="deck-select-screen" class="screen">
             <div class="menu-header">
                 <h1 class="game-title" id="deck-select-title">Deck Select</h1>
-                <p class="game-subtitle" id="deck-select-subtitle">使用するデッキを選択してください</p>
+                <p class="game-subtitle" id="deck-select-subtitle">菴ｿ逕ｨ縺吶ｋ繝・ャ繧ｭ繧帝∈謚槭＠縺ｦ縺上□縺輔＞</p>
             </div>
             <div id="deck-list-container" class="menu-options">
 
@@ -218,179 +212,179 @@
         <div id="tutorial-screen" class="screen">
             <div id="tutorial-view">
                 <div class="tutorial-header">
-                    <button class="builder-btn" onclick="showScreen('menu-screen')">← BACK</button>
-                    <h2 class="tutorial-title">遊び方</h2>
+                    <button class="builder-btn" onclick="showScreen('menu-screen')">竊・BACK</button>
+                    <h2 class="tutorial-title">驕翫・譁ｹ</h2>
                 </div>
 
                 <div class="tutorial-tabs" id="tutorial-tabs">
-                    <button class="tutorial-tab active" data-tab="flow">流れ</button>
-                    <button class="tutorial-tab" data-tab="field">場</button>
-                    <button class="tutorial-tab" data-tab="summon">召喚</button>
-                    <button class="tutorial-tab" data-tab="battle">戦闘</button>
-                    <button class="tutorial-tab" data-tab="magic">魔術・罠</button>
-                    <button class="tutorial-tab" data-tab="misc">その他</button>
+                    <button class="tutorial-tab active" data-tab="flow">豬√ｌ</button>
+                    <button class="tutorial-tab" data-tab="field">蝣ｴ</button>
+                    <button class="tutorial-tab" data-tab="summon">蜿ｬ蝟・/button>
+                    <button class="tutorial-tab" data-tab="battle">謌ｦ髣・/button>
+                    <button class="tutorial-tab" data-tab="magic">鬲碑｡薙・鄂</button>
+                    <button class="tutorial-tab" data-tab="misc">縺昴・莉・/button>
                 </div>
 
                 <div class="tutorial-body">
 
                     <section class="tutorial-section active" data-section="flow">
-                        <h3>ゲームの目的</h3>
-                        <p>相手の <strong>LP（ライフポイント）</strong> を 0 にすれば勝ち。初期LPはお互い <strong>5000</strong>。</p>
+                        <h3>繧ｲ繝ｼ繝縺ｮ逶ｮ逧・/h3>
+                        <p>逶ｸ謇九・ <strong>LP・医Λ繧､繝輔・繧､繝ｳ繝茨ｼ・/strong> 繧・0 縺ｫ縺吶ｌ縺ｰ蜍昴■縲ょ・譛櫚P縺ｯ縺贋ｺ偵＞ <strong>5000</strong>縲・/p>
 
-                        <h3>ターンの流れ</h3>
+                        <h3>繧ｿ繝ｼ繝ｳ縺ｮ豬√ｌ</h3>
                         <div class="tut-phase-flow">
-                            <div class="tut-phase"><span class="tut-phase-name">DRAW</span><span class="tut-phase-desc">デッキから1枚引く</span></div>
-                            <div class="tut-phase-arrow">→</div>
-                            <div class="tut-phase"><span class="tut-phase-name">MAIN1</span><span class="tut-phase-desc">召喚・魔術の発動</span></div>
-                            <div class="tut-phase-arrow">→</div>
-                            <div class="tut-phase"><span class="tut-phase-name">BATTLE</span><span class="tut-phase-desc">モンスターで攻撃</span></div>
-                            <div class="tut-phase-arrow">→</div>
-                            <div class="tut-phase"><span class="tut-phase-name">MAIN2</span><span class="tut-phase-desc">召喚・魔術の発動</span></div>
-                            <div class="tut-phase-arrow">→</div>
-                            <div class="tut-phase"><span class="tut-phase-name">END</span><span class="tut-phase-desc">手札10枚超なら捨てる</span></div>
+                            <div class="tut-phase"><span class="tut-phase-name">DRAW</span><span class="tut-phase-desc">繝・ャ繧ｭ縺九ｉ1譫壼ｼ輔￥</span></div>
+                            <div class="tut-phase-arrow">竊・/div>
+                            <div class="tut-phase"><span class="tut-phase-name">MAIN1</span><span class="tut-phase-desc">蜿ｬ蝟壹・鬲碑｡薙・逋ｺ蜍・/span></div>
+                            <div class="tut-phase-arrow">竊・/div>
+                            <div class="tut-phase"><span class="tut-phase-name">BATTLE</span><span class="tut-phase-desc">繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺ｧ謾ｻ謦・/span></div>
+                            <div class="tut-phase-arrow">竊・/div>
+                            <div class="tut-phase"><span class="tut-phase-name">MAIN2</span><span class="tut-phase-desc">蜿ｬ蝟壹・鬲碑｡薙・逋ｺ蜍・/span></div>
+                            <div class="tut-phase-arrow">竊・/div>
+                            <div class="tut-phase"><span class="tut-phase-name">END</span><span class="tut-phase-desc">謇区惆10譫夊ｶ・↑繧画昏縺ｦ繧・/span></div>
                         </div>
                         <ul class="tut-list">
-                            <li>先行1ターン目だけは <strong>ドローとバトルフェイズを行わない</strong>。</li>
-                            <li>通常召喚は1ターンに合計1回まで（MAIN1かMAIN2、どちらかで）。</li>
-                            <li>手札が11枚以上になったら、エンドフェイズに10枚まで選んで捨てる。</li>
+                            <li>蜈郁｡・繧ｿ繝ｼ繝ｳ逶ｮ縺縺代・ <strong>繝峨Ο繝ｼ縺ｨ繝舌ヨ繝ｫ繝輔ぉ繧､繧ｺ繧定｡後ｏ縺ｪ縺・/strong>縲・/li>
+                            <li>騾壼ｸｸ蜿ｬ蝟壹・1繧ｿ繝ｼ繝ｳ縺ｫ蜷郁ｨ・蝗槭∪縺ｧ・・AIN1縺貴AIN2縲√←縺｡繧峨°縺ｧ・峨・/li>
+                            <li>謇区惆縺・1譫壻ｻ･荳翫↓縺ｪ縺｣縺溘ｉ縲√お繝ｳ繝峨ヵ繧ｧ繧､繧ｺ縺ｫ10譫壹∪縺ｧ驕ｸ繧薙〒謐ｨ縺ｦ繧九・/li>
                         </ul>
                     </section>
 
                     <section class="tutorial-section" data-section="field">
-                        <h3>場の構成</h3>
-                        <p>実際の画面と同じ配置で示すと、こうなっている。相手側は画面奥、自分側は画面手前で、左右も含めて上下対称に並ぶ。</p>
+                        <h3>蝣ｴ縺ｮ讒区・</h3>
+                        <p>螳滄圀縺ｮ逕ｻ髱｢縺ｨ蜷後§驟咲ｽｮ縺ｧ遉ｺ縺吶→縲√％縺・↑縺｣縺ｦ縺・ｋ縲ら嶌謇句・縺ｯ逕ｻ髱｢螂･縲∬・蛻・・縺ｯ逕ｻ髱｢謇句燕縺ｧ縲∝ｷｦ蜿ｳ繧ょ性繧√※荳贋ｸ句ｯｾ遘ｰ縺ｫ荳ｦ縺ｶ縲・/p>
                         <div class="tut-field-diagram">
-                            <div class="tut-field-row-label">相手側（画面奥）</div>
+                            <div class="tut-field-row-label">逶ｸ謇句・・育判髱｢螂･・・/div>
                             <div class="tut-field-row">
-                                <div class="tut-field-zone trash-zone">トラッシュ</div>
-                                <div class="tut-field-zone magic-zone">魔術</div>
-                                <div class="tut-field-zone magic-zone">魔術</div>
-                                <div class="tut-field-zone magic-zone">魔術</div>
-                                <div class="tut-field-zone banish-zone">除外</div>
+                                <div class="tut-field-zone trash-zone">繝医Λ繝・す繝･</div>
+                                <div class="tut-field-zone magic-zone">鬲碑｡・/div>
+                                <div class="tut-field-zone magic-zone">鬲碑｡・/div>
+                                <div class="tut-field-zone magic-zone">鬲碑｡・/div>
+                                <div class="tut-field-zone banish-zone">髯､螟・/div>
                             </div>
                             <div class="tut-field-row">
-                                <div class="tut-field-zone deck-zone">デッキ</div>
-                                <div class="tut-field-zone monster-zone">モンスター</div>
-                                <div class="tut-field-zone monster-zone">モンスター</div>
-                                <div class="tut-field-zone monster-zone">モンスター</div>
+                                <div class="tut-field-zone deck-zone">繝・ャ繧ｭ</div>
+                                <div class="tut-field-zone monster-zone">繝｢繝ｳ繧ｹ繧ｿ繝ｼ</div>
+                                <div class="tut-field-zone monster-zone">繝｢繝ｳ繧ｹ繧ｿ繝ｼ</div>
+                                <div class="tut-field-zone monster-zone">繝｢繝ｳ繧ｹ繧ｿ繝ｼ</div>
                                 <div class="tut-field-zone empty-slot"></div>
                             </div>
                             <div class="tut-field-divider"></div>
                             <div class="tut-field-row">
                                 <div class="tut-field-zone empty-slot"></div>
-                                <div class="tut-field-zone monster-zone">モンスター</div>
-                                <div class="tut-field-zone monster-zone">モンスター</div>
-                                <div class="tut-field-zone monster-zone">モンスター</div>
-                                <div class="tut-field-zone deck-zone">デッキ</div>
+                                <div class="tut-field-zone monster-zone">繝｢繝ｳ繧ｹ繧ｿ繝ｼ</div>
+                                <div class="tut-field-zone monster-zone">繝｢繝ｳ繧ｹ繧ｿ繝ｼ</div>
+                                <div class="tut-field-zone monster-zone">繝｢繝ｳ繧ｹ繧ｿ繝ｼ</div>
+                                <div class="tut-field-zone deck-zone">繝・ャ繧ｭ</div>
                             </div>
                             <div class="tut-field-row">
-                                <div class="tut-field-zone banish-zone">除外</div>
-                                <div class="tut-field-zone magic-zone">魔術</div>
-                                <div class="tut-field-zone magic-zone">魔術</div>
-                                <div class="tut-field-zone magic-zone">魔術</div>
-                                <div class="tut-field-zone trash-zone">トラッシュ</div>
+                                <div class="tut-field-zone banish-zone">髯､螟・/div>
+                                <div class="tut-field-zone magic-zone">鬲碑｡・/div>
+                                <div class="tut-field-zone magic-zone">鬲碑｡・/div>
+                                <div class="tut-field-zone magic-zone">鬲碑｡・/div>
+                                <div class="tut-field-zone trash-zone">繝医Λ繝・す繝･</div>
                             </div>
-                            <div class="tut-field-row-label">自分側（画面手前）</div>
+                            <div class="tut-field-row-label">閾ｪ蛻・・・育判髱｢謇句燕・・/div>
                         </div>
                         <ul class="tut-list">
-                            <li><strong>モンスターゾーン</strong>：最大3体まで並べられる。</li>
-                            <li><strong>魔術ゾーン</strong>：通常魔術・永続魔術・罠魔術を置く場所。最大3枚。</li>
-                            <li><strong>トラッシュ</strong>：使用済み・破壊されたカードの置き場。タップすると中身を見られる。ここにあるカードは蘇生などで戻ってくる可能性がある。</li>
-                            <li><strong>除外ゾーン</strong>：後述の「除外」されたカードの置き場。ここに行ったカードは、そのゲーム中二度と使えない。</li>
+                            <li><strong>繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧ｾ繝ｼ繝ｳ</strong>・壽怙螟ｧ3菴薙∪縺ｧ荳ｦ縺ｹ繧峨ｌ繧九・/li>
+                            <li><strong>鬲碑｡薙だ繝ｼ繝ｳ</strong>・夐壼ｸｸ鬲碑｡薙・豌ｸ邯夐ｭ碑｡薙・鄂鬲碑｡薙ｒ鄂ｮ縺丞ｴ謇縲よ怙螟ｧ3譫壹・/li>
+                            <li><strong>繝医Λ繝・す繝･</strong>・壻ｽｿ逕ｨ貂医∩繝ｻ遐ｴ螢翫＆繧後◆繧ｫ繝ｼ繝峨・鄂ｮ縺榊ｴ縲ゅち繝・・縺吶ｋ縺ｨ荳ｭ霄ｫ繧定ｦ九ｉ繧後ｋ縲ゅ％縺薙↓縺ゅｋ繧ｫ繝ｼ繝峨・陂・函縺ｪ縺ｩ縺ｧ謌ｻ縺｣縺ｦ縺上ｋ蜿ｯ閭ｽ諤ｧ縺後≠繧九・/li>
+                            <li><strong>髯､螟悶だ繝ｼ繝ｳ</strong>・壼ｾ瑚ｿｰ縺ｮ縲碁勁螟悶阪＆繧後◆繧ｫ繝ｼ繝峨・鄂ｮ縺榊ｴ縲ゅ％縺薙↓陦後▲縺溘き繝ｼ繝峨・縲√◎縺ｮ繧ｲ繝ｼ繝荳ｭ莠悟ｺｦ縺ｨ菴ｿ縺医↑縺・・/li>
                         </ul>
                     </section>
 
                     <section class="tutorial-section" data-section="summon">
-                        <h3>モンスターカードの見方</h3>
+                        <h3>繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧ｫ繝ｼ繝峨・隕区婿</h3>
                         <div class="tut-example-row">
                             <div class="tut-card-slot" id="tut-example-normal"></div>
                             <div class="tut-card-slot" id="tut-example-effect"></div>
                         </div>
                         <ul class="tut-list">
-                            <li><strong>薄黄色</strong> = 通常モンスター（効果なし）、<strong>オレンジ</strong> = 効果モンスター。</li>
-                            <li>左下の「Lv.」の隣にある召喚条件は、下の「召喚コスト」の欄で説明。右下の数字が<strong>パワー</strong>（戦闘力）。</li>
+                            <li><strong>阮・ｻ・牡</strong> = 騾壼ｸｸ繝｢繝ｳ繧ｹ繧ｿ繝ｼ・亥柑譫懊↑縺暦ｼ峨・strong>繧ｪ繝ｬ繝ｳ繧ｸ</strong> = 蜉ｹ譫懊Δ繝ｳ繧ｹ繧ｿ繝ｼ縲・/li>
+                            <li>蟾ｦ荳九・縲鍬v.縲阪・髫｣縺ｫ縺ゅｋ蜿ｬ蝟壽擅莉ｶ縺ｯ縲∽ｸ九・縲悟小蝟壹さ繧ｹ繝医阪・谺・〒隱ｬ譏弱ょ承荳九・謨ｰ蟄励′<strong>繝代Ρ繝ｼ</strong>・域姶髣伜鴨・峨・/li>
                         </ul>
 
-                        <h3>召喚コスト</h3>
-                        <p>レベルが上がるほど、通常召喚に必要なコスト（体数）が増える。</p>
+                        <h3>蜿ｬ蝟壹さ繧ｹ繝・/h3>
+                        <p>繝ｬ繝吶Ν縺御ｸ翫′繧九⊇縺ｩ縲・壼ｸｸ蜿ｬ蝟壹↓蠢・ｦ√↑繧ｳ繧ｹ繝茨ｼ井ｽ捺焚・峨′蠅励∴繧九・/p>
                         <ul class="tut-list">
-                            <li>Lv.1：コストなしで召喚できる。</li>
-                            <li>Lv.2以上：必要な体数ぶんのモンスターをコストとして支払う。</li>
+                            <li>Lv.1・壹さ繧ｹ繝医↑縺励〒蜿ｬ蝟壹〒縺阪ｋ縲・/li>
+                            <li>Lv.2莉･荳奇ｼ壼ｿ・ｦ√↑菴捺焚縺ｶ繧薙・繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧偵さ繧ｹ繝医→縺励※謾ｯ謇輔≧縲・/li>
                         </ul>
                         <div class="tut-example-row">
                             <div class="tut-card-slot" id="tut-example-cost"></div>
                             <div class="tut-cost-note">
-                                このカードはLv.4なので、コストとして3体必要。<br>
-                                コストは <strong>フィールドのモンスター</strong> と <strong>手札のモンスター</strong> を自由に組み合わせて支払える。
+                                縺薙・繧ｫ繝ｼ繝峨・Lv.4縺ｪ縺ｮ縺ｧ縲√さ繧ｹ繝医→縺励※3菴灘ｿ・ｦ√・br>
+                                繧ｳ繧ｹ繝医・ <strong>繝輔ぅ繝ｼ繝ｫ繝峨・繝｢繝ｳ繧ｹ繧ｿ繝ｼ</strong> 縺ｨ <strong>謇区惆縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ</strong> 繧定・逕ｱ縺ｫ邨・∩蜷医ｏ縺帙※謾ｯ謇輔∴繧九・
                             </div>
                         </div>
                         <div class="tut-callout">
-                            <div class="tut-callout-title">⚠ フィールドと手札でコストの扱いが違う</div>
+                            <div class="tut-callout-title">笞 繝輔ぅ繝ｼ繝ｫ繝峨→謇区惆縺ｧ繧ｳ繧ｹ繝医・謇ｱ縺・′驕輔≧</div>
                             <ul class="tut-list">
-                                <li><strong>フィールドから支払う</strong>：そのモンスターは<strong>トラッシュ</strong>へ。あとで蘇生・回収できる可能性が残る。「トラッシュに送られた時」の効果も発動する。</li>
-                                <li><strong>手札から支払う</strong>：そのカードは<strong>除外</strong>される。そのゲーム中は二度と使えず、効果も一切発動しない。</li>
+                                <li><strong>繝輔ぅ繝ｼ繝ｫ繝峨°繧画髪謇輔≧</strong>・壹◎縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺ｯ<strong>繝医Λ繝・す繝･</strong>縺ｸ縲ゅ≠縺ｨ縺ｧ陂・函繝ｻ蝗槫庶縺ｧ縺阪ｋ蜿ｯ閭ｽ諤ｧ縺梧ｮ九ｋ縲ゅ後ヨ繝ｩ繝・す繝･縺ｫ騾√ｉ繧後◆譎ゅ阪・蜉ｹ譫懊ｂ逋ｺ蜍輔☆繧九・/li>
+                                <li><strong>謇区惆縺九ｉ謾ｯ謇輔≧</strong>・壹◎縺ｮ繧ｫ繝ｼ繝峨・<strong>髯､螟・/strong>縺輔ｌ繧九ゅ◎縺ｮ繧ｲ繝ｼ繝荳ｭ縺ｯ莠悟ｺｦ縺ｨ菴ｿ縺医★縲∝柑譫懊ｂ荳蛻・匱蜍輔＠縺ｪ縺・・/li>
                             </ul>
-                            <p>盤面を育てて出すか、手札を犠牲にして即席で出すか——ここが駆け引きどころ。場が全滅していても、手札さえあれば上級モンスターを出せる。</p>
+                            <p>逶､髱｢繧定ご縺ｦ縺ｦ蜃ｺ縺吶°縲∵焔譛ｭ繧堤刈迚ｲ縺ｫ縺励※蜊ｳ蟶ｭ縺ｧ蜃ｺ縺吶°窶披斐％縺薙′鬧・￠蠑輔″縺ｩ縺薙ｍ縲ょｴ縺悟・貊・＠縺ｦ縺・※繧ゅ∵焔譛ｭ縺輔∴縺ゅｌ縺ｰ荳顔ｴ壹Δ繝ｳ繧ｹ繧ｿ繝ｼ繧貞・縺帙ｋ縲・/p>
                         </div>
                     </section>
 
                     <section class="tutorial-section" data-section="battle">
-                        <h3>攻撃のルール</h3>
+                        <h3>謾ｻ謦・・繝ｫ繝ｼ繝ｫ</h3>
                         <ul class="tut-list">
-                            <li>モンスター1体につき、1回まで攻撃できる。</li>
-                            <li>相手にモンスターがいなければ、パワーの数値がそのままLPダメージになる（ダイレクトアタック）。</li>
+                            <li>繝｢繝ｳ繧ｹ繧ｿ繝ｼ1菴薙↓縺､縺阪・蝗槭∪縺ｧ謾ｻ謦・〒縺阪ｋ縲・/li>
+                            <li>逶ｸ謇九↓繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺後＞縺ｪ縺代ｌ縺ｰ縲√ヱ繝ｯ繝ｼ縺ｮ謨ｰ蛟､縺後◎縺ｮ縺ｾ縺ｾLP繝繝｡繝ｼ繧ｸ縺ｫ縺ｪ繧具ｼ医ム繧､繝ｬ繧ｯ繝医い繧ｿ繝・け・峨・/li>
                         </ul>
-                        <h3>モンスター同士がぶつかったら</h3>
+                        <h3>繝｢繝ｳ繧ｹ繧ｿ繝ｼ蜷悟｣ｫ縺後・縺､縺九▲縺溘ｉ</h3>
                         <table class="tut-table">
-                            <tr><th>比較</th><th>結果</th></tr>
-                            <tr><td>自分のパワー ＞ 相手のパワー</td><td>相手を破壊し、差分のダメージを与える</td></tr>
-                            <tr><td>自分のパワー ＝ 相手のパワー</td><td>両方とも破壊。ダメージはなし</td></tr>
-                            <tr><td>自分のパワー ＜ 相手のパワー</td><td>自分が破壊され、差分のダメージを受ける</td></tr>
+                            <tr><th>豈碑ｼ・/th><th>邨先棡</th></tr>
+                            <tr><td>閾ｪ蛻・・繝代Ρ繝ｼ ・・逶ｸ謇九・繝代Ρ繝ｼ</td><td>逶ｸ謇九ｒ遐ｴ螢翫＠縲∝ｷｮ蛻・・繝繝｡繝ｼ繧ｸ繧剃ｸ弱∴繧・/td></tr>
+                            <tr><td>閾ｪ蛻・・繝代Ρ繝ｼ ・・逶ｸ謇九・繝代Ρ繝ｼ</td><td>荳｡譁ｹ縺ｨ繧らｴ螢翫ゅム繝｡繝ｼ繧ｸ縺ｯ縺ｪ縺・/td></tr>
+                            <tr><td>閾ｪ蛻・・繝代Ρ繝ｼ ・・逶ｸ謇九・繝代Ρ繝ｼ</td><td>閾ｪ蛻・′遐ｴ螢翫＆繧後∝ｷｮ蛻・・繝繝｡繝ｼ繧ｸ繧貞女縺代ｋ</td></tr>
                         </table>
                     </section>
 
                     <section class="tutorial-section" data-section="magic">
-                        <h3>魔術カードの種類</h3>
+                        <h3>鬲碑｡薙き繝ｼ繝峨・遞ｮ鬘・/h3>
                         <div class="tut-example-row three">
                             <div class="tut-card-slot" id="tut-example-magic"></div>
                             <div class="tut-card-slot" id="tut-example-permanent"></div>
                             <div class="tut-card-slot" id="tut-example-trap"></div>
                         </div>
                         <ul class="tut-list">
-                            <li><strong>通常魔術</strong>：発動したら効果を解決してすぐトラッシュへ。</li>
-                            <li><strong>永続魔術</strong>：発動後もフィールドに残り、効果を発揮し続ける。</li>
-                            <li><strong>罠魔術</strong>：手札から直接は使えない。下のセットの説明を参照。</li>
+                            <li><strong>騾壼ｸｸ鬲碑｡・/strong>・夂匱蜍輔＠縺溘ｉ蜉ｹ譫懊ｒ隗｣豎ｺ縺励※縺吶＄繝医Λ繝・す繝･縺ｸ縲・/li>
+                            <li><strong>豌ｸ邯夐ｭ碑｡・/strong>・夂匱蜍募ｾ後ｂ繝輔ぅ繝ｼ繝ｫ繝峨↓谿九ｊ縲∝柑譫懊ｒ逋ｺ謠ｮ縺礼ｶ壹￠繧九・/li>
+                            <li><strong>鄂鬲碑｡・/strong>・壽焔譛ｭ縺九ｉ逶ｴ謗･縺ｯ菴ｿ縺医↑縺・ゆｸ九・繧ｻ繝・ヨ縺ｮ隱ｬ譏弱ｒ蜿ら・縲・/li>
                         </ul>
 
-                        <h3>セット（裏向き設置）</h3>
+                        <h3>繧ｻ繝・ヨ・郁｣丞髄縺崎ｨｭ鄂ｮ・・/h3>
                         <ul class="tut-list">
-                            <li>自分のメインフェイズに、手札の魔術を<strong>裏向き</strong>で魔術ゾーンに置ける。種別を問わずセットできる。</li>
-                            <li><strong>セットしたその手番は発動できない。</strong>次の手番以降から有効になる。</li>
-                            <li>通常魔術・永続魔術をセットした場合は、あとで自分のタイミングで表向きにして発動する（相手へのブラフにもなる）。</li>
-                            <li><strong>罠魔術は必ずセットしてから使う。</strong>記載された条件を満たした瞬間、<strong>相手ターン中でも自動で強制発動</strong>する。発動するかどうかを選ぶことはできない。</li>
-                            <li>相手が伏せたカードの中身は確認できない。</li>
+                            <li>閾ｪ蛻・・繝｡繧､繝ｳ繝輔ぉ繧､繧ｺ縺ｫ縲∵焔譛ｭ縺ｮ鬲碑｡薙ｒ<strong>陬丞髄縺・/strong>縺ｧ鬲碑｡薙だ繝ｼ繝ｳ縺ｫ鄂ｮ縺代ｋ縲らｨｮ蛻･繧貞撫繧上★繧ｻ繝・ヨ縺ｧ縺阪ｋ縲・/li>
+                            <li><strong>繧ｻ繝・ヨ縺励◆縺昴・謇狗分縺ｯ逋ｺ蜍輔〒縺阪↑縺・・/strong>谺｡縺ｮ謇狗分莉･髯阪°繧画怏蜉ｹ縺ｫ縺ｪ繧九・/li>
+                            <li>騾壼ｸｸ鬲碑｡薙・豌ｸ邯夐ｭ碑｡薙ｒ繧ｻ繝・ヨ縺励◆蝣ｴ蜷医・縲√≠縺ｨ縺ｧ閾ｪ蛻・・繧ｿ繧､繝溘Φ繧ｰ縺ｧ陦ｨ蜷代″縺ｫ縺励※逋ｺ蜍輔☆繧具ｼ育嶌謇九∈縺ｮ繝悶Λ繝輔↓繧ゅ↑繧具ｼ峨・/li>
+                            <li><strong>鄂鬲碑｡薙・蠢・★繧ｻ繝・ヨ縺励※縺九ｉ菴ｿ縺・・/strong>險倩ｼ峨＆繧後◆譚｡莉ｶ繧呈ｺ縺溘＠縺溽椪髢薙・strong>逶ｸ謇九ち繝ｼ繝ｳ荳ｭ縺ｧ繧り・蜍輔〒蠑ｷ蛻ｶ逋ｺ蜍・/strong>縺吶ｋ縲ら匱蜍輔☆繧九°縺ｩ縺・°繧帝∈縺ｶ縺薙→縺ｯ縺ｧ縺阪↑縺・・/li>
+                            <li>逶ｸ謇九′莨上○縺溘き繝ｼ繝峨・荳ｭ霄ｫ縺ｯ遒ｺ隱阪〒縺阪↑縺・・/li>
                         </ul>
                     </section>
 
                     <section class="tutorial-section" data-section="misc">
-                        <h3>デッキ切れ（リフレッシュ）</h3>
+                        <h3>繝・ャ繧ｭ蛻・ｌ・医Μ繝輔Ξ繝・す繝･・・/h3>
                         <ul class="tut-list">
-                            <li>デッキが0枚でドローが必要になったら、トラッシュをすべてシャッフルして新しいデッキにする。</li>
-                            <li>リフレッシュした場合、本来のドローに加えてさらに1枚多く引ける。</li>
-                            <li>1ターンにつき1回まで（自分・相手それぞれ）。デッキが0枚でもそれ自体で負けにはならない。</li>
+                            <li>繝・ャ繧ｭ縺・譫壹〒繝峨Ο繝ｼ縺悟ｿ・ｦ√↓縺ｪ縺｣縺溘ｉ縲√ヨ繝ｩ繝・す繝･繧偵☆縺ｹ縺ｦ繧ｷ繝｣繝・ヵ繝ｫ縺励※譁ｰ縺励＞繝・ャ繧ｭ縺ｫ縺吶ｋ縲・/li>
+                            <li>繝ｪ繝輔Ξ繝・す繝･縺励◆蝣ｴ蜷医∵悽譚･縺ｮ繝峨Ο繝ｼ縺ｫ蜉縺医※縺輔ｉ縺ｫ1譫壼､壹￥蠑輔￠繧九・/li>
+                            <li>1繧ｿ繝ｼ繝ｳ縺ｫ縺､縺・蝗槭∪縺ｧ・郁・蛻・・逶ｸ謇九◎繧後◇繧鯉ｼ峨ゅョ繝・く縺・譫壹〒繧ゅ◎繧瑚・菴薙〒雋縺代↓縺ｯ縺ｪ繧峨↑縺・・/li>
                         </ul>
-                        <h3>引き分け</h3>
+                        <h3>蠑輔″蛻・￠</h3>
                         <ul class="tut-list">
-                            <li>お互いのLPが同時に0になった場合は引き分け。</li>
+                            <li>縺贋ｺ偵＞縺ｮLP縺悟酔譎ゅ↓0縺ｫ縺ｪ縺｣縺溷ｴ蜷医・蠑輔″蛻・￠縲・/li>
                         </ul>
-                        <h3>デッキ構築</h3>
+                        <h3>繝・ャ繧ｭ讒狗ｯ・/h3>
                         <ul class="tut-list">
-                            <li>デッキは30枚固定。同名カードは3枚まで。</li>
-                            <li>メニューの「DECK BUILD」から編集できる。</li>
+                            <li>繝・ャ繧ｭ縺ｯ30譫壼崋螳壹ょ酔蜷阪き繝ｼ繝峨・3譫壹∪縺ｧ縲・/li>
+                            <li>繝｡繝九Η繝ｼ縺ｮ縲轡ECK BUILD縲阪°繧臥ｷｨ髮・〒縺阪ｋ縲・/li>
                         </ul>
-                        <h3>クレジット</h3>
+                        <h3>繧ｯ繝ｬ繧ｸ繝・ヨ</h3>
                         <ul class="tut-list">
-                            <li>イラスト未作成のカードのアイコン: <a href="https://game-icons.net/" target="_blank" rel="noopener">Game-icons.net</a>（CC BY 3.0）</li>
+                            <li>繧､繝ｩ繧ｹ繝域悴菴懈・縺ｮ繧ｫ繝ｼ繝峨・繧｢繧､繧ｳ繝ｳ: <a href="https://game-icons.net/" target="_blank" rel="noopener">Game-icons.net</a>・・C BY 3.0・・/li>
                         </ul>
                     </section>
 
@@ -402,12 +396,12 @@
         <div id="common-confirm-modal" class="modal-overlay">
             <div class="modal-content">
                 <div class="modal-header">
-                    <span id="common-confirm-title" style="color:var(--accent-blue); font-weight:bold;">確認</span>
+                    <span id="common-confirm-title" style="color:var(--accent-blue); font-weight:bold;">遒ｺ隱・/span>
                 </div>
                 <div id="common-confirm-message" style="padding: 20px 0; color: #fff;"></div>
                 <div class="modal-footer" style="display:flex; gap:10px; justify-content:center;">
-                    <button id="common-confirm-cancel" class="menu-btn" style="flex:1;">いいえ</button>
-                    <button id="common-confirm-ok" class="menu-btn" style="flex:1; border-color: var(--accent-blue); color: var(--accent-blue);">はい</button>
+                    <button id="common-confirm-cancel" class="menu-btn" style="flex:1;">縺・＞縺・/button>
+                    <button id="common-confirm-ok" class="menu-btn" style="flex:1; border-color: var(--accent-blue); color: var(--accent-blue);">縺ｯ縺・/button>
                 </div>
             </div>
         </div>
@@ -418,7 +412,7 @@
                 <div class="builder-header">
                     <div class="header-actions">
                         <button id="builder-back-btn" class="builder-btn">BACK</button>
-                        <input type="text" id="builder-deck-name" class="deck-name-input" placeholder="デッキ名">
+                        <input type="text" id="builder-deck-name" class="deck-name-input" placeholder="繝・ャ繧ｭ蜷・>
                     </div>
                     <div class="header-actions">
                         <span id="deck-count-indicator" class="deck-count-indicator">0 / 30</span>
@@ -439,7 +433,7 @@
                 <div class="builder-detail-area">
                     <div id="detail-img-box" class="detail-img-box"></div>
                     <div id="detail-info-box" class="detail-info-box">
-                        <div style="color:#666; display:flex; align-items:center; justify-content:center; height:100%;">カードを選択してください</div>
+                        <div style="color:#666; display:flex; align-items:center; justify-content:center; height:100%;">繧ｫ繝ｼ繝峨ｒ驕ｸ謚槭＠縺ｦ縺上□縺輔＞</div>
                     </div>
                     <div id="detail-actions" class="detail-actions" style="display:none;">
                         <button id="btn-add-card" class="action-btn add">+</button>
@@ -451,34 +445,34 @@
                 <div class="library-area">
                     <div class="library-filter-bar">
                         <select id="filter-attr" class="filter-select">
-                            <option value="all">全属性</option>
-                            <option value="火">火</option>
-                            <option value="水">水</option>
-                            <option value="草">草</option>
-                            <option value="光">光</option>
-                            <option value="闇">闇</option>
-                            <option value="無">無</option>
+                            <option value="all">蜈ｨ螻樊ｧ</option>
+                            <option value="轣ｫ">轣ｫ</option>
+                            <option value="豌ｴ">豌ｴ</option>
+                            <option value="闕・>闕・/option>
+                            <option value="蜈・>蜈・/option>
+                            <option value="髣・>髣・/option>
+                            <option value="辟｡">辟｡</option>
                         </select>
                         <select id="filter-level" class="filter-select">
-                            <option value="all">全レベル</option>
+                            <option value="all">蜈ｨ繝ｬ繝吶Ν</option>
                             <option value="1">Lv.1</option>
                             <option value="2">Lv.2</option>
                             <option value="3">Lv.3</option>
                             <option value="4">Lv.4</option>
                         </select>
                         <select id="filter-type" class="filter-select">
-                            <option value="all">全種別</option>
-                            <option value="monster">モンスター</option>
-                            <option value="magic">魔術</option>
-                            <option value="trap">罠魔術</option>
+                            <option value="all">蜈ｨ遞ｮ蛻･</option>
+                            <option value="monster">繝｢繝ｳ繧ｹ繧ｿ繝ｼ</option>
+                            <option value="magic">鬲碑｡・/option>
+                            <option value="trap">鄂鬲碑｡・/option>
                         </select>
                         <select id="filter-sort" class="filter-select">
-                            <option value="attribute">属性順</option>
-                            <option value="id">No.順</option>
-                            <option value="power">パワー順</option>
-                            <option value="level">レベル順</option>
+                            <option value="attribute">螻樊ｧ鬆・/option>
+                            <option value="id">No.鬆・/option>
+                            <option value="power">繝代Ρ繝ｼ鬆・/option>
+                            <option value="level">繝ｬ繝吶Ν鬆・/option>
                         </select>
-                        <button id="filter-reset-btn" class="filter-select filter-reset-btn" type="button">絞り込みリセット</button>
+                        <button id="filter-reset-btn" class="filter-select filter-reset-btn" type="button">邨槭ｊ霎ｼ縺ｿ繝ｪ繧ｻ繝・ヨ</button>
                     </div>
                     <div id="builder-library-grid" class="library-grid"></div>
                 </div>
@@ -491,9 +485,9 @@
     </div>
 
     <!-- Firebase SDK (Compat) -->
-    <!-- 画像拡大モーダル -->
+    <!-- 逕ｻ蜒乗僑螟ｧ繝｢繝ｼ繝繝ｫ -->
     <div id="image-viewer-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; align-items: center; justify-content: center; z-index: 10000; cursor: pointer; background: rgba(0,0,0,0.85);" onclick="closeImageViewer()">
-        <div id="image-viewer-container" style="width: 90vw; height: 90vw; max-width: 512px; max-height: 512px; display: flex; justify-content: center; align-items: center; border-radius: 8px; overflow: hidden; pointer-events: none;">
+        <div id="image-viewer-container" style="width: 90vw; height: 90vw; max-width: 512px; max-height: 512px; display: flex; justify-content: center; align-items: center; border: 2px solid #00d2ff; border-radius: 8px; overflow: hidden; pointer-events: none; box-shadow: 0 0 20px rgba(0,210,255,0.5);">
         </div>
     </div>
 
@@ -512,3 +506,5 @@
     <script src="tutorial.js"></script>
 </body>
 </html>
+
+
