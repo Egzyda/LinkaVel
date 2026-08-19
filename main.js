@@ -1,36 +1,36 @@
-﻿/**
+/**
  * LinkaVel Card Game - Main Logic (Rebuilt for Stability)
- * * 蠖ｹ蜑ｲ: 繧ｲ繝ｼ繝縺ｮ繧ｳ繧｢繧ｵ繧､繧ｯ繝ｫ・医ラ繝ｭ繝ｼ縲∝小蝟壹∵姶髣倥√ち繝ｼ繝ｳ騾ｲ陦鯉ｼ峨・遒ｺ螳溘↑螳溯｡・
- * * 迚ｹ險倅ｺ矩・
- * - 蛻晄悄LP 5000
- * - 蜿ｬ蝟壹さ繧ｹ繝医↑縺暦ｼ医ユ繧ｹ繝育畑邁｡譏灘ｮ溯｣・ｼ・
- * - 蜈郁｡・繧ｿ繝ｼ繝ｳ逶ｮ縺ｮ繝峨Ο繝ｼ繝ｻ謾ｻ謦・宛髯仙ｮ溯｣・ｸ医∩
- * - 繝・ャ繧ｭ蛻・ｌ譎ゅ・繝ｪ繝輔Ξ繝・す繝･・医ヨ繝ｩ繝・す繝･蝗槫庶・牙ｮ溯｣・ｸ医∩
+ * * 役割: ゲームのコアサイクル（ドロー、召喚、戦闘、ターン進行）の確実な実行
+ * * 特記事項:
+ * - 初期LP 5000
+ * - 召喚コストなし（テスト用簡易実装）
+ * - 先行1ターン目のドロー・攻撃制限実装済み
+ * - デッキ切れ時のリフレッシュ（トラッシュ回収）実装済み
  */
 
 // ==========================================
-// 1. 繧ｲ繝ｼ繝迥ｶ諷狗ｮ｡逅・(Game State)
+// 1. ゲーム状態管理 (Game State)
 // ==========================================
 const GAME_STATE = {
-    // 繧ｿ繝ｼ繝ｳ邂｡逅・
-    turnCount: 1,           // 邨碁℃繧ｿ繝ｼ繝ｳ謨ｰ
-    turnSerial: 1,          // 謇狗分縺ｮ騾壹＠逡ｪ蜿ｷ・育ｽ縺ｮ縲御ｼ上○縺溘ち繝ｼ繝ｳ縺ｯ逋ｺ蜍穂ｸ榊庄縲榊愛螳夂畑・・
-    isFirstTurnOfGame: true,// 繧ｲ繝ｼ繝髢句ｧ狗峩蠕後・繝輔Λ繧ｰ・亥・陦・繧ｿ繝ｼ繝ｳ逶ｮ蛻､螳夂畑・・
+    // ターン管理
+    turnCount: 1,           // 経過ターン数
+    turnSerial: 1,          // 手番の通し番号（罠の「伏せたターンは発動不可」判定用）
+    isFirstTurnOfGame: true,// ゲーム開始直後のフラグ（先行1ターン目判定用）
     phase: "DRAW",
     phases: ["DRAW", "MAIN1", "BATTLE", "MAIN2", "END"],
 
-    // 謇狗分邂｡逅・
+    // 手番管理
     turnPlayer: "player",   // "player" | "opponent"
-    hasNormalSummoned: false, // 繧ｿ繝ｼ繝ｳ荳ｭ縺ｮ蜿ｬ蝟壽ｸ医∩繝輔Λ繧ｰ
-    isGameOver: false,        // 豎ｺ逹貂医∩繝輔Λ繧ｰ・井ｻ･髯阪・蜃ｦ逅・ｒ荳蛻・｡後ｏ縺ｪ縺・ｼ・
+    hasNormalSummoned: false, // ターン中の召喚済みフラグ
+    isGameOver: false,        // 決着済みフラグ（以降の処理を一切行わない）
 
-    // 繝励Ξ繧､繝､繝ｼ迥ｶ諷・
+    // プレイヤー状態
     player: {
-        lp: 5000, // 繝ｫ繝ｼ繝ｫ貅匁侠
+        lp: 5000, // ルール準拠
         deck: [],
         hand: [],
         trash: [],
-        banished: [], // 髯､螟悶だ繝ｼ繝ｳ・医％縺ｮ繧ｲ繝ｼ繝荳ｭ縺ｯ荳蛻・ｹｲ貂峨〒縺阪↑縺・ｼ・
+        banished: [], // 除外ゾーン（このゲーム中は一切干渉できない）
         refreshCount: 0,
         field: {
             monsters: [null, null, null],
@@ -38,11 +38,11 @@ const GAME_STATE = {
         }
     },
 
-    // 逶ｸ謇狗憾諷・
+    // 相手状態
     opponent: {
-        lp: 5000, // 繝ｫ繝ｼ繝ｫ貅匁侠
+        lp: 5000, // ルール準拠
         deck: [],
-        hand: [], // CPU縺ｯ邁｡譏鍋ｮ｡逅・・縺溘ａ驟榊・縺ｧ謖√▽縺後∝渕譛ｬ縺ｯ謨ｰ縺ｮ縺ｿ蜿ら・縺ｧ繧ょ庄
+        hand: [], // CPUは簡易管理のため配列で持つが、基本は数のみ参照でも可
         trash: [],
         banished: [],
         refreshCount: 0,
@@ -52,22 +52,22 @@ const GAME_STATE = {
         }
     },
 
-    // UI謫堺ｽ懃畑
+    // UI操作用
     selectedCard: null,
     selectedCardLocation: null,
-    isSelectingSlot: false, // 蜿ｬ蝟壼・驕ｸ謚槭Δ繝ｼ繝我ｸｭ縺・
-    isSelectingTarget: false, // 謾ｻ謦・ｯｾ雎｡驕ｸ謚槭Δ繝ｼ繝我ｸｭ縺・
-    pendingCard: null,       // 蜿ｬ蝟壼ｾ・ｩ滉ｸｭ縺ｮ繧ｫ繝ｼ繝・
-    attackerPending: null,   // 謾ｻ謦・ｾ・ｩ滉ｸｭ縺ｮ諠・ｱ {card, slotIdx}
-    isSelectingCost: false,  // 繧ｳ繧ｹ繝磯∈謚樔ｸｭ縺・
-    selectedCosts: [],       // 驕ｸ謚槭＆繧後◆繧ｳ繧ｹ繝亥ｯｾ雎｡ [{card, slotIdx, from:"field"|"hand"}]
-    isAnimating: false       // 繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ荳ｭ・・I繝ｭ繝・け逕ｨ・・
+    isSelectingSlot: false, // 召喚先選択モード中か
+    isSelectingTarget: false, // 攻撃対象選択モード中か
+    pendingCard: null,       // 召喚待機中のカード
+    attackerPending: null,   // 攻撃待機中の情報 {card, slotIdx}
+    isSelectingCost: false,  // コスト選択中か
+    selectedCosts: [],       // 選択されたコスト対象 [{card, slotIdx, from:"field"|"hand"}]
+    isAnimating: false       // アニメーション中（UIロック用）
 };
 
 /**
- * 繧ｫ繝ｼ繝峨′蝣ｴ繧帝屬繧後ｋ髫帙↓縲∝倶ｽ薙↓莉倥＞縺滉ｸ譎ら憾諷九ｒ縺吶∋縺ｦ豸医☆縲・
- * 縺薙ｌ繧帝壹＆縺ｪ縺・→縲∬・逕溘＠縺溘Δ繝ｳ繧ｹ繧ｿ繝ｼ縺後梧判謦・ｸ医∩縲阪・縺ｾ縺ｾ縺縺｣縺溘ｊ
- * 蜿､縺・ョ繝舌ヵ繧貞ｼ輔″縺壹▲縺溘∪縺ｾ繝医Λ繝・す繝･・上ョ繝・く縺ｫ謌ｻ縺｣縺ｦ縺励∪縺・・
+ * カードが場を離れる際に、個体に付いた一時状態をすべて消す。
+ * これを通さないと、蘇生したモンスターが「攻撃済み」のままだったり
+ * 古いデバフを引きずったままトラッシュ／デッキに戻ってしまう。
  */
 function resetCardState(card) {
     if (!card) return card;
@@ -82,13 +82,13 @@ function resetCardState(card) {
     return card;
 }
 
-/** 繧ｫ繝ｼ繝峨ｒ繝医Λ繝・す繝･縺ｸ騾√ｋ・亥倶ｽ鍋憾諷九・繝ｪ繧ｻ繝・ヨ繧剃ｿ晁ｨｼ縺吶ｋ蜈ｱ騾夂ｵ瑚ｷｯ・・*/
+/** カードをトラッシュへ送る（個体状態のリセットを保証する共通経路） */
 function sendCardToTrash(side, card) {
     if (!card) return;
     GAME_STATE[side].trash.push(resetCardState(card));
 }
 
-/** 繧ｫ繝ｼ繝峨ｒ髯､螟悶☆繧具ｼ医％縺ｮ繧ｲ繝ｼ繝荳ｭ縺ｯ蠕ｩ蟶ｰ繝ｻ蜿ら・縺ｨ繧ゅ↓荳榊庄・・*/
+/** カードを除外する（このゲーム中は復帰・参照ともに不可） */
 function banishCard(side, card) {
     if (!card) return;
     GAME_STATE[side].banished.push(resetCardState(card));
@@ -96,14 +96,14 @@ function banishCard(side, card) {
 }
 
 // ==========================================
-// 2. 蛻晄悄蛹悶・襍ｷ蜍輔す繝ｼ繧ｱ繝ｳ繧ｹ
+// 2. 初期化・起動シーケンス
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     console.log("LinkaVel Game Engine Initializing...");
 
-    // 螳牙・陬・ｽｮ: 繝・・繧ｿ繝ｭ繝ｼ繝臥｢ｺ隱・
+    // 安全装置: データロード確認
     if (typeof MASTER_CARDS === 'undefined' || typeof DECK_RECIPES === 'undefined') {
-        console.error("繧ｨ繝ｩ繝ｼ: 繧ｫ繝ｼ繝峨ョ繝ｼ繧ｿ(cards.js)縺瑚ｪｭ縺ｿ霎ｼ縺ｾ繧後※縺・∪縺帙ｓ縲・);
+        console.error("エラー: カードデータ(cards.js)が読み込まれていません。");
         return;
     }
 
@@ -112,15 +112,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', updateViewportScale);
     window.addEventListener('orientationchange', updateViewportScale);
 
-    // 蛹ｿ蜷阪Ο繧ｰ繧､繝ｳ縺ｯ襍ｷ蜍墓凾縺ｫ荳蠎ｦ縺縺第ｸ医∪縺帙※縺翫￥縲・
-    // 繝・ャ繧ｭ繝薙Ν繝繝ｼ繧帝幕縺九★縺ｫ繝・Η繧ｨ繝ｫ縺ｸ蜈･繧九→菫晏ｭ倥ョ繝・く縺瑚ｪｭ繧√↑縺・撫鬘後∈縺ｮ蟇ｾ蜃ｦ縲・
+    // 匿名ログインは起動時に一度だけ済ませておく。
+    // デッキビルダーを開かずにデュエルへ入ると保存デッキが読めない問題への対処。
     ensureAuth();
 
     console.log("LinkaVel Game Engine Ready.");
 });
 
 /**
- * Firebase蛹ｿ蜷阪Ο繧ｰ繧､繝ｳ繧剃ｿ晁ｨｼ縺吶ｋ・亥､夐㍾蜻ｼ縺ｳ蜃ｺ縺励・蜷後§Promise繧貞・譛会ｼ・
+ * Firebase匿名ログインを保証する（多重呼び出しは同じPromiseを共有）
  */
 let authPromise = null;
 function ensureAuth() {
@@ -134,7 +134,7 @@ function ensureAuth() {
             })
             .catch(err => {
                 console.error("Auth Error:", err);
-                authPromise = null; // 谺｡蝗槭Μ繝医Λ繧､縺ｧ縺阪ｋ繧医≧縺ｫ縺吶ｋ
+                authPromise = null; // 次回リトライできるようにする
                 return null;
             });
     }
@@ -143,9 +143,9 @@ function ensureAuth() {
 window.ensureAuth = ensureAuth;
 
 /**
- * PC遲峨・蠎・＞逕ｻ髱｢縺ｧ縺ｯ縲√せ繝槭・險ｭ險医・繝ｬ繧､繧｢繧ｦ繝医ｒ菫昴▲縺溘∪縺ｾ諡｡螟ｧ縺吶ｋ縲・
- * 蟷・□縺大ｺ・￡繧九→繧ｫ繝ｼ繝峨′雎・ｲ偵・縺ｾ縺ｾ菴咏區縺縺大｢励∴縺ｦ縺励∪縺・◆繧√・
- * 險ｭ險医し繧､繧ｺ(480x900)繧貞渕貅悶↓遲牙阪せ繧ｱ繝ｼ繝ｫ繧呈寺縺代ｋ譁ｹ蠑上↓縺励※縺・ｋ縲・
+ * PC等の広い画面では、スマホ設計のレイアウトを保ったまま拡大する。
+ * 幅だけ広げるとカードが豆粒のまま余白だけ増えてしまうため、
+ * 設計サイズ(480x900)を基準に等倍スケールを掛ける方式にしている。
  */
 const DESIGN_WIDTH = 480;
 const DESIGN_HEIGHT = 720;
@@ -154,7 +154,7 @@ function updateViewportScale() {
     const viewport = document.getElementById('game-viewport');
     if (!viewport) return;
 
-    // 繧ｹ繝槭・蟷・〒縺ｯ蠕捺擂騾壹ｊ縺ｮ豬∝虚繝ｬ繧､繧｢繧ｦ繝茨ｼ・SS蛛ｴ縺ｮ繝｡繝・ぅ繧｢繧ｯ繧ｨ繝ｪ縺ｨ謠・∴繧具ｼ・
+    // スマホ幅では従来通りの流動レイアウト（CSS側のメディアクエリと揃える）
     if (window.innerWidth <= 480) {
         viewport.style.transform = "";
         return;
@@ -163,43 +163,43 @@ function updateViewportScale() {
     const scale = Math.min(
         window.innerWidth / DESIGN_WIDTH,
         window.innerHeight / DESIGN_HEIGHT,
-        1.7 // 諡｡螟ｧ縺励☆縺弱※邊励￥縺ｪ繧峨↑縺・ｈ縺・ｸ企剞繧定ｨｭ縺代ｋ
+        1.7 // 拡大しすぎて粗くならないよう上限を設ける
     );
     viewport.style.transform = `scale(${scale})`;
 }
 
 function setupEventListeners() {
-    // 髯榊盾繝懊ち繝ｳ
+    // 降参ボタン
     const surrenderBtn = document.getElementById('surrender-btn');
     if (surrenderBtn) {
         surrenderBtn.addEventListener('click', async () => {
-            if (await window.showCustomConfirm("譛ｬ蠖薙↓髯榊盾縺励∪縺吶°・・)) {
+            if (await window.showCustomConfirm("本当に降参しますか？")) {
                 endGameSequence("opponent");
             }
         });
     }
 
-    // 繝輔ぉ繧､繧ｺ騾ｲ陦後・繧ｿ繝ｳ
+    // フェイズ進行ボタン
     const nextPhaseBtn = document.getElementById('next-phase-btn');
     if (nextPhaseBtn) {
         nextPhaseBtn.addEventListener('click', () => {
-            // 繝励Ξ繧､繝､繝ｼ縺ｮ繧ｿ繝ｼ繝ｳ縺九▽縲，PU蜃ｦ逅・ｸｭ縺ｧ縺ｪ縺・ｴ蜷医・縺ｿ騾ｲ陦悟庄閭ｽ
+            // プレイヤーのターンかつ、CPU処理中でない場合のみ進行可能
             if (GAME_STATE.turnPlayer === "player") {
                 advancePhase();
             }
         });
     }
 
-    // 隧ｳ邏ｰ陦ｨ遉ｺ繧帝哩縺倥ｋ・郁レ譎ｯ繧ｿ繝・・・・
+    // 詳細表示を閉じる（背景タップ）
     document.body.addEventListener('click', (e) => {
-        // 繧ｫ繝ｼ繝芽ｦ∫ｴ繧・・繧ｿ繝ｳ縺ｪ縺ｩ繧偵け繝ｪ繝・け縺励◆蝣ｴ蜷医・髢峨§縺ｪ縺・
+        // カード要素やボタンなどをクリックした場合は閉じない
         if (!e.target.closest('.card-mini') && !e.target.closest('#card-detail-overlay') && !e.target.closest('.btn-action-float') && !e.target.closest('.floating-actions')) {
             hideCardDetail();
         }
     });
 }
 
-// 逕ｻ髱｢驕ｷ遘ｻ
+// 画面遷移
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => {
         s.classList.remove('active');
@@ -210,7 +210,7 @@ function showScreen(screenId) {
     }
 }
 
-// 繧ｲ繝ｼ繝髢句ｧ句・逅・ｼ医％縺薙′繧ｨ繝ｳ繝医Μ繝ｼ繝昴う繝ｳ繝茨ｼ・
+// ゲーム開始処理（ここがエントリーポイント）
 function startSinglePlay() {
     _pendingPlayerDeck = null;
     showScreen('deck-select-screen');
@@ -218,14 +218,14 @@ function startSinglePlay() {
 }
 
 /**
- * 繝・ャ繧ｭ驕ｸ謚槭・騾ｲ陦檎憾諷九・
- * 閾ｪ蛻・・繝・ャ繧ｭ繧帝∈繧薙□縺ゅ→縲∫ｶ壹￠縺ｦ逶ｸ謇九・繝・ャ繧ｭ繧帝∈縺ｰ縺帙ｋ縲・
+ * デッキ選択の進行状態。
+ * 自分のデッキを選んだあと、続けて相手のデッキを選ばせる。
  */
 let _pendingPlayerDeck = null;
 
 /**
- * 繝・ャ繧ｭ驕ｸ謚槭Μ繧ｹ繝医ｒ蜍慕噪縺ｫ逕滓・ (繝・Η繧ｨ繝ｫ髢句ｧ狗畑)
- * @param {"player"|"opponent"} target 縺ｩ縺｡繧峨・繝・ャ繧ｭ繧帝∈繧薙〒縺・ｋ縺・
+ * デッキ選択リストを動的に生成 (デュエル開始用)
+ * @param {"player"|"opponent"} target どちらのデッキを選んでいるか
  */
 async function renderDeckSelection(target = "player") {
     const container = document.getElementById('deck-list-container');
@@ -237,24 +237,24 @@ async function renderDeckSelection(target = "player") {
     if (title) title.innerText = isOpponent ? "Opponent Deck" : "Deck Select";
     if (subtitle) {
         subtitle.innerText = isOpponent
-            ? "逶ｸ謇九′菴ｿ縺・ョ繝・く繧帝∈謚槭＠縺ｦ縺上□縺輔＞"
-            : "菴ｿ逕ｨ縺吶ｋ繝・ャ繧ｭ繧帝∈謚槭＠縺ｦ縺上□縺輔＞";
+            ? "相手が使うデッキを選択してください"
+            : "使用するデッキを選択してください";
     }
 
     let html = "";
 
-    // 逶ｸ謇九ョ繝・く驕ｸ謚槭・縺ｨ縺阪・縲√∪縺壹Λ繝ｳ繝繝繧帝∈縺ｹ繧九ｈ縺・↓縺吶ｋ
+    // 相手デッキ選択のときは、まずランダムを選べるようにする
     if (isOpponent) {
         html += `
             <button class="menu-btn custom-deck-item" onclick="selectOpponentDeck('random', 'random')">
-                <span class="btn-text">縺翫∪縺九○・医Λ繝ｳ繝繝・・<small class="deck-manage-tag starter">RANDOM</small></span>
+                <span class="btn-text">おまかせ（ランダム） <small class="deck-manage-tag starter">RANDOM</small></span>
             </button>
             <hr style="border:0; border-top:1px solid #333; margin:10px 0; width:100%;">
         `;
     }
 
-    // 1. 繝ｦ繝ｼ繧ｶ繝ｼ繝・ャ繧ｭ (Firestore) 繧貞・縺ｫ縲∵峩譁ｰ縺梧眠縺励＞鬆・〒蜃ｺ縺吶・
-    //    閾ｪ菴懊ョ繝・く縺ｮ縺ｻ縺・′菴ｿ縺・ｻ蠎ｦ縺碁ｫ倥＞縺ｮ縺ｧ縲√せ繧ｯ繝ｭ繝ｼ繝ｫ縺帙★縺ｫ驕ｸ縺ｹ繧九ｈ縺・↓縺吶ｋ縲・
+    // 1. ユーザーデッキ (Firestore) を先に、更新が新しい順で出す。
+    //    自作デッキのほうが使う頻度が高いので、スクロールせずに選べるようにする。
     if (typeof DeckBuilder !== 'undefined') {
         await ensureAuth();
         const userDecks = await DeckBuilder.fetchUserDecks();
@@ -263,7 +263,7 @@ async function renderDeckSelection(target = "player") {
         });
     }
 
-    // 2. 縺ゅｉ縺九§繧∫畑諢上＆繧後◆繝・ャ繧ｭ
+    // 2. あらかじめ用意されたデッキ
     Object.keys(DECK_RECIPES).forEach(key => {
         const recipe = DECK_RECIPES[key];
         html += createDeckItemHtml(key, recipe.name, "starter", true, target);
@@ -273,13 +273,13 @@ async function renderDeckSelection(target = "player") {
     container.scrollTop = 0;
 }
 
-/** 閾ｪ蛻・・繝・ャ繧ｭ繧帝∈繧薙□縺ゅ→縲∫嶌謇九・繝・ャ繧ｭ驕ｸ謚槭∈騾ｲ繧 */
+/** 自分のデッキを選んだあと、相手のデッキ選択へ進む */
 function selectPlayerDeck(deckId, type) {
     _pendingPlayerDeck = { deckId, type };
     renderDeckSelection("opponent");
 }
 
-/** 逶ｸ謇九・繝・ャ繧ｭ縺梧ｱｺ縺ｾ縺｣縺溘ｉ繝・Η繧ｨ繝ｫ髢句ｧ・*/
+/** 相手のデッキが決まったらデュエル開始 */
 function selectOpponentDeck(deckId, type) {
     if (!_pendingPlayerDeck) return;
     const mine = _pendingPlayerDeck;
@@ -287,7 +287,7 @@ function selectOpponentDeck(deckId, type) {
     confirmDeckSelection(mine.deckId, mine.type, deckId, type);
 }
 
-/** 繝・ャ繧ｭ驕ｸ謚樒判髱｢縺ｮBACK縲ら嶌謇九ョ繝・く驕ｸ謚樔ｸｭ縺ｪ繧芽・蛻・・繝・ャ繧ｭ驕ｸ謚槭∈謌ｻ繧・*/
+/** デッキ選択画面のBACK。相手デッキ選択中なら自分のデッキ選択へ戻る */
 function backFromDeckSelect() {
     if (_pendingPlayerDeck) {
         _pendingPlayerDeck = null;
@@ -298,33 +298,33 @@ function backFromDeckSelect() {
 }
 
 /**
- * 繝・ャ繧ｭ邂｡逅・判髱｢縺ｮ謠冗判 (邱ｨ髮・・蜑企勁繝ｻ繧ｳ繝斐・)
+ * デッキ管理画面の描画 (編集・削除・コピー)
  */
 async function renderDeckManager() {
     const container = document.getElementById('deck-list-container');
     container.innerHTML = "<div style='color:#fff;text-align:center;'>Loading...</div>";
 
-    // 繝・Η繧ｨ繝ｫ逕ｨ縺ｮ繝・ャ繧ｭ驕ｸ謚槭→逕ｻ髱｢繧貞・逕ｨ縺励※縺・ｋ縺ｮ縺ｧ縲∬ｦ句・縺励ｒ邂｡逅・畑縺ｫ謌ｻ縺・
+    // デュエル用のデッキ選択と画面を共用しているので、見出しを管理用に戻す
     _pendingPlayerDeck = null;
     const title = document.getElementById('deck-select-title');
     const subtitle = document.getElementById('deck-select-subtitle');
     if (title) title.innerText = "Deck Build";
-    if (subtitle) subtitle.innerText = "繝・ャ繧ｭ繧剃ｽ懈・繝ｻ邱ｨ髮・〒縺阪∪縺・;
+    if (subtitle) subtitle.innerText = "デッキを作成・編集できます";
 
-    // 譁ｰ隕丈ｽ懈・繝懊ち繝ｳ
+    // 新規作成ボタン
     let html = `
         <button class="menu-btn" onclick="DeckBuilder.startSession(null); showScreen('deck-screen');">
-            <span class="btn-icon">・・/span>
-            <span class="btn-text">譁ｰ隕上ョ繝・く菴懈・</span>
+            <span class="btn-icon">＋</span>
+            <span class="btn-text">新規デッキ作成</span>
         </button>
         <hr style="border:0; border-top:1px solid #333; margin:10px 0; width:100%;">
     `;
 
-    // 繝ｦ繝ｼ繧ｶ繝ｼ繝・ャ繧ｭ荳隕ｧ
+    // ユーザーデッキ一覧
     await ensureAuth();
     const userDecks = await DeckBuilder.fetchUserDecks();
     if (userDecks.length === 0) {
-        html += `<div style="color:#666;text-align:center;padding:20px;">菫晏ｭ倥＆繧後◆繝・ャ繧ｭ縺ｯ縺ゅｊ縺ｾ縺帙ｓ</div>`;
+        html += `<div style="color:#666;text-align:center;padding:20px;">保存されたデッキはありません</div>`;
     } else {
         userDecks.forEach(deck => {
             html += createDeckItemHtml(deck.id, deck.name, "user", false);
@@ -339,7 +339,7 @@ function createDeckItemHtml(id, name, type, isDuelMode, target = "player") {
     const tagName = type === 'starter' ? 'STARTER' : 'USER';
 
     if (isDuelMode) {
-        // 繝・Η繧ｨ繝ｫ髢句ｧ九Δ繝ｼ繝・ 繧ｷ繝ｳ繝励Ν縺ｪ繝懊ち繝ｳ
+        // デュエル開始モード: シンプルなボタン
         const handler = (target === "opponent") ? "selectOpponentDeck" : "selectPlayerDeck";
         return `
             <button class="menu-btn custom-deck-item" onclick="${handler}('${id}', '${type}')">
@@ -347,7 +347,7 @@ function createDeckItemHtml(id, name, type, isDuelMode, target = "player") {
             </button>
         `;
     } else {
-        // 邂｡逅・Δ繝ｼ繝・ 邱ｨ髮・・繧ｳ繝斐・繝ｻ蜑企勁繝懊ち繝ｳ莉倥″
+        // 管理モード: 編集・コピー・削除ボタン付き
         return `
             <div class="deck-manage-item">
                 <div class="deck-manage-header">
@@ -355,9 +355,9 @@ function createDeckItemHtml(id, name, type, isDuelMode, target = "player") {
                     <span class="deck-manage-tag ${tagClass}">${tagName}</span>
                 </div>
                 <div class="deck-manage-actions">
-                    <button class="dm-btn primary" onclick="DeckBuilder.startSession('${id}'); showScreen('deck-screen');">邱ｨ髮・/button>
-                    <button class="dm-btn" onclick="DeckBuilder.copyDeck('${id}')">繧ｳ繝斐・</button>
-                    <button class="dm-btn danger" onclick="deleteDeckAndReload('${id}')">蜑企勁</button>
+                    <button class="dm-btn primary" onclick="DeckBuilder.startSession('${id}'); showScreen('deck-screen');">編集</button>
+                    <button class="dm-btn" onclick="DeckBuilder.copyDeck('${id}')">コピー</button>
+                    <button class="dm-btn danger" onclick="deleteDeckAndReload('${id}')">削除</button>
                 </div>
             </div>
         `;
@@ -370,41 +370,41 @@ async function deleteDeckAndReload(id) {
 }
 
 /**
- * 繝・ャ繧ｭ遒ｺ螳壼ｾ後・蛻晄悄蛹悶・繝ｭ繧ｻ繧ｹ
+ * デッキ確定後の初期化プロセス
  */
 async function confirmDeckSelection(deckId, type, oppDeckId = "random", oppType = "random") {
-    // 蜑榊屓縺ｮ蟇ｾ謌ｦ邨先棡・・P繝ｻ豎ｺ逹繝輔Λ繧ｰ遲会ｼ峨ｒ遒ｺ螳溘↓蛻晄悄蛹悶＠縺ｦ縺九ｉ邨・∩逶ｴ縺・
+    // 前回の対戦結果（LP・決着フラグ等）を確実に初期化してから組み直す
     resetGameState();
 
-    // 繝励Ξ繧､繝､繝ｼ縺ｮ繝・ャ繧ｭ繧貞・譛溷喧
+    // プレイヤーのデッキを初期化
     await initDeck("player", deckId, type);
 
-    // 逶ｸ謇九・繝・ャ繧ｭ縲よ欠螳壹′縺ｪ縺代ｌ縺ｰ繧ｹ繧ｿ繝ｼ繧ｿ繝ｼ縺九ｉ繝ｩ繝ｳ繝繝縺ｫ豎ｺ繧√ｋ
+    // 相手のデッキ。指定がなければスターターからランダムに決める
     if (oppType === "random" || !oppDeckId) {
-        const allKeys = Object.keys(DECK_RECIPES).filter(k => k.startsWith("starter_"));
+        const allKeys = Object.keys(DECK_RECIPES);
         const randomKey = allKeys[Math.floor(Math.random() * allKeys.length)];
         await initDeck("opponent", randomKey, "starter");
     } else {
         await initDeck("opponent", oppDeckId, oppType);
     }
 
-    // 蜈郁｡後・蠕梧判豎ｺ螳・(50%縺ｧ繝ｩ繝ｳ繝繝)
+    // 先行・後攻決定 (50%でランダム)
     const isPlayerFirst = Math.random() < 0.5;
     GAME_STATE.turnPlayer = isPlayerFirst ? "player" : "opponent";
 
-    // 逕ｻ髱｢陦ｨ遉ｺ繧貞・陦後＆縺帙ｋ
+    // 画面表示を先行させる
     showScreen('game-screen');
 
-    // 繧ｹ繧ｿ繝ｼ繝医Δ繝ｼ繝繝ｫ縺ｮ貅門ｙ
+    // スタートモーダルの準備
     const overlay = document.getElementById('game-start-overlay');
     const msg = document.getElementById('start-message');
 
     overlay.style.display = "flex";
     if (isPlayerFirst) {
-        msg.innerText = "縺ゅ↑縺溘′蜈郁｡後〒縺・;
+        msg.innerText = "あなたが先行です";
         msg.style.color = "var(--accent-blue)";
     } else {
-        msg.innerText = "縺ゅ↑縺溘′蠕梧判縺ｧ縺・;
+        msg.innerText = "あなたが後攻です";
         msg.style.color = "var(--accent-red)";
     }
 }
@@ -417,7 +417,7 @@ function resetGameState() {
     GAME_STATE.hasNormalSummoned = false;
     GAME_STATE.isGameOver = false;
 
-    // 繝励Ξ繧､繝､繝ｼ繝ｪ繧ｻ繝・ヨ
+    // プレイヤーリセット
     GAME_STATE.player.lp = 5000;
     GAME_STATE.player.refreshCount = 0;
     GAME_STATE.player.deck = [];
@@ -427,7 +427,7 @@ function resetGameState() {
     GAME_STATE.player.field.monsters = [null, null, null];
     GAME_STATE.player.field.magics = [null, null, null];
 
-    // 逶ｸ謇九Μ繧ｻ繝・ヨ
+    // 相手リセット
     GAME_STATE.opponent.lp = 5000;
     GAME_STATE.opponent.refreshCount = 0;
     GAME_STATE.opponent.deck = [];
@@ -437,7 +437,7 @@ function resetGameState() {
     GAME_STATE.opponent.field.monsters = [null, null, null];
     GAME_STATE.opponent.field.magics = [null, null, null];
 
-    // UI繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・
+    // UIクリーンアップ
     document.getElementById('player-hand').innerHTML = "";
     _renderedHandCards = [];
     document.getElementById('opponent-hand').innerHTML = "";
@@ -446,13 +446,13 @@ function resetGameState() {
     _pendingLpDisplay.opponent = null;
     clearToastMessage();
 
-    // 蜑阪・蟇ｾ謌ｦ縺ｧ隕九※縺・◆繧ｫ繝ｼ繝峨′谿九ｉ縺ｪ縺・ｈ縺・∬ｩｳ邏ｰ繝代ロ繝ｫ繧ょ・譛溽憾諷九↓謌ｻ縺・
+    // 前の対戦で見ていたカードが残らないよう、詳細パネルも初期状態に戻す
     clearInfoPanel();
 
-    // UI繝ｬ繧､繝､繝ｼ縺ｮ繝昴う繝ｳ繧ｿ繝ｼ謫堺ｽ懊ｒ蜑企勁・亥憶菴懃畑髦ｲ豁｢・・
-    // CSS縺ｮ繝・ヵ繧ｩ繝ｫ繝郁ｨｭ螳壹↓蟋斐・繧・
+    // UIレイヤーのポインター操作を削除（副作用防止）
+    // CSSのデフォルト設定に委ねる
 
-    // 貍泌・繝ｻ驕ｸ謚槭Δ繝ｼ繝峨・繝輔Λ繧ｰ繧偵☆縺ｹ縺ｦ蠑ｷ蛻ｶ繝ｪ繧ｻ繝・ヨ
+    // 演出・選択モードのフラグをすべて強制リセット
     GAME_STATE.isAnimating = false;
     GAME_STATE.isSelectingSlot = false;
     GAME_STATE.isSelectingTarget = false;
@@ -461,23 +461,23 @@ function resetGameState() {
     GAME_STATE.attackerPending = null;
     GAME_STATE.selectedCosts = [];
 
-    // 驕ｸ謚槭Δ繝ｼ繝臥畑CSS繧ｯ繝ｩ繧ｹ縺ｮ繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・
+    // 選択モード用CSSクラスのクリーンアップ
     document.getElementById('game-viewport').classList.remove('field-selecting');
     document.getElementById('field-surface').classList.remove('selecting-mode');
 
-    // 繝ｪ繧ｶ繝ｫ繝医が繝ｼ繝舌・繝ｬ繧､縺ｮ迥ｶ諷九ｒ螳悟・縺ｫ繝ｪ繧ｻ繝・ヨ・医う繝ｳ繝ｩ繧､繝ｳ繧ｹ繧ｿ繧､繝ｫ縺ｨ繧ｯ繝ｩ繧ｹ繧呈ｶ亥悉・・
+    // リザルトオーバーレイの状態を完全にリセット（インラインスタイルとクラスを消去）
     const overlay = document.getElementById('game-result-overlay');
     if (overlay) {
         overlay.removeAttribute('style');
         overlay.classList.remove("active", "result-win", "result-lose");
-        // 蠑ｷ蛻ｶ繝ｪ繝輔Ο繝ｼ・医い繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ縺ｮ繝ｪ繧ｻ繝・ヨ繧剃ｿ晁ｨｼ・・
+        // 強制リフロー（アニメーションのリセットを保証）
         void overlay.offsetWidth;
     }
 
     cleanFieldZones();
 
-    // HUD繧ょ・譛溷､縺ｫ謠上″逶ｴ縺吶・
-    // 縺薙％縺ｧ譖ｴ譁ｰ縺励↑縺・→縲∵ｬ｡縺ｮ蟇ｾ謌ｦ縺悟ｧ九∪繧九∪縺ｧ蜑阪・蟇ｾ謌ｦ縺ｮLP縺瑚｡ｨ遉ｺ縺ｫ谿九ｋ縲・
+    // HUDも初期値に描き直す。
+    // ここで更新しないと、次の対戦が始まるまで前の対戦のLPが表示に残る。
     updateUI();
 }
 
@@ -490,7 +490,7 @@ function cleanFieldZones() {
         });
     });
 
-    // 繝・ャ繧ｭ繝ｻ繝医Λ繝・す繝･繝ｻ髯､螟悶だ繝ｼ繝ｳ縺ｯ譫壽焚繝舌ャ繧ｸ繧呈ｮ九＠縺溘∪縺ｾ繧ｫ繝ｼ繝峨□縺大叙繧企勁縺・
+    // デッキ・トラッシュ・除外ゾーンは枚数バッジを残したままカードだけ取り除く
     ["player", "opponent"].forEach(side => {
         ["deck", "trash", "banish"].forEach(type => {
             const zone = document.getElementById(`${side}-${type}-zone`);
@@ -508,7 +508,7 @@ async function initDeck(side, deckId, type) {
         const recipe = DECK_RECIPES[deckId];
         if (recipe) cardIds = recipe.cards;
     } else if (type === "user") {
-        // Firestore縺九ｉ蜿門ｾ・
+        // Firestoreから取得
         const deckData = await DeckBuilder.fetchDeckById(deckId);
         if (deckData) cardIds = deckData.cards;
     }
@@ -518,7 +518,7 @@ async function initDeck(side, deckId, type) {
         return;
     }
 
-    // 繧ｫ繝ｼ繝迂D縺九ｉ螳溘ョ繝ｼ繧ｿ繧堤函謌舌＠縺ｦ繧ｷ繝｣繝・ヵ繝ｫ
+    // カードIDから実データを生成してシャッフル
     const rawDeck = cardIds.map(id => getCardData(id)).filter(c => c !== null);
 
     if (side === "player") {
@@ -545,43 +545,43 @@ function backToMenu() {
 let isDeckBuilderInitialized = false;
 
 function openDeckEditor() {
-    // 繝・ャ繧ｭ邂｡逅・判髱｢・磯∈謚樒判髱｢・峨ｒ陦ｨ遉ｺ
+    // デッキ管理画面（選択画面）を表示
     showScreen('deck-select-screen');
     if (typeof DeckBuilder !== 'undefined') {
         if (!isDeckBuilderInitialized) {
             DeckBuilder.init();
             isDeckBuilderInitialized = true;
         }
-        // 繝・ャ繧ｭ荳隕ｧ繧呈緒逕ｻ (邂｡逅・Δ繝ｼ繝・
+        // デッキ一覧を描画 (管理モード)
         renderDeckManager();
     }
 }
 
 // ==========================================
-// 3. 繧ｿ繝ｼ繝ｳ騾ｲ陦後Ο繧ｸ繝・け
+// 3. ターン進行ロジック
 // ==========================================
 
 function startTurnProcess() {
     if (GAME_STATE.isGameOver) return;
     GAME_STATE.phase = "DRAW";
     GAME_STATE.hasNormalSummoned = false;
-    // 繧ｿ繝ｼ繝ｳ髢句ｧ区凾縺ｫ蜈ｨ繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺ｮ謾ｻ謦・ｸ医∩繝輔Λ繧ｰ繧偵Μ繧ｻ繝・ヨ (繝ｫ繝ｼ繝ｫ5.3)
+    // ターン開始時に全モンスターの攻撃済みフラグをリセット (ルール5.3)
     const allFieldMonsters = [...GAME_STATE.player.field.monsters, ...GAME_STATE.opponent.field.monsters];
     allFieldMonsters.forEach(m => { if (m) m._hasAttacked = false; });
 
-    // 繧ｿ繝ｼ繝ｳ髢句ｧ区凾縺ｫ蜷・・繝ｬ繧､繝､繝ｼ縺ｮ繝ｪ繝輔Ξ繝・す繝･蝗樊焚繧偵Μ繧ｻ繝・ヨ (繝ｫ繝ｼ繝ｫ1.1)
+    // ターン開始時に各プレイヤーのリフレッシュ回数をリセット (ルール1.1)
     GAME_STATE.player.refreshCount = 0;
     GAME_STATE.opponent.refreshCount = 0;
 
-    // 譛滄剞蛻・ｌ縺ｮ荳譎ゅヰ繝輔ｒ繧ｯ繝ｪ繝ｼ繝九Φ繧ｰ
+    // 期限切れの一時バフをクリーニング
     EffectLogic.cleanAllBuffs();
 
     updateUI();
 
     console.log(`Turn Start: ${GAME_STATE.turnPlayer} (Game Turn: ${GAME_STATE.turnCount})`);
 
-    // DRAW PHASE蜃ｦ逅・
-    // 繝ｫ繝ｼ繝ｫ: 蜈郁｡・繧ｿ繝ｼ繝ｳ逶ｮ縺ｯ繝峨Ο繝ｼ縺励↑縺・
+    // DRAW PHASE処理
+    // ルール: 先行1ターン目はドローしない
     if (GAME_STATE.isFirstTurnOfGame) {
         console.log("First Turn: Skip Draw Phase.");
         setTimeout(() => { if (GAME_STATE.phase === "DRAW") advancePhase(); }, 400);
@@ -589,8 +589,8 @@ function startTurnProcess() {
         drawCard(GAME_STATE.turnPlayer, 1);
         updateUI();
 
-        // 繝励Ξ繧､繝､繝ｼ繝ｻCPU蝠上ｏ縺壹ラ繝ｭ繝ｼ蠕後・閾ｪ蜍輔〒MAIN1縺ｸ騾ｲ陦・
-        // 繝峨Ο繝ｼ貍泌・縺瑚ｦ九∴繧狗ｨ句ｺｦ縺ｫ縺ｯ蠕・▽
+        // プレイヤー・CPU問わずドロー後は自動でMAIN1へ進行
+        // ドロー演出が見える程度には待つ
         setTimeout(() => { if (GAME_STATE.phase === "DRAW") advancePhase(); }, 700);
 
     }
@@ -602,16 +602,16 @@ function advancePhase() {
     const pOrder = GAME_STATE.phases;
     const currentIdx = pOrder.indexOf(GAME_STATE.phase);
 
-    // END繝輔ぉ繧､繧ｺ縺九ｉ蜈医↓縺ｯ騾ｲ縺ｾ縺ｪ縺・ｼ医ち繝ｼ繝ｳ邨ゆｺ・・逅・・ startEndPhaseProcess 縺梧球蠖難ｼ・
+    // ENDフェイズから先には進まない（ターン終了処理は startEndPhaseProcess が担当）
     if (currentIdx === -1 || currentIdx >= pOrder.length - 1) {
         console.warn(`advancePhase: ignored (phase=${GAME_STATE.phase})`);
         return;
     }
 
-    // 谺｡縺ｮ繝輔ぉ繧､繧ｺ繧呈ｱｺ螳・
+    // 次のフェイズを決定
     let nextPhase = pOrder[currentIdx + 1];
 
-    // END繝輔ぉ繧､繧ｺ縺ｸ縺ｮ遘ｻ陦悟・逅・
+    // ENDフェイズへの移行処理
     if (nextPhase === "END") {
         GAME_STATE.phase = "END";
         updateUI();
@@ -619,7 +619,7 @@ function advancePhase() {
         return;
     }
 
-    // 蜈郁｡・繧ｿ繝ｼ繝ｳ逶ｮ縺ｮ繝舌ヨ繝ｫ繝輔ぉ繧､繧ｺ繧ｹ繧ｭ繝・・蛻､螳・
+    // 先行1ターン目のバトルフェイズスキップ判定
     if (GAME_STATE.isFirstTurnOfGame && nextPhase === "BATTLE") {
         console.log("First Turn: Skip Battle Phase.");
         nextPhase = "MAIN2";
@@ -630,7 +630,7 @@ function advancePhase() {
 
     console.log(`Phase Changed to: ${GAME_STATE.phase}`);
 
-    // CPU繧ｿ繝ｼ繝ｳ縺ｪ繧臥ｶ咏ｶ壹＠縺ｦ諤晁・
+    // CPUターンなら継続して思考
     if (GAME_STATE.turnPlayer === "opponent") {
         setTimeout(executeCpuTurn, 350);
     }
@@ -639,11 +639,11 @@ function advancePhase() {
 function endTurn() {
     if (GAME_STATE.isGameOver) return;
 
-    // 繧ｿ繝ｼ繝ｳ莠､莉｣
+    // ターン交代
     GAME_STATE.turnPlayer = (GAME_STATE.turnPlayer === "player") ? "opponent" : "player";
     GAME_STATE.turnSerial++;
 
-    // 蜈郁｡・繧ｿ繝ｼ繝ｳ逶ｮ繝輔Λ繧ｰ縺ｮ隗｣髯､・亥ｾ梧判縺ｫ蝗槭▲縺滓凾轤ｹ縺ｧ隗｣髯､・・
+    // 先行1ターン目フラグの解除（後攻に回った時点で解除）
     if (GAME_STATE.isFirstTurnOfGame) {
         GAME_STATE.isFirstTurnOfGame = false;
     } else {
@@ -654,7 +654,7 @@ function endTurn() {
 }
 
 // ==========================================
-// 4. 繧｢繧ｯ繧ｷ繝ｧ繝ｳ: 繝峨Ο繝ｼ & 繝ｪ繝輔Ξ繝・す繝･
+// 4. アクション: ドロー & リフレッシュ
 // ==========================================
 
 async function drawCard(side, count) {
@@ -666,13 +666,13 @@ async function drawCard(side, count) {
 
     while (remainingToDraw > 0) {
         if (p.deck.length === 0) {
-            // 繝・ャ繧ｭ蛻・ｌ譎ゅ・繝ｪ繝輔Ξ繝・す繝･隕丞ｮ・(繝ｫ繝ｼ繝ｫ Ver.1.1)
+            // デッキ切れ時のリフレッシュ規定 (ルール Ver.1.1)
             if (p.trash.length > 0 && p.refreshCount < 1) {
                 console.log(`${side} performs Deck Refresh!`);
                 p.deck = shuffleArray(p.trash.map(resetCardState));
                 p.trash = [];
                 p.refreshCount++;
-                // 繝ｪ繝輔Ξ繝・す繝･謌仙粥譎ゅ∵悽譚･縺ｮ繝峨Ο繝ｼ縺ｫ霑ｽ蜉縺励※縺輔ｉ縺ｫ 1 譫壹ラ繝ｭ繝ｼ縺吶ｋ
+                // リフレッシュ成功時、本来のドローに追加してさらに 1 枚ドローする
                 remainingToDraw += 1;
                 updateUI();
             } else {
@@ -695,9 +695,9 @@ async function drawCard(side, count) {
     if (side === "player") {
         renderHand();
 
-        // 鬟帙・蜈医・蠎ｧ讓吶・謠冗判逶ｴ蠕後↓縺ｾ縺ｨ繧√※遒ｺ螳壹＆縺帙ｋ縲・
-        // 貍泌・縺ｮ騾比ｸｭ縺ｧ謇区惆繧剃ｽ懊ｊ逶ｴ縺吶→蠎ｧ讓吶′縺ｶ繧後ｋ縺・∴縲・
-        // 驕・ｌ縺ｦ蟋九∪繧九い繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ縺悟盾辣ｧ縺吶ｋ隕∫ｴ縺悟ｷｮ縺玲崛繧上▲縺ｦ縺励∪縺・・
+        // 飛び先の座標は描画直後にまとめて確定させる。
+        // 演出の途中で手札を作り直すと座標がぶれるうえ、
+        // 遅れて始まるアニメーションが参照する要素が差し替わってしまう。
         const targetRects = drawQueue.map(card => {
             const el = findHandCardElement(p, card);
             return el ? el.getBoundingClientRect() : null;
@@ -707,9 +707,9 @@ async function drawCard(side, count) {
             await new Promise(r => setTimeout(r, idx * 80));
             await animateDrawCard(card, targetRects[idx], idx);
 
-            // 逹蝨ｰ縺励◆繧ｫ繝ｼ繝峨□縺代ｒ陦ｨ縺ｫ蜃ｺ縺吶・
-            // 縺薙％縺ｧ renderHand() 繧偵☆繧九→謇区惆蜈ｨ菴薙′菴懊ｊ逶ｴ縺輔ｌ縲・
-            // 繧ｫ繝ｼ繝峨′蟾ｦ蜿ｳ縺ｫ謠ｺ繧後※隕九∴繧九◆繧√∝ｯｾ雎｡1譫壹・繧ｯ繝ｩ繧ｹ縺縺大､悶☆縲・
+            // 着地したカードだけを表に出す。
+            // ここで renderHand() をすると手札全体が作り直され、
+            // カードが左右に揺れて見えるため、対象1枚のクラスだけ外す。
             delete card.isNew;
             const el = findHandCardElement(p, card);
             if (el) el.classList.remove('entering');
@@ -722,8 +722,8 @@ async function drawCard(side, count) {
 }
 
 /**
- * 謇区惆縺ｮDOM隕∫ｴ繧偵梧焔譛ｭ蜀・・菴咲ｽｮ縲阪〒迚ｹ螳壹☆繧九・
- * 蜷悟錐繧ｫ繝ｼ繝峨ｒ3譫夂ｩ阪ａ繧九ご繝ｼ繝縺ｪ縺ｮ縺ｧ縲√き繝ｼ繝迂D縺ｧ謗｢縺吶→蛻･縺ｮ1譫壹↓蠖薙◆縺｣縺ｦ縺励∪縺・・
+ * 手札のDOM要素を「手札内の位置」で特定する。
+ * 同名カードを3枚積めるゲームなので、カードIDで探すと別の1枚に当たってしまう。
  */
 function findHandCardElement(playerState, card) {
     const handIdx = playerState.hand.indexOf(card);
@@ -732,7 +732,7 @@ function findHandCardElement(playerState, card) {
 }
 
 /**
- * 繝峨Ο繝ｼ貍泌・・壹ョ繝・く縺九ｉ謇区惆縺ｸ
+ * ドロー演出：デッキから手札へ
  */
 function animateDrawCard(cardData, targetRect, sequenceIdx = 0) {
     return new Promise(resolve => {
@@ -745,28 +745,28 @@ function animateDrawCard(cardData, targetRect, sequenceIdx = 0) {
 
         const startRect = deckEl.getBoundingClientRect();
 
-        // 繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ逕ｨ隕∫ｴ菴懈・
+        // アニメーション用要素作成
         const animCard = createCardElement(cardData, 'animation');
         animCard.classList.add('anim-drawing-card');
 
-        // 驥阪↑繧企・・蛻ｶ蠕｡・壼ｾ後°繧牙ｼ輔￥繧ｫ繝ｼ繝峨ｒ荳翫↓縺吶ｋ
+        // 重なり順の制御：後から引くカードを上にする
         animCard.style.zIndex = 5000 + sequenceIdx;
 
-        // 蛻晄悄迥ｶ諷具ｼ壹ョ繝・く菴咲ｽｮ縲∬｣丞髄縺・
+        // 初期状態：デッキ位置、裏向き
         animCard.style.left = `${startRect.left}px`;
         animCard.style.top = `${startRect.top}px`;
         animCard.style.transform = 'rotateY(180deg)';
 
         document.body.appendChild(animCard);
 
-        // 繧｢繝九Γ繝ｼ繧ｷ繝ｧ繝ｳ髢句ｧ具ｼ医Μ繝輔Ο繝ｼ蠕・■・・
+        // アニメーション開始（リフロー待ち）
         requestAnimationFrame(() => {
             animCard.style.left = `${targetRect.left}px`;
             animCard.style.top = `${targetRect.top}px`;
             animCard.style.transform = 'rotateY(0deg)';
         });
 
-        // 0.5遘貞ｾ後↓邨ゆｺ・ｼ医ユ繝ｳ繝昴い繝・・縺ｮ縺溘ａ繧上★縺九↓遏ｭ邵ｮ・・
+        // 0.5秒後に終了（テンポアップのためわずかに短縮）
         setTimeout(() => {
             animCard.remove();
             resolve();
@@ -775,11 +775,11 @@ function animateDrawCard(cardData, targetRect, sequenceIdx = 0) {
 }
 
 // ==========================================
-// 5. 繧｢繧ｯ繧ｷ繝ｧ繝ｳ: 蜿ｬ蝟・(Summon)
+// 5. アクション: 召喚 (Summon)
 // ==========================================
 
 /**
- * 蜿ｬ蝟壹′蜿ｯ閭ｽ縺九←縺・°繧定ｫ也炊逧・↓蛻､螳壹☆繧・
+ * 召喚が可能かどうかを論理的に判定する
  */
 function checkCanSummon(cardData) {
     if (GAME_STATE.isGameOver) return false;
@@ -796,15 +796,15 @@ function checkCanSummon(cardData) {
     const fieldCosters = getValidCosterMonsters(filter);
     const handCosters = getValidHandCosters(filter, cardData);
 
-    // 邏譚舌・邱乗焚縺瑚ｶｳ繧翫※縺・ｋ縺具ｼ医ヵ繧｣繝ｼ繝ｫ繝峨→謇区惆縺ｯ閾ｪ逕ｱ縺ｫ邨・∩蜷医ｏ縺帙ｉ繧後ｋ・・
+    // 素材の総数が足りているか（フィールドと手札は自由に組み合わせられる）
     if (fieldCosters.length + handCosters.length < costCount) return false;
 
-    // 蝣ｴ縺悟沂縺ｾ縺｣縺ｦ縺・ｋ蝣ｴ蜷医√ヵ繧｣繝ｼ繝ｫ繝峨°繧画怙菴・菴薙・繝ｪ繝ｪ繝ｼ繧ｹ縺励↑縺・→鄂ｮ縺榊ｴ謇縺後↑縺・
+    // 場が埋まっている場合、フィールドから最低1体はリリースしないと置き場所がない
     return hasEmptySlot || fieldCosters.length >= 1;
 }
 
 /**
- * 蜿ｬ蝟夊ｩｦ陦・(UI縺九ｉ蜻ｼ縺ｰ繧後ｋ)
+ * 召喚試行 (UIから呼ばれる)
  */
 function trySummon(cardData) {
     if (!checkCanSummon(cardData)) return;
@@ -820,15 +820,15 @@ function trySummon(cardData) {
 }
 
 /**
- * 蜿ｬ蝟壹・螳溯｡・
+ * 召喚の実行
  * @param {Array} costs - [{card, slotIdx, from:"field"|"hand"}]
- *   from:"field" 縺ｯ繝医Λ繝・す繝･縺ｸ縲’rom:"hand" 縺ｯ髯､螟悶＆繧後ｋ・磯勁螟悶・蠅灘慍隱倡匱繧定ｵｷ縺薙＆縺ｪ縺・ｼ・
+ *   from:"field" はトラッシュへ、from:"hand" は除外される（除外は墓地誘発を起こさない）
  */
 async function executeSummon(side, cardData, slotIndex, costs = []) {
     const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
     const trashedCosts = [];
 
-    // 1. 繧ｳ繧ｹ繝医・謾ｯ謇輔＞繧貞ｮ溯｡・(繝ｫ繝ｼ繝ｫ Ver.1.1: 蜉ｹ譫懃匱蜍輔・蠕悟屓縺・
+    // 1. コストの支払いを実行 (ルール Ver.1.1: 効果発動は後回し)
     for (const cost of costs) {
         if (cost.from === "hand") {
             const hIdx = p.hand.indexOf(cost.card);
@@ -846,36 +846,36 @@ async function executeSummon(side, cardData, slotIndex, costs = []) {
         }
     }
 
-    // 2. 謇区惆縺九ｉ蜑企勁・亥酔蜷阪き繝ｼ繝峨ｒ蜿悶ｊ驕輔∴縺ｪ縺・ｈ縺・が繝悶ず繧ｧ繧ｯ繝亥酔荳諤ｧ縺ｧ讀懃ｴ｢・・
+    // 2. 手札から削除（同名カードを取り違えないようオブジェクト同一性で検索）
     const handIndex = p.hand.indexOf(cardData);
     if (handIndex !== -1) {
         p.hand.splice(handIndex, 1);
     }
 
-    // 3. 繝輔ぅ繝ｼ繝ｫ繝峨∈驟咲ｽｮ
-    //    蜈医↓謠冗判縺励※縺翫°縺ｪ縺・→縲∝小蝟壽凾蜉ｹ譫懊・貍泌・縺ｮ縺ｻ縺・′繧ｫ繝ｼ繝峨ｈ繧雁・縺ｫ隕九∴縺ｦ縺励∪縺・
-    //    鬆・ｺ上・ 蜿ｬ蝟壽ｼ泌・ 竊・蜉ｹ譫懃匱蜍・竊・蜉ｹ譫懈ｼ泌・
+    // 3. フィールドへ配置
+    //    先に描画しておかないと、召喚時効果の演出のほうがカードより先に見えてしまう
+    //    順序は 召喚演出 → 効果発動 → 効果演出
     p.field.monsters[slotIndex] = cardData;
     if (side === "player") hideCardDetail();
     updateUI();
     await playSummonEffect(side, slotIndex);
 
-    // 4. 繝医Λ繝・す繝･騾√ｊ譎ゅ♀繧医・蜿ｬ蝟壽・蜉滓凾縺ｮ蜉ｹ譫懆ｧ｣豎ｺ
-    //    ・磯勁螟悶＠縺溘き繝ｼ繝峨・縺薙％縺ｫ蜷ｫ縺ｾ繧後↑縺・ｼ晏｢灘慍隱倡匱縺ｯ逋ｺ蜍輔＠縺ｪ縺・ｼ・
+    // 4. トラッシュ送り時および召喚成功時の効果解決
+    //    （除外したカードはここに含まれない＝墓地誘発は発動しない）
     for (const cCard of trashedCosts) {
         await EffectLogic.notifyCardSentToTrash(cCard, side);
     }
     await EffectLogic.resolveEffects(cardData, side, "on_summon");
 
-    // 縲檎嶌謇九′繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧貞小蝟壹＠縺滓凾縲阪↓蜿榊ｿ懊☆繧狗ｽ縺ｮ蛻､螳・
+    // 「相手がモンスターを召喚した時」に反応する罠の判定
     await EffectLogic.notifySummon(side, [cardData]);
 
-    // 繝輔Λ繧ｰ譖ｴ譁ｰ
+    // フラグ更新
     if (side === GAME_STATE.turnPlayer) {
         GAME_STATE.hasNormalSummoned = true;
     }
 
-    // 蜉ｹ譫懆ｧ｣豎ｺ蠕後・逶､髱｢繧貞渚譏・郁ｩｳ邏ｰ繝代ロ繝ｫ縺ｯ驟咲ｽｮ譎ゅ↓髢峨§縺ｦ縺・ｋ・・
+    // 効果解決後の盤面を反映（詳細パネルは配置時に閉じている）
     updateUI();
 
     console.log(`${side} Summoned ${cardData.name} to Slot ${slotIndex}`);
@@ -883,21 +883,21 @@ async function executeSummon(side, cardData, slotIndex, costs = []) {
 }
 
 // ==========================================
-// 5.5 繧｢繧ｯ繧ｷ繝ｧ繝ｳ: 鬲碑｡鍋匱蜍・(Magic)
+// 5.5 アクション: 魔術発動 (Magic)
 // ==========================================
 
-/** 鬲碑｡薙′逋ｺ蜍募庄閭ｽ縺句愛螳・*/
+/** 魔術が発動可能か判定 */
 function checkCanActivateMagic(cardData) {
     if (GAME_STATE.isGameOver) return false;
     if (GAME_STATE.phase !== "MAIN1" && GAME_STATE.phase !== "MAIN2") return false;
-    // 鄂鬲碑｡薙・莨上○縺ｦ縺九ｉ縺ｧ縺ｪ縺・→逋ｺ蜍輔〒縺阪↑縺・
+    // 罠魔術は伏せてからでないと発動できない
     if (cardData.subType === "trap") return false;
     const hasSpace = GAME_STATE.player.field.magics.some(m => m === null);
     if (!hasSpace) return false;
     return EffectLogic.isEffectActivatable(cardData, "player", "on_activate");
 }
 
-/** 鬲碑｡薙ｒ繧ｻ繝・ヨ・郁｣丞・縺ｧ險ｭ鄂ｮ・峨〒縺阪ｋ縺句愛螳・*/
+/** 魔術をセット（裏側で設置）できるか判定 */
 function checkCanSetMagic(cardData) {
     if (GAME_STATE.isGameOver) return false;
     if (GAME_STATE.phase !== "MAIN1" && GAME_STATE.phase !== "MAIN2") return false;
@@ -905,28 +905,28 @@ function checkCanSetMagic(cardData) {
     return GAME_STATE.player.field.magics.some(m => m === null);
 }
 
-/** 鬲碑｡鍋匱蜍戊ｩｦ陦・*/
+/** 魔術発動試行 */
 function tryActivateMagic(cardData) {
     if (!checkCanActivateMagic(cardData)) return;
     startMagicSlotSelection(cardData, false);
 }
 
-/** 鬲碑｡薙そ繝・ヨ隧ｦ陦鯉ｼ育ｽ縺ｫ髯舌ｉ縺壹・壼ｸｸ繝ｻ豌ｸ邯壹ｂ繝悶Λ繝輔→縺励※莨上○繧峨ｌ繧具ｼ・*/
+/** 魔術セット試行（罠に限らず、通常・永続もブラフとして伏せられる） */
 function trySetMagic(cardData) {
     if (!checkCanSetMagic(cardData)) return;
     startMagicSlotSelection(cardData, true);
 }
 
 /**
- * 莨上○縺ｦ縺ゅｋ閾ｪ蛻・・鬲碑｡薙ｒ陦ｨ蜷代″縺ｫ縺励※逋ｺ蜍輔☆繧・
- * 鄂鬲碑｡薙・譚｡莉ｶ謌千ｫ区凾縺ｫ閾ｪ蜍輔〒逋ｺ蜍輔☆繧九◆繧√√％縺薙〒縺ｯ謇ｱ繧上↑縺・
+ * 伏せてある自分の魔術を表向きにして発動する
+ * 罠魔術は条件成立時に自動で発動するため、ここでは扱わない
  */
 async function activateSetMagic(slotIdx) {
     const p = GAME_STATE.player;
     const card = p.field.magics[slotIdx];
 
     if (!card || !card._isSet) return;
-    if (card.subType === "trap") return; // 鄂鬲碑｡薙・縺ｿ莨上○縺溘ち繝ｼ繝ｳ縺ｯ逋ｺ蜍輔〒縺阪↑縺・
+    if (card.subType === "trap") return; // 罠魔術のみ伏せたターンは発動できない
     if (!EffectLogic.isEffectActivatable(card, "player", "on_activate")) return;
 
     hideCardDetail();
@@ -950,7 +950,7 @@ async function activateSetMagic(slotIdx) {
     console.log(`Set Magic Activated: ${card.name}`);
 }
 
-/** 鬲碑｡鍋匱蜍輔・繧ｻ繝・ヨ蜈医・驕ｸ謚樣幕蟋・*/
+/** 魔術発動・セット先の選択開始 */
 function startMagicSlotSelection(cardData, asSet = false) {
     document.getElementById('floating-action-container').innerHTML = "";
     document.getElementById('field-surface').classList.add('selecting-mode');
@@ -958,34 +958,34 @@ function startMagicSlotSelection(cardData, asSet = false) {
     GAME_STATE.isSelectingSlot = true;
     GAME_STATE.pendingCard = cardData;
     GAME_STATE.pendingSetMode = asSet;
-    showSelectionPrompt(asSet ? "繧ｫ繝ｼ繝峨ｒ莨上○繧句ｴ謇繧帝∈謚槭＠縺ｦ縺上□縺輔＞" : "鬲碑｡薙ｒ鄂ｮ縺丞ｴ謇繧帝∈謚槭＠縺ｦ縺上□縺輔＞");
+    showSelectionPrompt(asSet ? "カードを伏せる場所を選択してください" : "魔術を置く場所を選択してください");
 
-    // 繧､繝吶Φ繝医ョ繝ｪ繧ｲ繝ｼ繧ｷ繝ｧ繝ｳ: 蛟句挨縺ｮonclick縺ｯ險ｭ螳壹○縺壹∝・菴薙〒逶｣隕悶☆繧・
+    // イベントデリゲーション: 個別のonclickは設定せず、全体で監視する
     [0, 1, 2].forEach(i => {
         const zone = document.getElementById(`ply-magic-${i}`);
         if (GAME_STATE.player.field.magics[i] === null) {
             zone.classList.add('highlight');
-            // zone.onclick = ... (蜑企勁)
+            // zone.onclick = ... (削除)
         }
     });
 }
 
 /**
- * 蜈ｱ騾壹ヲ繝・ヨ繝・せ繝磯未謨ｰ (蟷ｾ菴募ｭｦ逧・愛螳壼性繧)
- * @param {MouseEvent} e - 繧ｯ繝ｪ繝・け繧､繝吶Φ繝・
- * @param {string} idPrefix - 蛻､螳壼ｯｾ雎｡縺ｮID謗･鬆ｭ霎・(萓・ 'ply-monster', 'opt-monster')
- * @param {number} count - 繧ｹ繝ｭ繝・ヨ謨ｰ
- * @param {boolean} requireHighlight - '.highlight' 繧ｯ繝ｩ繧ｹ繧貞ｿ・医→縺吶ｋ縺・
- * @returns {number} 繝偵ャ繝医＠縺溘う繝ｳ繝・ャ繧ｯ繧ｹ (-1縺ｯ繝偵ャ繝医↑縺・
+ * 共通ヒットテスト関数 (幾何学的判定含む)
+ * @param {MouseEvent} e - クリックイベント
+ * @param {string} idPrefix - 判定対象のID接頭辞 (例: 'ply-monster', 'opt-monster')
+ * @param {number} count - スロット数
+ * @param {boolean} requireHighlight - '.highlight' クラスを必須とするか
+ * @returns {number} ヒットしたインデックス (-1はヒットなし)
  */
 function detectHitSlot(e, idPrefix, count = 3, requireHighlight = true) {
     let hitSlotIdx = -1;
 
-    // 1. DOM謗｢邏｢ (e.target.closest)
+    // 1. DOM探索 (e.target.closest)
     const targetZone = e.target.closest('.zone');
     if (targetZone) {
         if (!requireHighlight || targetZone.classList.contains('highlight')) {
-            // ID繝√ぉ繝・け (謖・ｮ壹＆繧後◆prefix繧貞性繧薙〒縺・ｋ縺・
+            // IDチェック (指定されたprefixを含んでいるか)
             if (targetZone.id.startsWith(idPrefix)) {
                 const parts = targetZone.id.split('-');
                 hitSlotIdx = parseInt(parts[parts.length - 1], 10);
@@ -993,11 +993,11 @@ function detectHitSlot(e, idPrefix, count = 3, requireHighlight = true) {
         }
     }
 
-    // 2. 蟷ｾ菴募ｭｦ逧・愛螳・(繝舌ャ繧ｯ繧｢繝・・)
-    //    蛟呵｣懊′隍・焚繝偵ャ繝医☆繧句ｴ蜷医・縲御ｸｭ蠢・′譛繧りｿ代＞繧ｾ繝ｼ繝ｳ縲阪ｒ謗｡逕ｨ縺吶ｋ縲・
-    //    蜈育捩鬆・〒豎ｺ繧√ｋ縺ｨ蟶ｸ縺ｫ繧ｹ繝ｭ繝・ヨ0蛛ｴ縺ｸ蛻､螳壹′蛛上▲縺ｦ縺励∪縺・◆繧√・
+    // 2. 幾何学的判定 (バックアップ)
+    //    候補が複数ヒットする場合は「中心が最も近いゾーン」を採用する。
+    //    先着順で決めると常にスロット0側へ判定が偏ってしまうため。
     if (hitSlotIdx === -1) {
-        const margin = 8; // 謖・・螟ｪ縺輔・繧薙・險ｱ螳ｹ・磯團縺ｮ繧ｾ繝ｼ繝ｳ縺ｨ鬟溘＞蜷医ｏ縺ｪ縺・ｯ・峇縺ｫ逡吶ａ繧具ｼ・
+        const margin = 8; // 指の太さぶんの許容（隣のゾーンと食い合わない範囲に留める）
         let bestDistance = Infinity;
 
         for (let i = 0; i < count; i++) {
@@ -1023,24 +1023,24 @@ function detectHitSlot(e, idPrefix, count = 3, requireHighlight = true) {
 }
 
 /**
- * 繧ｰ繝ｭ繝ｼ繝舌Ν繧ｯ繝ｪ繝・け繝上Φ繝峨Λ
- * 蜈ｨ縺ｦ縺ｮ繧ｯ繝ｪ繝・け繧､繝吶Φ繝医ｒ縺薙％縺ｧ蜿励￠蜿悶ｊ縲∫憾諷九↓蠢懊§縺ｦ謖ｯ繧雁・縺代ｋ
+ * グローバルクリックハンドラ
+ * 全てのクリックイベントをここで受け取り、状態に応じて振り分ける
  */
 function handleGlobalInteract(e) {
     if (GAME_STATE.isGameOver) return;
 
-    // UI隕∫ｴ繧・が繝ｼ繝舌・繝ｬ繧､縺ｸ縺ｮ繧ｯ繝ｪ繝・け縺ｯ繝代せ繧ｹ繝ｫ繝ｼ・医◎繧後◇繧後・蛻ｶ蠕｡縺ｫ莉ｻ縺帙ｋ・・
+    // UI要素やオーバーレイへのクリックはパススルー（それぞれの制御に任せる）
     if (e.target.closest('#card-detail-overlay') ||
         e.target.closest('.floating-actions') ||
         e.target.closest('#floating-action-container') ||
         e.target.closest('.modal-content') ||
         e.target.closest('.card-mini.entering') ||
-        e.target.closest('.btn-sub') || // 繝輔ぉ繧､繧ｺ繝懊ち繝ｳ遲・
+        e.target.closest('.btn-sub') || // フェイズボタン等
         e.target.closest('#next-phase-btn')) {
         return;
     }
 
-    // 繝｢繝ｼ繝牙挨繝・ぅ繧ｹ繝代ャ繝・ｼ磯∈謚槭Δ繝ｼ繝我ｸｭ縺ｯ謇区惆縺ｮ隧ｳ邏ｰ陦ｨ遉ｺ繧医ｊ驕ｸ謚樊桃菴懊ｒ蜆ｪ蜈医☆繧具ｼ・
+    // モード別ディスパッチ（選択モード中は手札の詳細表示より選択操作を優先する）
     if (GAME_STATE.isSelectingCost) {
         handleCostSelectionClick(e);
         return;
@@ -1054,13 +1054,13 @@ function handleGlobalInteract(e) {
         return;
     }
 
-    // 謇区惆縺ｮ繧ｯ繝ｪ繝・け蛻､螳夲ｼ亥酔蜷阪き繝ｼ繝峨ｒ蜿悶ｊ驕輔∴縺ｪ縺・ｈ縺・｡ｨ遉ｺ菴咲ｽｮ縺ｧ迚ｹ螳壹☆繧具ｼ・
+    // 手札のクリック判定（同名カードを取り違えないよう表示位置で特定する）
     const handCard = e.target.closest('#player-hand .card-mini');
     if (handCard) {
         const handIdx = parseInt(handCard.dataset.handIndex, 10);
         const cardData = GAME_STATE.player.hand[handIdx];
         if (cardData) {
-            // 蜷後§繧ｫ繝ｼ繝峨ｒ繧ゅ≧荳蠎ｦ繧ｿ繝・・縺励◆繧蛾∈謚櫁ｧ｣髯､
+            // 同じカードをもう一度タップしたら選択解除
             if (handCard.classList.contains('selected')) {
                 hideCardDetail();
                 return;
@@ -1070,18 +1070,18 @@ function handleGlobalInteract(e) {
         }
     }
 
-    // 騾壼ｸｸ繝｢繝ｼ繝会ｼ郁ｩｳ邏ｰ陦ｨ遉ｺ / 繧｢繧ｯ繧ｷ繝ｧ繝ｳ繝｡繝九Η繝ｼ・・
+    // 通常モード（詳細表示 / アクションメニュー）
     handleNormalInteraction(e);
 }
 
-/** 繧ｳ繧ｹ繝磯∈謚樔ｸｭ縺ｮ繧ｯ繝ｪ繝・け繝上Φ繝峨Λ・医ヵ繧｣繝ｼ繝ｫ繝峨・謇区惆縺ｮ荳｡譁ｹ縺悟ｯｾ雎｡・・*/
+/** コスト選択中のクリックハンドラ（フィールド・手札の両方が対象） */
 function handleCostSelectionClick(e) {
     if (!GAME_STATE.isSelectingCost || !GAME_STATE.pendingCard) return;
 
     const req = GAME_STATE.pendingCard.summonRequirement;
     const filter = req ? req.costFilter : null;
 
-    // 1. 謇区惆縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧偵さ繧ｹ繝茨ｼ茨ｼ晞勁螟厄ｼ峨↓驕ｸ縺ｶ
+    // 1. 手札のモンスターをコスト（＝除外）に選ぶ
     const handEl = e.target.closest('#player-hand .card-mini');
     if (handEl) {
         e.stopPropagation();
@@ -1092,10 +1092,10 @@ function handleCostSelectionClick(e) {
         }
         return;
     }
-    // 謇区惆繧ｨ繝ｪ繧｢縺ｮ菴咏區繧ｿ繝・・縺ｯ菴輔ｂ縺励↑縺・ｼ郁ｪ､繧ｭ繝｣繝ｳ繧ｻ繝ｫ髦ｲ豁｢・・
+    // 手札エリアの余白タップは何もしない（誤キャンセル防止）
     if (e.target.closest('#player-hand-container')) return;
 
-    // 2. 繝輔ぅ繝ｼ繝ｫ繝峨・繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧偵さ繧ｹ繝茨ｼ茨ｼ昴ヨ繝ｩ繝・す繝･・峨↓驕ｸ縺ｶ
+    // 2. フィールドのモンスターをコスト（＝トラッシュ）に選ぶ
     const hitIdx = detectHitSlot(e, 'ply-monster', 3, false);
     if (hitIdx !== -1) {
         const monster = GAME_STATE.player.field.monsters[hitIdx];
@@ -1106,17 +1106,17 @@ function handleCostSelectionClick(e) {
         return;
     }
 
-    // 3. 閭梧勹繧ｿ繝・・縺ｧ繧ｭ繝｣繝ｳ繧ｻ繝ｫ
+    // 3. 背景タップでキャンセル
     if (checkGlobalCancel(e)) {
         cancelCostSelection();
     }
 }
 
 /**
- * 騾壼ｸｸ譎ゅ・繧､繝ｳ繧ｿ繝ｩ繧ｯ繧ｷ繝ｧ繝ｳ (蟷ｾ菴募ｭｦ逧・愛螳壻ｻ倥″)
+ * 通常時のインタラクション (幾何学的判定付き)
  */
 function handleNormalInteraction(e) {
-    // 閾ｪ蛻・・繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧ｾ繝ｼ繝ｳ
+    // 自分のモンスターゾーン
     let idx = detectHitSlot(e, 'ply-monster', 3, false);
     if (idx !== -1) {
         const card = GAME_STATE.player.field.monsters[idx];
@@ -1124,15 +1124,15 @@ function handleNormalInteraction(e) {
         return;
     }
 
-    // 閾ｪ蛻・・鬲碑｡薙だ繝ｼ繝ｳ
+    // 自分の魔術ゾーン
     idx = detectHitSlot(e, 'ply-magic', 3, false);
     if (idx !== -1) {
         const card = GAME_STATE.player.field.magics[idx];
-        if (card) showCardDetail(card, 'ply-field', e, idx); // location縺ｯply-field縺ｧ邨ｱ蜷・
+        if (card) showCardDetail(card, 'ply-field', e, idx); // locationはply-fieldで統合
         return;
     }
 
-    // 逶ｸ謇九・繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧ｾ繝ｼ繝ｳ
+    // 相手のモンスターゾーン
     idx = detectHitSlot(e, 'opt-monster', 3, false);
     if (idx !== -1) {
         const card = GAME_STATE.opponent.field.monsters[idx];
@@ -1140,7 +1140,7 @@ function handleNormalInteraction(e) {
         return;
     }
 
-    // 逶ｸ謇九・鬲碑｡薙だ繝ｼ繝ｳ
+    // 相手の魔術ゾーン
     idx = detectHitSlot(e, 'opt-magic', 3, false);
     if (idx !== -1) {
         const card = GAME_STATE.opponent.field.magics[idx];
@@ -1148,9 +1148,9 @@ function handleNormalInteraction(e) {
         return;
     }
 
-    // 繝医Λ繝・す繝･繝ｻ髯､螟悶だ繝ｼ繝ｳ縺ｮ蟷ｾ菴募愛螳・
-    // 繝輔ぅ繝ｼ繝ｫ繝峨・3D螟牙ｽ｢縺励※縺・ｋ縺溘ａ縲．OM縺ｮ繝偵ャ繝医ユ繧ｹ繝医′隕ｪ隕∫ｴ(.field-row)縺ｫ蜷ｸ繧上ｌ縺ｦ
-    // 繧ｾ繝ｼ繝ｳ縺ｮinline onclick縺檎匱轣ｫ縺励↑縺・％縺ｨ縺後≠繧九ょｺｧ讓吶〒謨第ｸ医☆繧九・
+    // トラッシュ・除外ゾーンの幾何判定
+    // フィールドは3D変形しているため、DOMのヒットテストが親要素(.field-row)に吸われて
+    // ゾーンのinline onclickが発火しないことがある。座標で救済する。
     const pileZones = [
         { id: 'player-trash-zone', side: 'player', pile: 'trash' },
         { id: 'opponent-trash-zone', side: 'opponent', pile: 'trash' },
@@ -1163,7 +1163,7 @@ function handleNormalInteraction(e) {
         if (!el) continue;
 
         const rect = el.getBoundingClientRect();
-        const margin = 6; // 蛻､螳壹・縺ゅ◎縺ｳ・磯團縺ｮ繧ｾ繝ｼ繝ｳ縺ｨ鬟溘＞蜷医ｏ縺ｪ縺・ｯ・峇・・
+        const margin = 6; // 判定のあそび（隣のゾーンと食い合わない範囲）
         if (e.clientX >= rect.left - margin && e.clientX <= rect.right + margin &&
             e.clientY >= rect.top - margin && e.clientY <= rect.bottom + margin) {
             openCardPileViewer(pz.side, pz.pile);
@@ -1171,15 +1171,15 @@ function handleNormalInteraction(e) {
         }
     }
 
-    // 菴輔ｂ縺ｪ縺・ｴ謇繧偵け繝ｪ繝・け -> 繝｡繝九Η繝ｼ縺ｪ縺ｩ繧帝哩縺倥ｋ
-    // 縺溘□縺励∬ｪ､繧ｿ繝・・縺ｧ髢峨§縺吶℃繧九・繧り憶縺上↑縺・・縺ｧ縲∵・遉ｺ逧・↑閭梧勹繧ｯ繝ｪ繝・け縺ｮ縺ｿ・・
-    // 縺・▲縺溘ｓfloating-action遲峨・蜀帝ｭ縺ｮ繧ｬ繝ｼ繝峨〒髯､螟悶＆繧後※縺・ｋ縺ｮ縺ｧ縲√％縺薙↓譚･繧九・縺ｯ繝輔ぅ繝ｼ繝ｫ繝芽レ譎ｯ縺ｮ縺ｿ
+    // 何もない場所をクリック -> メニューなどを閉じる
+    // ただし、誤タップで閉じすぎるのも良くないので、明示的な背景クリックのみ？
+    // いったんfloating-action等は冒頭のガードで除外されているので、ここに来るのはフィールド背景のみ
     hideCardDetail();
 }
 
-/** 閭梧勹繧ｯ繝ｪ繝・け遲峨↓繧医ｋ蜈ｱ騾壹く繝｣繝ｳ繧ｻ繝ｫ蛻､螳・*/
+/** 背景クリック等による共通キャンセル判定 */
 function checkGlobalCancel(e) {
-    // 繝薙Η繝ｼ繝昴・繝医√ヵ繧｣繝ｼ繝ｫ繝芽｡ｨ髱｢縲・□霑代Λ繝・ヱ繝ｼ繧偵け繝ｪ繝・け縺ｧ繧ｭ繝｣繝ｳ繧ｻ繝ｫ
+    // ビューポート、フィールド表面、遠近ラッパーをクリックでキャンセル
     const cancelTargets = ['game-viewport', 'field-perspective-wrapper', 'field-surface'];
     if (cancelTargets.includes(e.target.id)) return true;
     return false;
@@ -1188,15 +1188,15 @@ function checkGlobalCancel(e) {
 function handleSelectionClick(e) {
     if (!GAME_STATE.isSelectingSlot || !GAME_STATE.pendingCard) return;
 
-    // 隱､縺｣縺ｦ謇区惆繧偵ち繝・・縺励◆蝣ｴ蜷・-> 繧ｭ繝｣繝ｳ繧ｻ繝ｫ縺励※縺昴・謇区惆繧帝∈謚槭＠縺溘％縺ｨ縺ｫ縺吶ｋ
+    // 誤って手札をタップした場合 -> キャンセルしてその手札を選択したことにする
     if (e.target.closest('#player-hand')) {
         console.log("Switching selection to hand card");
         if (GAME_STATE.pendingCard.type === 'monster') cancelSlotSelection();
         else cancelMagicSlotSelection();
         return;
-        // 蛯呵・ 縺薙％縺ｧreturn縺吶ｋ縺ｨ莉雁屓縺ｮ繧､繝吶Φ繝医・豸郁ｲｻ縺輔ｌ繧九・
-        // 繝ｦ繝ｼ繧ｶ繝ｼ縺ｯ縲後く繝｣繝ｳ繧ｻ繝ｫ縺輔ｌ縺溘咲憾諷九↓縺ｪ繧九・縺ｧ縲√ｂ縺・ｸ蠎ｦ繧ｿ繝・・縺吶ｌ縺ｰ隧ｳ邏ｰ縺碁幕縺上・
-        // 縺昴ｌ縺ｧ蜊∝・隕ｪ蛻・ｼ亥渚蠢懊＠縺ｪ縺・ｈ繧翫・繧ｷ・峨・
+        // 備考: ここでreturnすると今回のイベントは消費される。
+        // ユーザーは「キャンセルされた」状態になるので、もう一度タップすれば詳細が開く。
+        // それで十分親切（反応しないよりマシ）。
     }
 
     const typePrefix = GAME_STATE.pendingCard.type === 'monster' ? 'ply-monster' : 'ply-magic';
@@ -1216,7 +1216,7 @@ function handleSelectionClick(e) {
     }
 }
 
-/** 謾ｻ謦・ｯｾ雎｡驕ｸ謚樔ｸｭ縺ｮ繧ｯ繝ｪ繝・け繝上Φ繝峨Λ */
+/** 攻撃対象選択中のクリックハンドラ */
 function handleAttackSelectionClick(e) {
     if (!GAME_STATE.isSelectingTarget) return;
 
@@ -1233,21 +1233,21 @@ function handleAttackSelectionClick(e) {
     }
 }
 
-/** 鬲碑｡鍋匱蜍輔・螳御ｺ・*/
+/** 魔術発動の完了 */
 async function finishMagicSlotSelection(slotIdx) {
     if (!GAME_STATE.pendingCard) return;
     const cardData = GAME_STATE.pendingCard;
     const asSet = GAME_STATE.pendingSetMode;
     const p = GAME_STATE.player;
 
-    // 蜉ｹ譫懆ｧ｣豎ｺ・・wait・峨・蜑阪↓驕ｸ謚槭Δ繝ｼ繝峨ｒ螳悟・縺ｫ邨ゆｺ・＆縺帙ｋ
+    // 効果解決（await）の前に選択モードを完全に終了させる
     cancelMagicSlotSelection();
 
-    // 1. 謇区惆縺九ｉ蜑企勁・亥酔蜷阪き繝ｼ繝峨ｒ蜿悶ｊ驕輔∴縺ｪ縺・ｈ縺・が繝悶ず繧ｧ繧ｯ繝亥酔荳諤ｧ縺ｧ讀懃ｴ｢・・
+    // 1. 手札から削除（同名カードを取り違えないようオブジェクト同一性で検索）
     const handIndex = p.hand.indexOf(cardData);
     if (handIndex !== -1) p.hand.splice(handIndex, 1);
 
-    // 繧ｻ繝・ヨ縺ｮ蝣ｴ蜷医・陬丞・縺ｧ鄂ｮ縺上□縺代ょ柑譫懊・隗｣豎ｺ縺励↑縺・・
+    // セットの場合は裏側で置くだけ。効果は解決しない。
     if (asSet) {
         cardData._isSet = true;
         cardData._setTurnSerial = GAME_STATE.turnSerial;
@@ -1258,16 +1258,16 @@ async function finishMagicSlotSelection(slotIdx) {
         return;
     }
 
-    // 2. 荳譌ｦ鬲碑｡薙だ繝ｼ繝ｳ縺ｫ驟咲ｽｮ縺励※謠冗判・亥柑譫懆ｧ｣豎ｺ荳ｭ縺ｧ縺ゅｋ縺薙→繧堤､ｺ縺呻ｼ・
+    // 2. 一旦魔術ゾーンに配置して描画（効果解決中であることを示す）
     p.field.magics[slotIdx] = cardData;
     renderFieldCard("player", "magic", slotIdx, cardData);
 
-    // 3. 蜉ｹ譫懊・隗｣豎ｺ繧貞ｮ溯｡・(髱槫酔譛溷ｾ・ｩ・
+    // 3. 効果の解決を実行 (非同期待機)
     await EffectLogic.resolveEffects(cardData, "player", "on_activate");
 
-    // 4. 遞ｮ蛻･縺ｫ繧医ｋ蠕悟・逅・
+    // 4. 種別による後処理
     if (cardData.subType === 'normal') {
-        // 騾壼ｸｸ鬲碑｡薙・蟆代＠蠕・▲縺ｦ縺九ｉ繝医Λ繝・す繝･縺ｸ (貍泌・逕ｨ)
+        // 通常魔術は少し待ってからトラッシュへ (演出用)
         setTimeout(() => {
             if (p.field.magics[slotIdx] !== cardData) return;
             p.field.magics[slotIdx] = null;
@@ -1276,14 +1276,14 @@ async function finishMagicSlotSelection(slotIdx) {
             updateUI();
         }, 500);
     } else {
-        // 豌ｸ邯夐ｭ碑｡薙・縺昴・縺ｾ縺ｾ谿九ｋ
+        // 永続魔術はそのまま残る
         updateUI();
     }
 
     console.log(`Magic Played: ${cardData.name}`);
 }
 
-/** 鬲碑｡馴∈謚槭・繧ｭ繝｣繝ｳ繧ｻ繝ｫ */
+/** 魔術選択のキャンセル */
 function cancelMagicSlotSelection() {
     document.getElementById('field-surface').classList.remove('selecting-mode');
     document.getElementById('game-viewport').classList.remove('field-selecting');
@@ -1292,19 +1292,19 @@ function cancelMagicSlotSelection() {
     GAME_STATE.pendingCard = null;
     GAME_STATE.pendingSetMode = false;
 
-    // 繧､繝吶Φ繝医Μ繧ｹ繝雁炎髯､
+    // イベントリスナ削除
     document.removeEventListener('click', handleSelectionClick);
 
     [0, 1, 2].forEach(i => {
         const zone = document.getElementById(`ply-magic-${i}`);
         zone.classList.remove('highlight');
-        // zone.onclick = null; (荳崎ｦ・
+        // zone.onclick = null; (不要)
     });
-    // body.onclick = ... (荳崎ｦ・
+    // body.onclick = ... (不要)
 }
 
 // ==========================================
-// 6. 繧｢繧ｯ繧ｷ繝ｧ繝ｳ: 謾ｻ謦・(Battle)
+// 6. アクション: 攻撃 (Battle)
 // ==========================================
 
 function tryAttack(attackerCard, attackerSlotIdx) {
@@ -1328,12 +1328,12 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
 
     console.log(`Battle: ${attacker.name} vs ${defender ? defender.name : "Direct"}`);
     attacker._hasAttacked = true;
-    GAME_STATE.isAnimating = true; // CPU縺ｮ騾｣邯壼・逅・ｒ髦ｲ豁｢
+    GAME_STATE.isAnimating = true; // CPUの連続処理を防止
 
     const attackerSide = GAME_STATE.turnPlayer;
     const defenderSide = (attackerSide === "player") ? "opponent" : "player";
 
-    // 謾ｻ謦・ｮ｣險譎ゅ・鄂繧貞・縺ｫ隗｣豎ｺ縺吶ｋ・亥ｼｱ菴灘喧繝ｻ蠑ｷ蛹悶・謾ｻ謦・Δ繝ｳ繧ｹ繧ｿ繝ｼ縺ｮ遐ｴ螢翫↑縺ｩ・・
+    // 攻撃宣言時の罠を先に解決する（弱体化・強化・攻撃モンスターの破壊など）
     const aborted = await EffectLogic.notifyAttackDeclared(
         attackerSide, attacker, atkIdx, defender, defIdx);
 
@@ -1344,9 +1344,9 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
         return;
     }
 
-    // 隱ｰ縺瑚ｪｰ繧呈判謦・＠縺溘・縺九ｒ遏｢蜊ｰ縺ｨ繝医・繧ｹ繝医〒遉ｺ縺・
+    // 誰が誰を攻撃したのかを矢印とトーストで示す
     showToastMessage(
-        defender ? `${attacker.name} 竊・${defender.name}` : `${attacker.name} 縺ｮ繝繧､繝ｬ繧ｯ繝医い繧ｿ繝・け`,
+        defender ? `${attacker.name} → ${defender.name}` : `${attacker.name} のダイレクトアタック`,
         attackerSide);
     await showAttackArrow(attackerSide, atkIdx, defenderSide, defIdx);
 
@@ -1363,7 +1363,7 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
             damagePlayer(defenderSide, damage);
             await destroyMonster(defenderSide, defIdx, "battle");
 
-            // 謌ｦ髣倥〒逶ｸ謇九Δ繝ｳ繧ｹ繧ｿ繝ｼ繧堤ｴ螢翫＠縺滓凾縺ｮ隱倡匱・育ｎ逡後・遐ｲ謇・遲会ｼ・
+            // 戦闘で相手モンスターを破壊した時の誘発（炎界の砲手 等）
             if (GAME_STATE[attackerSide].field.monsters[atkIdx] === attacker) {
                 await EffectLogic.resolveEffects(attacker, attackerSide, "on_battle_destroy");
             }
@@ -1377,14 +1377,14 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
             damagePlayer(attackerSide, damage);
             await destroyMonster(attackerSide, atkIdx, "battle");
 
-            // 霑斐ｊ險弱■縺ｫ縺励◆髦ｲ蠕｡蛛ｴ繧ゅ梧姶髣倥〒逶ｸ謇九Δ繝ｳ繧ｹ繧ｿ繝ｼ繧堤ｴ螢翫＠縺溘阪↓蠖薙◆繧・
+            // 返り討ちにした防御側も「戦闘で相手モンスターを破壊した」に当たる
             if (GAME_STATE[defenderSide].field.monsters[defIdx] === defender) {
                 await EffectLogic.resolveEffects(defender, defenderSide, "on_battle_destroy");
             }
         }
 
-        // 謌ｦ髣伜ｾ後・莠育ｴ・柑譫懶ｼ域ｵｷ縺ｮ遯∵茶縺ｪ縺ｩ・峨・
-        // 縲梧姶髣倥ｒ陦後▲縺溽嶌謇九Δ繝ｳ繧ｹ繧ｿ繝ｼ縲阪′蟇ｾ雎｡縺ｪ縺ｮ縺ｧ縲∵判謦・・繝ｻ髦ｲ蠕｡蛛ｴ縺ｩ縺｡繧峨′謖√▲縺ｦ縺・※繧よｩ溯・縺吶ｋ縲・
+        // 戦闘後の予約効果（海の突撃など）。
+        // 「戦闘を行った相手モンスター」が対象なので、攻撃側・防御側どちらが持っていても機能する。
         const hasAfterCombatDestroy = (c) =>
             !!c && !!c._combatEffects && c._combatEffects.some(e => e.type === "destroy_opponent_after_combat");
 
@@ -1404,7 +1404,7 @@ async function resolveBattle(attacker, defender, atkIdx, defIdx) {
 function damagePlayer(side, amount) {
     if (GAME_STATE.isGameOver) return;
 
-    // 繝繝｡繝ｼ繧ｸ霆ｽ貂帙Ο繧ｸ繝・け縺ｮ驕ｩ逕ｨ
+    // ダメージ軽減ロジックの適用
     const finalDamage = EffectLogic.calculateFinalDamage(side, amount);
 
     if (side === "player") {
@@ -1417,7 +1417,7 @@ function damagePlayer(side, amount) {
     checkGameEnd();
 }
 
-/** LP縺ｫ繧医ｋ豎ｺ逹蛻､螳夲ｼ亥酔譎ゅ↓0縺ｪ繧牙ｼ輔″蛻・￠ / 繝ｫ繝ｼ繝ｫ1貅匁侠・・*/
+/** LPによる決着判定（同時に0なら引き分け / ルール1準拠） */
 function checkGameEnd() {
     if (GAME_STATE.isGameOver) return false;
 
@@ -1440,15 +1440,15 @@ function checkGameEnd() {
 }
 
 /**
- * 繧ｲ繝ｼ繝邨ゆｺ・す繝ｼ繧ｱ繝ｳ繧ｹ
+ * ゲーム終了シーケンス
  * @param {string} winner - "player" | "opponent" | "draw"
  */
 function endGameSequence(winner) {
-    // 莠碁㍾蜻ｼ縺ｳ蜃ｺ縺鈴亟豁｢・壻ｻ･髯阪・繧ｿ繝ｼ繝ｳ騾ｲ陦後・蜉ｹ譫懆ｧ｣豎ｺ繧偵☆縺ｹ縺ｦ蛛懈ｭ｢縺吶ｋ
+    // 二重呼び出し防止：以降のターン進行・効果解決をすべて停止する
     if (GAME_STATE.isGameOver) return;
     GAME_STATE.isGameOver = true;
 
-    // 驕ｸ謚槭Δ繝ｼ繝峨′谿九▲縺ｦ縺・ｋ縺ｨ謫堺ｽ應ｸ崎・縺ｫ隕九∴繧九◆繧∝ｼｷ蛻ｶ隗｣髯､
+    // 選択モードが残っていると操作不能に見えるため強制解除
     GAME_STATE.isSelectingSlot = false;
     GAME_STATE.isSelectingTarget = false;
     GAME_STATE.isSelectingCost = false;
@@ -1459,7 +1459,7 @@ function endGameSequence(winner) {
     document.getElementById('game-viewport').classList.remove('field-selecting', 'cost-selecting');
     document.getElementById('field-surface').classList.remove('selecting-mode');
 
-    // 1遘偵・縲碁俣・域ｼ泌・・峨阪・蠕後↓繝｢繝ｼ繝繝ｫ繧定｡ｨ遉ｺ
+    // 1秒の「間（演出）」の後にモーダルを表示
     setTimeout(() => {
         const overlay = document.getElementById('game-result-overlay');
         const title = document.getElementById('result-title');
@@ -1471,14 +1471,14 @@ function endGameSequence(winner) {
         if (winner === "player") {
             overlay.classList.add("result-win");
             title.innerText = "VICTORY";
-            msg.innerText = "逶ｸ謇九・LP繧・縺ｫ縺励∪縺励◆・・;
+            msg.innerText = "相手のLPを0にしました！";
         } else if (winner === "opponent") {
             overlay.classList.add("result-lose");
             title.innerText = "DEFEAT";
-            msg.innerText = "閾ｪ蛻・・LP縺・縺ｫ縺ｪ繧翫∪縺励◆...";
+            msg.innerText = "自分のLPが0になりました...";
         } else {
             title.innerText = "DRAW";
-            msg.innerText = "縺贋ｺ偵＞縺ｮLP縺悟酔譎ゅ↓0縺ｫ縺ｪ繧翫∪縺励◆";
+            msg.innerText = "お互いのLPが同時に0になりました";
         }
     }, 1000);
 }
@@ -1488,35 +1488,35 @@ async function destroyMonster(side, slotIdx, reason = "effect") {
     const card = p.field.monsters[slotIdx];
 
     if (card) {
-        // 謌ｦ髣倡ｴ螢願先ｧ縺ｮ繝√ぉ繝・け
+        // 戦闘破壊耐性のチェック
         if (reason === "battle" && EffectLogic.checkBattleProtection(card, side, slotIdx)) {
             console.log(`Protection Active: ${card.name} survived destruction.`);
             return;
         }
 
-        // 遐ｴ螢頑ｼ泌・繧定ｦ九○縺ｦ縺九ｉ逶､髱｢縺九ｉ蜿悶ｊ髯､縺上・
-        // 蜈医↓豸医☆縺ｨ縲√＞縺阪↑繧翫ヨ繝ｩ繝・す繝･縺ｸ鬟帙ｓ縺繧医≧縺ｫ隕九∴縺ｦ菴輔′襍ｷ縺阪◆縺句・縺九ｉ縺ｪ縺・・
-        showToastMessage(`${card.name} 縺檎ｴ螢翫＆繧後◆`, side);
+        // 破壊演出を見せてから盤面から取り除く。
+        // 先に消すと、いきなりトラッシュへ飛んだように見えて何が起きたか分からない。
+        showToastMessage(`${card.name} が破壊された`, side);
         await playDestroyEffect(side, slotIdx);
 
         p.field.monsters[slotIdx] = null;
         sendCardToTrash(side, card);
 
-        // UI繧ｯ繝ｪ繧｢
+        // UIクリア
         const prefix = (side === "player") ? "ply" : "opt";
         const el = document.getElementById(`${prefix}-monster-${slotIdx}`);
         if (el) el.innerHTML = "";
 
-        // 繝医Λ繝・す繝･騾√ｊ縺ｫ莨ｴ縺・ｪ倡匱・郁・霄ｫ縺ｮ on_sent_to_trash 縺ｨ縲∽ｻ悶き繝ｼ繝峨・ on_other_sent_to_trash・・
+        // トラッシュ送りに伴う誘発（自身の on_sent_to_trash と、他カードの on_other_sent_to_trash）
         await EffectLogic.notifyCardSentToTrash(card, side);
 
-        // 縲瑚・蛻・・繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺檎ｴ螢翫＆繧後◆譎ゅ阪↓蜿榊ｿ懊☆繧狗ｽ縺ｮ蛻､螳・
+        // 「自分のモンスターが破壊された時」に反応する罠の判定
         await EffectLogic.notifyMonsterDestroyed(side, card);
     }
 }
 
 // ==========================================
-// 7. UI謠冗判 (Rendering)
+// 7. UI描画 (Rendering)
 // ==========================================
 
 function updateUI() {
@@ -1530,17 +1530,17 @@ function updateUI() {
     updateZoneVisuals("opponent", "trash");
     updateZoneVisuals("opponent", "banish");
 
-    // 繝輔ぅ繝ｼ繝ｫ繝我ｸ翫・蜈ｨ繧ｫ繝ｼ繝峨ｒ譛譁ｰ繝・・繧ｿ縺ｧ蜀肴緒逕ｻ (繝舌ヵ繝ｻ繧ｪ繝ｼ繝ｩ蜿肴丐)
+    // フィールド上の全カードを最新データで再描画 (バフ・オーラ反映)
     ["player", "opponent"].forEach(side => {
         GAME_STATE[side].field.monsters.forEach((card, i) => renderFieldCard(side, "monster", i, card));
         GAME_STATE[side].field.magics.forEach((card, i) => renderFieldCard(side, "magic", i, card));
     });
 
-    // 繝輔ぉ繧､繧ｺ荳ｭ螟ｮ陦ｨ遉ｺ
+    // フェイズ中央表示
     const phaseLabel = document.getElementById('phase-center-label');
     if (phaseLabel) phaseLabel.innerText = `${GAME_STATE.phase} PHASE`;
 
-    // 谺｡縺ｮ繝輔ぉ繧､繧ｺ莠域ｸｬ陦ｨ遉ｺ
+    // 次のフェイズ予測表示
     const nextPhaseDisplay = document.getElementById('next-phase-display');
     if (nextPhaseDisplay) {
         const pOrder = GAME_STATE.phases;
@@ -1550,7 +1550,7 @@ function updateUI() {
         nextPhaseDisplay.innerText = (GAME_STATE.phase === "END") ? "NEXT TURN" : pOrder[nextIdx];
     }
 
-    // 逶ｸ謇九ち繝ｼ繝ｳ縲√∪縺溘・閾ｪ蜍暮ｲ陦後☆縺ｹ縺阪ヵ繧ｧ繧､繧ｺ(DRAW/END)縺ｯ謫堺ｽ應ｸ崎・縺ｫ縺吶ｋ
+    // 相手ターン、または自動進行すべきフェイズ(DRAW/END)は操作不能にする
     const phaseContainer = document.getElementById('next-phase-btn');
     const isAutoPhase = (GAME_STATE.phase === "DRAW" || GAME_STATE.phase === "END");
 
@@ -1565,10 +1565,10 @@ function updateUI() {
     renderHand();
 }
 
-// 逶ｴ蜑阪↓謠冗判縺励◆謇区惆縺ｮ鬘斐・繧後ょ酔縺倥↑繧我ｽ懊ｊ逶ｴ縺輔↑縺・◆繧√・險倬鹸縲・
+// 直前に描画した手札の顔ぶれ。同じなら作り直さないための記録。
 let _renderedHandCards = [];
 
-/** 謇区惆繧ｫ繝ｼ繝・譫壹↓縲∫樟蝨ｨ縺ｮ迥ｶ諷九↓蠢懊§縺溘け繝ｩ繧ｹ繧貞渚譏縺吶ｋ */
+/** 手札カード1枚に、現在の状態に応じたクラスを反映する */
 function applyHandCardState(el, card, costFilter) {
     el.classList.toggle('entering', !!card.isNew);
 
@@ -1585,9 +1585,9 @@ function renderHand() {
         ? (GAME_STATE.pendingCard.summonRequirement || {}).costFilter
         : null;
 
-    // 鬘斐・繧後′螟峨ｏ縺｣縺ｦ縺・↑縺代ｌ縺ｰ縲．OM縺ｯ菴懊ｊ逶ｴ縺輔★繧ｯ繝ｩ繧ｹ縺縺第峩譁ｰ縺吶ｋ縲・
-    // updateUI() 縺ｯ蜉ｹ譫懆ｧ｣豎ｺ縺ｮ縺溘・縺ｫ蜻ｼ縺ｰ繧後ｋ縺ｮ縺ｧ縲∵ｯ主屓 <img> 縺斐→菴懊ｊ逶ｴ縺吶→
-    // 逕ｻ蜒上・蜀阪ョ繧ｳ繝ｼ繝峨〒謇区惆蜈ｨ菴薙′荳迸ｬ證励￥縺ｪ縺｣縺ｦ縺｡繧峨▽縺上・
+    // 顔ぶれが変わっていなければ、DOMは作り直さずクラスだけ更新する。
+    // updateUI() は効果解決のたびに呼ばれるので、毎回 <img> ごと作り直すと
+    // 画像の再デコードで手札全体が一瞬暗くなってちらつく。
     const sameHand = _renderedHandCards.length === hand.length
         && _renderedHandCards.every((c, i) => c === hand[i])
         && container.children.length === hand.length;
@@ -1599,11 +1599,11 @@ function renderHand() {
         return;
     }
 
-    // 譁ｰ縺励￥謇区惆縺ｫ蜉繧上▲縺溘き繝ｼ繝峨ｒ讀懷・縺吶ｋ縲・
-    // 繝峨Ο繝ｼ(drawCard)縺ｯ閾ｪ蜑阪〒 isNew 繧堤ｫ九※縺ｦ鬟帶擂貍泌・繧偵▽縺代ｋ縺ｮ縺ｧ蟇ｾ雎｡螟悶・
-    // 繧ｵ繝ｼ繝√・蝗槫庶縺ｪ縺ｩ縲・｣帶擂貍泌・繧呈戟縺溘★縺ｫ逶ｴ謗･謇区惆縺ｸ蜈･繧句柑譫懊・縲・
-    // 縺薙％縺ｧ諡ｾ縺｣縺ｦ縲後◎縺ｮ蝣ｴ縺ｧ縺ｵ繧上▲縺ｨ繝輔ぉ繝ｼ繝峨う繝ｳ縲阪＆縺帙↑縺・→縲・
-    // 逕ｻ蜒乗悴隱ｭ縺ｿ霎ｼ縺ｿ縺ｮ縺ｾ縺ｾ荳迸ｬ縺ｧ蜃ｺ迴ｾ縺励※繝√Λ縺､縺上・
+    // 新しく手札に加わったカードを検出する。
+    // ドロー(drawCard)は自前で isNew を立てて飛来演出をつけるので対象外。
+    // サーチ・回収など、飛来演出を持たずに直接手札へ入る効果は、
+    // ここで拾って「その場でふわっとフェードイン」させないと、
+    // 画像未読み込みのまま一瞬で出現してチラつく。
     const previousCards = _renderedHandCards;
     const newlyAdded = hand.filter(c => !previousCards.includes(c) && !c.isNew);
     newlyAdded.forEach(c => { c.isNew = true; });
@@ -1616,7 +1616,7 @@ function renderHand() {
     const cardToElement = new Map();
     const elements = hand.map((card, idx) => {
         const el = createCardElement(card, "hand");
-        el.dataset.handIndex = idx; // 蜷悟錐繧ｫ繝ｼ繝峨ｒ菴咲ｽｮ縺ｧ隴伜挨縺吶ｋ
+        el.dataset.handIndex = idx; // 同名カードを位置で識別する
         el.style.zIndex = idx;
         applyHandCardState(el, card, costFilter);
         container.appendChild(el);
@@ -1624,8 +1624,8 @@ function renderHand() {
         return el;
     });
 
-    // 螳滄圀縺ｫ謠冗判縺輔ｌ縺溘き繝ｼ繝牙ｹ・ｒ貂ｬ縺｣縺ｦ縺九ｉ驥阪↑繧企㍼繧呈ｱｺ繧√ｋ
-    // (--card-width 縺ｯ vw 蝓ｺ貅悶↑縺ｮ縺ｧ遶ｯ譛ｫ縺斐→縺ｫ螳溷ｯｸ縺悟､峨ｏ繧・
+    // 実際に描画されたカード幅を測ってから重なり量を決める
+    // (--card-width は vw 基準なので端末ごとに実寸が変わる)
     const cardWidth = elements[0].offsetWidth || 65;
     const maxDisplayWidth = (container.parentElement.clientWidth || window.innerWidth) * 0.9;
     const idealGap = 8;
@@ -1641,10 +1641,10 @@ function renderHand() {
         });
     }
 
-    // entering(opacity:0) 縺ｧ荳蠎ｦ謠冗判縺励※縺九ｉ縲∵ｬ｡縺ｮ繝壹う繝ｳ繝亥ｾ後↓繧ｯ繝ｩ繧ｹ繧貞､悶＠縺ｦ
-    // CSS繝医Λ繝ｳ繧ｸ繧ｷ繝ｧ繝ｳ(0.3s)縺ｧ繝輔ぉ繝ｼ繝峨う繝ｳ縺輔○繧九・
-    // 1蝗槭・rAF縺縺ｨ opacity:0 縺ｮ迥ｶ諷九′縺ｾ縺逕ｻ髱｢縺ｫ蜿肴丐縺輔ｌ繧句燕縺ｫ豸医＠縺ｦ縺励∪縺・
-    // 蜉ｹ譫懊′蜃ｺ縺ｪ縺・％縺ｨ縺後≠繧九◆繧√・驥阪↓蠕・▽縲・
+    // entering(opacity:0) で一度描画してから、次のペイント後にクラスを外して
+    // CSSトランジション(0.3s)でフェードインさせる。
+    // 1回のrAFだと opacity:0 の状態がまだ画面に反映される前に消してしまい
+    // 効果が出ないことがあるため、2重に待つ。
     if (newlyAdded.length > 0) {
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
@@ -1667,7 +1667,7 @@ function renderFieldCard(side, type, index, cardData) {
         zoneEl.innerHTML = "";
         if (cardData) {
             const location = (side === "player") ? "ply-field" : "opt-field";
-            // 繧ｹ繝ｭ繝・ヨ逡ｪ蜿ｷ(index)繧呈ｸ｡縺吶ｈ縺・↓菫ｮ豁｣
+            // スロット番号(index)を渡すように修正
             const el = createCardElement(cardData, location, index);
             zoneEl.appendChild(el);
         }
@@ -1679,8 +1679,8 @@ function createCardElement(cardData, location, slotIdx = null) {
     el.className = 'card-mini';
     el.dataset.id = cardData.id;
 
-    // 繧ｻ繝・ヨ縺輔ｌ縺滄ｭ碑｡薙・繝輔ぅ繝ｼ繝ｫ繝我ｸ翫〒縺ｯ陬丞髄縺阪↓謠冗判縺吶ｋ
-    // ・域ュ蝣ｱ繝代ロ繝ｫ繧・ン繝･繝ｼ繧｢縺ｧ縺ｯ荳ｭ霄ｫ繧定ｦ九○縺溘＞縺ｮ縺ｧ縲√ヵ繧｣繝ｼ繝ｫ繝芽｡ｨ遉ｺ縺ｮ縺ｨ縺阪□縺托ｼ・
+    // セットされた魔術はフィールド上では裏向きに描画する
+    // （情報パネルやビューアでは中身を見せたいので、フィールド表示のときだけ）
     const onField = (location === "ply-field" || location === "opt-field");
     if (onField && cardData._isSet) {
         el.classList.add('face-down');
@@ -1689,18 +1689,18 @@ function createCardElement(cardData, location, slotIdx = null) {
 
     const isMonster = cardData.type === 'monster';
 
-    // 迴ｾ蝨ｨ縺ｮ繝代Ρ繝ｼ繧定ｨ育ｮ暦ｼ医ヰ繝輔・繝・ヰ繝輔・繧ｪ繝ｼ繝ｩ蜿肴丐・・
+    // 現在のパワーを計算（バフ・デバフ・オーラ反映）
     let currentPower = cardData.power;
     if (isMonster && (location === "ply-field" || location === "opt-field")) {
         const side = (location === "ply-field") ? "player" : "opponent";
-        // 貂｡縺輔ｌ縺殱lotIdx繧貞━蜈医＠縲√↑縺代ｌ縺ｰindexOf(繝ｦ繝九・繧ｯ繧ｪ繝悶ず繧ｧ繧ｯ繝・縺ｧ迚ｹ螳・
+        // 渡されたslotIdxを優先し、なければindexOf(ユニークオブジェクト)で特定
         const targetIdx = slotIdx !== null ? slotIdx : GAME_STATE[side].field.monsters.indexOf(cardData);
         currentPower = EffectLogic.getCurrentPower(cardData, side, targetIdx);
     }
     const isEffect = cardData.subType === 'effect';
     let bgClass = isMonster ? (isEffect ? 'bg-effect' : 'bg-normal') : 'bg-magic';
 
-    const attrMap = { "轣ｫ": "fire", "豌ｴ": "water", "闕・: "leaf", "蜈・: "light", "髣・: "dark", "辟｡": "neutral" };
+    const attrMap = { "火": "fire", "水": "water", "草": "leaf", "光": "light", "闇": "dark", "無": "neutral" };
     const attrEn = attrMap[cardData.attribute] || "neutral";
 
     el.innerHTML = `
@@ -1725,13 +1725,13 @@ function createCardElement(cardData, location, slotIdx = null) {
         <div class="card-face card-back"></div>
     `;
 
-    // 閾ｪ蜍墓､懃衍縺ｫ繧医ｋ蜷咲ｧｰ蝨ｧ邵ｮ繝ｭ繧ｸ繝・け
+    // 自動検知による名称圧縮ロジック
     const nameBox = el.querySelector('.card-name-box');
     const nameText = el.querySelector('.card-name-text');
 
-    // 謠冗判蠕後↓迚ｩ逅・ｹ・ｒ貂ｬ螳壹＠縺ｦ險育ｮ・
+    // 描画後に物理幅を測定して計算
     requestAnimationFrame(() => {
-        const maxWidth = nameBox.clientWidth * 0.9; // 蟾ｦ蜿ｳ菴咏區繧定・・
+        const maxWidth = nameBox.clientWidth * 0.9; // 左右余白を考慮
         const currentWidth = nameText.scrollWidth;
 
         if (currentWidth > maxWidth) {
@@ -1747,11 +1747,11 @@ function createCardElement(cardData, location, slotIdx = null) {
 }
 
 // ==========================================
-// 8. 隧ｳ邏ｰ逕ｻ髱｢ & 謫堺ｽ懊ヱ繝阪Ν
+// 8. 詳細画面 & 操作パネル
 // ==========================================
 
 function showCardDetail(cardData, location, event, slotIdx = null) {
-    // 逶ｸ謇九′莨上○縺溘き繝ｼ繝峨・荳ｭ霄ｫ縺ｯ隕九○縺ｪ縺・
+    // 相手が伏せたカードの中身は見せない
     if (cardData && cardData._isSet && location === "opt-field") {
         showHiddenCardInfo();
         hideCardDetail();
@@ -1760,15 +1760,15 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
 
     updateInfoPanel(cardData, location);
 
-    // 蟇ｾ雎｡隕∫ｴ縺ｮ隗｣豎ｺ
+    // 対象要素の解決
     let targetEl = null;
     if (location === "hand") {
-        // 謇区惆縺ｮ蝣ｴ蜷医・DOM縺九ｉID遲峨〒謗｢縺吶°縲・∈謚樒憾諷九け繝ｩ繧ｹ縺ｮ蛻ｶ蠕｡縺ｮ縺ｿ縺ｪ繧・
-        // infoPanel譖ｴ譁ｰ縺縺代〒蜊∝・縺九ｂ遏･繧後↑縺・′縲√ワ繧､繝ｩ繧､繝亥・逅・・蠢・ｦ・
-        // 謇区惆縺ｮ蝣ｴ蜷医・event.target縺九ｉ驕｡繧後ｋ (.card-mini)
+        // 手札の場合はDOMからID等で探すか、選択状態クラスの制御のみなら
+        // infoPanel更新だけで十分かも知れないが、ハイライト処理は必要
+        // 手札の場合はevent.targetから遡れる (.card-mini)
         targetEl = event ? event.target.closest('.card-mini') : null;
     } else {
-        // 繝輔ぅ繝ｼ繝ｫ繝峨・蝣ｴ蜷医・ID縺九ｉ迚ｹ螳・
+        // フィールドの場合はIDから特定
         const prefix = (location === "ply-field" || location === "opt-field")
             ? (location === "ply-field" ? "ply" : "opt")
             : null;
@@ -1778,16 +1778,16 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
         }
     }
 
-    // 謇区惆縺ｮ蠑ｷ隱ｿ陦ｨ遉ｺ・域ｵｮ縺堺ｸ翫′繧奇ｼ牙宛蠕｡
+    // 手札の強調表示（浮き上がり）制御
     const handCards = document.querySelectorAll('#player-hand .card-mini');
     handCards.forEach(c => c.classList.remove('selected'));
     if (location === "hand" && targetEl) {
         targetEl.classList.add('selected');
     }
 
-    // 繧ｿ繝ｼ繧ｲ繝・ヨ驕ｸ謚槭Δ繝ｼ繝我ｸｭ縺ｮ蜃ｦ逅・
+    // ターゲット選択モード中の処理
     if (GAME_STATE.isSelectingTarget && location === "opt-field") {
-        // 逶ｸ謇九Δ繝ｳ繧ｹ繧ｿ繝ｼ驕ｸ謚樊凾繧ＴlotIdx繧貞━蜈・
+        // 相手モンスター選択時もslotIdxを優先
         const targetIdx = slotIdx !== null ? slotIdx : GAME_STATE.opponent.field.monsters.indexOf(cardData);
         if (targetIdx !== -1) {
             finishAttackTargetSelection(targetIdx);
@@ -1795,7 +1795,7 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
         }
     }
 
-    // 繧ｳ繧ｹ繝磯∈謚槭Δ繝ｼ繝我ｸｭ縺ｮ蜃ｦ逅・
+    // コスト選択モード中の処理
     if (GAME_STATE.isSelectingCost && location === "ply-field") {
         const targetIdx = slotIdx !== null ? slotIdx : GAME_STATE.player.field.monsters.indexOf(cardData);
         if (targetIdx !== -1) {
@@ -1804,7 +1804,7 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
         }
     }
 
-    // 蜿ｬ蝟壼・驕ｸ謚槭Δ繝ｼ繝我ｸｭ縺ｮ蜃ｦ逅・ｼ域里蟄倥き繝ｼ繝峨ｒ繧ｿ繝・・縺励※鄂ｮ謠帙☆繧句ｴ蜷医↑縺ｩ・・
+    // 召喚先選択モード中の処理（既存カードをタップして置換する場合など）
     if (GAME_STATE.isSelectingSlot && location === "ply-field") {
         const targetIdx = slotIdx !== null ? slotIdx : GAME_STATE.player.field.monsters.indexOf(cardData);
         if (targetIdx !== -1) {
@@ -1814,22 +1814,22 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
         }
     }
 
-    // 驕ｸ謚槭Δ繝ｼ繝我ｸｭ縲√∪縺溘・逶ｸ謇九・繧ｿ繝ｼ繝ｳ縺ｪ繧峨い繧ｯ繧ｷ繝ｧ繝ｳ縺ｯ蜃ｺ縺輔↑縺・
+    // 選択モード中、または相手のターンならアクションは出さない
     if (GAME_STATE.isSelectingSlot || GAME_STATE.isSelectingTarget || GAME_STATE.turnPlayer !== "player") return;
 
-    // 譌｢蟄倥・繧｢繧ｯ繧ｷ繝ｧ繝ｳ繝｡繝九Η繝ｼ繧偵け繝ｪ繧｢
+    // 既存のアクションメニューをクリア
     const container = document.getElementById('floating-action-container');
     container.innerHTML = "";
 
-    // 繝懊ち繝ｳ縺悟ｿ・ｦ√↑迥ｶ豕√°蛻､螳・
+    // ボタンが必要な状況か判定
     const isMain = (GAME_STATE.phase === "MAIN1" || GAME_STATE.phase === "MAIN2");
     const isBattle = (GAME_STATE.phase === "BATTLE");
 
-    // 繧｢繧ｯ繧ｷ繝ｧ繝ｳ繝懊ち繝ｳ陦ｨ遉ｺ蛻､螳・
+    // アクションボタン表示判定
     const canShowSummon = (location === "hand" && isMain && cardData.type === "monster");
     const canShowMagic = (location === "hand" && isMain && cardData.type === "magic");
     const canShowAttack = (location === "ply-field" && isBattle && cardData.type === "monster" && !cardData._hasAttacked);
-    // 襍ｷ蜍募柑譫懊・繝｡繧､繝ｳ繝輔ぉ繧､繧ｺ縺ｮ縺ｿ・医ヰ繝医Ν繝輔ぉ繧､繧ｺ縺ｧ縺ｯ菴ｿ縺医↑縺・ｼ・
+    // 起動効果はメインフェイズのみ（バトルフェイズでは使えない）
     const canShowEffect = (location === "ply-field" && isMain
         && cardData.logic && cardData.logic.some(l => l.trigger === "ignition"));
 
@@ -1838,16 +1838,16 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
     if (canShowSummon) {
         const btn = document.createElement('button');
         btn.className = 'btn-action-float';
-        btn.innerText = "蜿ｬ蝟・;
+        btn.innerText = "召喚";
         btn.disabled = !checkCanSummon(cardData);
         btn.onclick = () => trySummon(cardData);
         buttons.push(btn);
     } else if (canShowMagic) {
-        // 鄂鬲碑｡薙・謇区惆縺九ｉ逶ｴ謗･逋ｺ蜍輔〒縺阪↑縺・ｼ井ｼ上○縺ｦ縺九ｉ譚｡莉ｶ謌千ｫ九〒閾ｪ蜍慕匱蜍包ｼ・
+        // 罠魔術は手札から直接発動できない（伏せてから条件成立で自動発動）
         if (cardData.subType !== "trap") {
             const btn = document.createElement('button');
             btn.className = 'btn-action-float';
-            btn.innerText = "逋ｺ蜍・;
+            btn.innerText = "発動";
             btn.disabled = !checkCanActivateMagic(cardData);
             btn.onclick = () => tryActivateMagic(cardData);
             buttons.push(btn);
@@ -1855,23 +1855,23 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
 
         const setBtn = document.createElement('button');
         setBtn.className = 'btn-action-float set';
-        setBtn.innerText = "繧ｻ繝・ヨ";
+        setBtn.innerText = "セット";
         setBtn.disabled = !checkCanSetMagic(cardData);
         setBtn.onclick = () => trySetMagic(cardData);
         buttons.push(setBtn);
     }
 
-    // 莨上○縺ｦ縺ゅｋ閾ｪ蛻・・鬲碑｡薙ｒ陦ｨ蜷代″縺ｫ縺励※逋ｺ蜍輔☆繧・
+    // 伏せてある自分の魔術を表向きにして発動する
     if (location === "ply-field" && isMain && cardData.type === "magic" && cardData._isSet) {
         if (cardData.subType !== "trap") {
             const btn = document.createElement('button');
             btn.className = 'btn-action-float';
-            btn.innerText = "逋ｺ蜍・;
+            btn.innerText = "発動";
 
-            // 騾壼ｸｸ繝ｻ豌ｸ邯夐ｭ碑｡薙・莨上○縺溘ち繝ｼ繝ｳ縺ｧ繧ら匱蜍輔〒縺阪ｋ・亥宛髯舌′縺ゅｋ縺ｮ縺ｯ鄂鬲碑｡薙・縺ｿ・・
+            // 通常・永続魔術は伏せたターンでも発動できる（制限があるのは罠魔術のみ）
             if (!EffectLogic.isEffectActivatable(cardData, "player", "on_activate")) {
                 btn.disabled = true;
-                btn.innerText = "蟇ｾ雎｡縺ｪ縺・;
+                btn.innerText = "対象なし";
             }
 
             const effectiveIdx = slotIdx !== null ? slotIdx : GAME_STATE.player.field.magics.indexOf(cardData);
@@ -1883,8 +1883,8 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
     if (canShowAttack) {
         const btn = document.createElement('button');
         btn.className = 'btn-action-float attack';
-        btn.innerText = "謾ｻ謦・;
-        // 逶ｴ謗･slotIdx繧剃ｽｿ逕ｨ縺吶ｋ縺薙→縺ｧ蜷悟錐繧ｫ繝ｼ繝峨・隱､隱阪ｒ蝗樣∩
+        btn.innerText = "攻撃";
+        // 直接slotIdxを使用することで同名カードの誤認を回避
         const effectiveIdx = slotIdx !== null ? slotIdx : GAME_STATE.player.field.monsters.indexOf(cardData);
         btn.onclick = () => { container.innerHTML = ""; tryAttack(cardData, effectiveIdx); };
         buttons.push(btn);
@@ -1893,22 +1893,22 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
     if (canShowEffect) {
         const btn = document.createElement('button');
         btn.className = 'btn-action-float';
-        btn.innerText = "蜉ｹ譫懃匱蜍・;
+        btn.innerText = "効果発動";
 
         const isUsed = EffectLogic.isIgnitionUsed(cardData);
         const isActivatable = EffectLogic.isEffectActivatable(cardData, "player", "ignition");
 
         if (isUsed) {
             btn.disabled = true;
-            btn.innerText = "菴ｿ逕ｨ貂医∩";
+            btn.innerText = "使用済み";
         } else if (!isActivatable) {
             btn.disabled = true;
-            btn.innerText = "蟇ｾ雎｡縺ｪ縺・;
+            btn.innerText = "対象なし";
         }
 
         btn.onclick = async () => {
             container.innerHTML = "";
-            // 菴ｿ逕ｨ貂医∩蛻､螳壹・ EffectLogic 蛛ｴ縺ｮ countLimit 邂｡逅・↓荳譛ｬ蛹悶＠縺ｦ縺・ｋ
+            // 使用済み判定は EffectLogic 側の countLimit 管理に一本化している
             await EffectLogic.resolveEffects(cardData, "player", "ignition");
         };
         buttons.push(btn);
@@ -1920,9 +1920,9 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
 
         if (targetEl) {
             const rect = targetEl.getBoundingClientRect();
-            // 謇区惆繧ｫ繝ｼ繝峨・驕ｸ謚樊凾縺ｫ15px豬ｮ縺上′縲√◎縺ｮ蛻・・ rect 縺ｫ縺ｾ縺蜿肴丐縺輔ｌ縺ｦ縺・↑縺・・
-            // 隕玖ｾｼ繧薙〒蠑輔＞縺ｦ縺翫°縺ｪ縺・→縲∵ｵｮ縺堺ｸ翫′縺｣縺溷ｾ後↓繝懊ち繝ｳ縺縺大叙繧頑ｮ九＆繧後※
-            // 2蝗樒岼縺ｮ繧ｿ繝・・縺ｧ菴咲ｽｮ縺後★繧後※隕九∴繧九・
+            // 手札カードは選択時に15px浮くが、その分は rect にまだ反映されていない。
+            // 見込んで引いておかないと、浮き上がった後にボタンだけ取り残されて
+            // 2回目のタップで位置がずれて見える。
             const liftOffset = (location === "hand") ? 15 : 0;
             menu.style.left = `${rect.left + rect.width / 2}px`;
             menu.style.top = `${rect.top - liftOffset - 20}px`;
@@ -1938,7 +1938,7 @@ function showCardDetail(cardData, location, event, slotIdx = null) {
 // Old Action Menu Logic Removed (Now using showCardDetail with floating-actions)
 
 /**
- * cpu_logic.js 縺ｮ繧ｨ繝ｳ繝医Μ繝昴う繝ｳ繝医ｒ蜻ｼ縺ｳ蜃ｺ縺・
+ * cpu_logic.js のエントリポイントを呼び出す
  */
 function executeCpuTurn() {
     if (typeof CpuLogic !== 'undefined') {
@@ -1949,7 +1949,7 @@ function executeCpuTurn() {
 }
 
 /**
- * 蟾ｦ荳翫・繧ｫ繝ｼ繝画ュ蝣ｱ繝代ロ繝ｫ繧呈峩譁ｰ縺吶ｋ
+ * 左上のカード情報パネルを更新する
  */
 function updateInfoPanel(cardData, location = null) {
     if (!cardData) return;
@@ -1962,12 +1962,12 @@ function updateInfoPanel(cardData, location = null) {
     const extraEl = document.getElementById('info-extra-stats');
     const textEl = document.getElementById('info-text');
 
-    // 蟾ｦ蛛ｴ: 繝薙ず繝･繧｢繝ｫ譖ｴ譁ｰ (createCardElement繧貞・蛻ｩ逕ｨ)
+    // 左側: ビジュアル更新 (createCardElementを再利用)
     visualContainer.innerHTML = "";
     const previewCard = createCardElement(cardData, 'preview');
     visualContainer.appendChild(previewCard);
 
-    // 蜿ｳ蛛ｴ: 蝓ｺ譛ｬ繝・く繧ｹ繝域峩譁ｰ
+    // 右側: 基本テキスト更新
     nameEl.innerText = cardData.name;
     attrEl.innerText = `[${cardData.attribute}]`;
     textEl.innerText = cardData.text;
@@ -1976,7 +1976,7 @@ function updateInfoPanel(cardData, location = null) {
     if (cardData.type === 'monster') {
         levelEl.innerText = `Lv.${cardData.level}`;
 
-        // 隧ｳ邏ｰ繝代ロ繝ｫ縺ｧ繧ゅヰ繝輔ｒ蜿肴丐・亥ｴ謇縺檎音螳壹〒縺阪ｋ蝣ｴ蜷医・縺ｿ・・
+        // 詳細パネルでもバフを反映（場所が特定できる場合のみ）
         let displayPower = cardData.power;
         if (location === "ply-field" || location === "opt-field") {
             const side = (location === "ply-field") ? "player" : "opponent";
@@ -1985,37 +1985,37 @@ function updateInfoPanel(cardData, location = null) {
         }
         powerEl.innerText = `ATK: ${displayPower}`;
 
-        // 蜿ｬ蝟壽擅莉ｶ縺ｮ譌･譛ｬ隱槫､画鋤
+        // 召喚条件の日本語変換
         const req = cardData.summonRequirement;
         if (req && req.type === 'normal') {
             if (req.costCount === 0) {
-                extraEl.innerText = "蜿ｬ蝟・ 繧ｳ繧ｹ繝医↑縺・;
+                extraEl.innerText = "召喚: コストなし";
             } else {
                 const minLv = req.costFilter ? req.costFilter.minLevel : 1;
-                extraEl.innerText = `蜿ｬ蝟・ Lv.${minLv}莉･荳・ﾃ・${req.costCount}菴伝;
+                extraEl.innerText = `召喚: Lv.${minLv}以上 × ${req.costCount}体`;
             }
         } else {
             extraEl.innerText = "";
         }
     } else {
-        // 鬲碑｡鍋ｨｮ蛻･縺ｮ譌･譛ｬ隱槫喧
+        // 魔術種別の日本語化
         levelEl.innerText = getMagicTypeLabel(cardData.subType);
         powerEl.innerText = "";
         extraEl.innerText = "";
     }
 
-    // 髟ｷ縺・錐蜑阪ｂ逵∫払縺帙★縲∵ｨｪ縺ｫ邵ｮ繧√※蠢・★蜿弱ａ繧・
+    // 長い名前も省略せず、横に縮めて必ず収める
     requestAnimationFrame(() => fitTextToWidth(nameEl));
 }
 
 /**
- * 隕∫ｴ蜀・・1陦後ユ繧ｭ繧ｹ繝医ｒ縲√・縺ｿ蜃ｺ縺吝ｴ蜷医□縺第ｨｪ譁ｹ蜷代↓邵ｮ繧√※譫蜀・↓蜿弱ａ繧九・
- * text-overflow 縺ｫ繧医ｋ縲娯ｦ縲阪・菴ｿ繧上↑縺・ｼ亥錐蜑阪′隱ｭ繧√↑縺上↑繧九◆繧・ｼ峨・
+ * 要素内の1行テキストを、はみ出す場合だけ横方向に縮めて枠内に収める。
+ * text-overflow による「…」は使わない（名前が読めなくなるため）。
  */
 function fitTextToWidth(el) {
     if (!el) return;
 
-    // 蜑榊屓縺ｮscaleX縺梧ｮ九▲縺ｦ縺・ｋ縺ｨ貂ｬ螳壼､縺檎汲縺・・縺ｧ縲∝・縺ｫ謌ｻ縺励※縺九ｉ貂ｬ繧・
+    // 前回のscaleXが残っていると測定値が狂うので、先に戻してから測る
     el.style.transform = 'none';
 
     const available = el.clientWidth;
@@ -2028,7 +2028,7 @@ function fitTextToWidth(el) {
     }
 }
 
-/** 隧ｳ邏ｰ繝代ロ繝ｫ繧呈悴驕ｸ謚樒憾諷九↓謌ｻ縺・*/
+/** 詳細パネルを未選択状態に戻す */
 function clearInfoPanel() {
     const visual = document.getElementById('info-visual-container');
     if (visual) visual.innerHTML = "";
@@ -2046,35 +2046,35 @@ function clearInfoPanel() {
     set('info-level', "");
     set('info-power', "");
     set('info-extra-stats', "");
-    set('info-text', "繧ｫ繝ｼ繝峨ｒ繧ｿ繝・・縺励※隧ｳ邏ｰ繧定｡ｨ遉ｺ");
+    set('info-text', "カードをタップして詳細を表示");
 }
 
-/** 逶ｸ謇九・莨上○繧ｫ繝ｼ繝峨ｒ驕ｸ繧薙□縺ｨ縺阪・諠・ｱ繝代ロ繝ｫ陦ｨ遉ｺ */
+/** 相手の伏せカードを選んだときの情報パネル表示 */
 function showHiddenCardInfo() {
     document.getElementById('info-visual-container').innerHTML =
         `<div class="card-mini face-down"><div class="card-face card-back"></div></div>`;
-    document.getElementById('info-name').innerText = "繧ｻ繝・ヨ縺輔ｌ縺溘き繝ｼ繝・;
+    document.getElementById('info-name').innerText = "セットされたカード";
     document.getElementById('info-name').style.transform = 'none';
     document.getElementById('info-attr').innerText = "";
     document.getElementById('info-level').innerText = "";
     document.getElementById('info-power').innerText = "";
     document.getElementById('info-extra-stats').innerText = "";
-    document.getElementById('info-text').innerText = "逶ｸ謇九′莨上○縺ｦ縺・ｋ縺溘ａ蜀・ｮｹ縺ｯ遒ｺ隱阪〒縺阪∪縺帙ｓ縲・;
+    document.getElementById('info-text').innerText = "相手が伏せているため内容は確認できません。";
 }
 
 /**
- * 繧ｫ繝ｼ繝臥判蜒上′逕ｨ諢上＆繧後※縺・↑縺・ｴ蜷医・蟾ｮ縺玲崛縺郁｡ｨ遉ｺ縲・
- * Game-icons.net 縺ｮSVG・・mg/game_icons.js・峨ｒ繧ｫ繝ｼ繝峨＃縺ｨ縺ｫ蜃ｺ縺怜・縺代※縲∬ｦ句・縺代′縺､縺上ｈ縺・↓縺吶ｋ縲・
- * 螻樊ｧ縺斐→縺ｫ濶ｲ蛻・￠縺吶ｋ縲ら判蜒乗棧縺・▲縺ｱ縺・↓豁｣譁ｹ蠖｢縺ｮ繧ｿ繧､繝ｫ縺ｨ縺励※陦ｨ遉ｺ縺吶ｋ縲・
+ * カード画像が用意されていない場合の差し替え表示。
+ * Game-icons.net のSVG（img/game_icons.js）をカードごとに出し分けて、見分けがつくようにする。
+ * 属性ごとに色分けする。画像枠いっぱいに正方形のタイルとして表示する。
  */
-const ART_FALLBACK_ATTR_TINT = { "轣ｫ": "#ff6b4a", "豌ｴ": "#38b6ff", "闕・: "#7ed957", "蜈・: "#ffd23f", "髣・: "#c17dff", "辟｡": "#9fb4c7" };
+const ART_FALLBACK_ATTR_TINT = { "火": "#ff6b4a", "水": "#38b6ff", "草": "#7ed957", "光": "#ffd23f", "闇": "#c17dff", "無": "#9fb4c7" };
 
 /**
- * 逕ｻ蜒乗棧縺ｮ荳ｭ霄ｫ繧堤ｵ・∩遶九※繧九・
- * icon 縺瑚ｨｭ螳壹＆繧後※縺・ｋ繧ｫ繝ｼ繝峨・縲後う繝ｩ繧ｹ繝域悴菴懈・縲阪・蜊ｰ縺ｪ縺ｮ縺ｧ縲∵怙蛻昴°繧峨い繧､繧ｳ繝ｳ繧呈緒縺上・
- * 莉･蜑阪・ <img> 繧貞・縺励※404縺ｮ onerror 縺ｧ蟾ｮ縺玲崛縺医※縺・◆縺後∵緒逕ｻ縺ｮ縺溘・縺ｫ
- * 隱ｭ縺ｿ霎ｼ縺ｿ螟ｱ謨励∪縺ｧ縺ｮ荳迸ｬ縺縺鷹ｻ偵＞譫縺瑚ｦ九∴縺ｦ繧ｫ繝ｼ繝峨′轤ｹ貊・＠縺ｦ縺・◆縲・
- * 繧､繝ｩ繧ｹ繝医ｒ逕ｨ諢上＠縺溘ｉ cards.js 縺ｮ icon 陦後ｒ豸医☆縺薙→・医◎縺ｮ縺ｾ縺ｾ逕ｻ蜒剰｡ｨ遉ｺ縺ｫ蛻・ｊ譖ｿ繧上ｋ・峨・
+ * 画像枠の中身を組み立てる。
+ * icon が設定されているカードは「イラスト未作成」の印なので、最初からアイコンを描く。
+ * 以前は <img> を出して404の onerror で差し替えていたが、描画のたびに
+ * 読み込み失敗までの一瞬だけ黒い枠が見えてカードが点滅していた。
+ * イラストを用意したら cards.js の icon 行を消すこと（そのまま画像表示に切り替わる）。
  */
 function buildCardArtHtml(cardData) {
     if (!cardData.icon) {
@@ -2085,13 +2085,13 @@ function buildCardArtHtml(cardData) {
     const tint = ART_FALLBACK_ATTR_TINT[cardData.attribute] || "#9fb4c7";
     const inner = iconPath
         ? `<svg class="card-art-fallback-svg" viewBox="0 0 512 512"><path d="${iconPath}"/></svg>`
-        : `<span class="card-art-fallback-glyph">笶・/span>`;
+        : `<span class="card-art-fallback-glyph">❔</span>`;
     return `<span class="card-art-fallback"><span class="card-art-fallback-inner" style="color:${tint}">${inner}</span></span>`;
 }
 window.buildCardArtHtml = buildCardArtHtml;
 
 /**
- * 繧ｫ繝ｼ繝峨・迴ｾ蝨ｨ菴咲ｽｮ・医だ繝ｼ繝ｳ隕∫ｴ・峨ｒ謗｢縺吶よｼ泌・縺ｮ襍ｷ轤ｹ繝ｻ邨らせ縺ｫ菴ｿ縺・・
+ * カードの現在位置（ゾーン要素）を探す。演出の起点・終点に使う。
  */
 function findCardZoneElement(card, side) {
     const prefix = (side === "player") ? "ply" : "opt";
@@ -2103,7 +2103,7 @@ function findCardZoneElement(card, side) {
     const gIdx = p.field.magics.indexOf(card);
     if (gIdx !== -1) return document.getElementById(`${prefix}-magic-${gIdx}`);
 
-    // 蝣ｴ縺ｫ辟｡縺・き繝ｼ繝会ｼ医ヨ繝ｩ繝・す繝･繝ｻ髯､螟悶°繧臥匱蜍輔☆繧句柑譫懶ｼ峨・縲√◎縺ｮ繧ｾ繝ｼ繝ｳ繧貞・繧峨○繧・
+    // 場に無いカード（トラッシュ・除外から発動する効果）は、そのゾーンを光らせる
     const sideName = (side === "player") ? "player" : "opponent";
     if (p.trash.includes(card)) return document.getElementById(`${sideName}-trash-zone`);
     if (p.banished.includes(card)) return document.getElementById(`${sideName}-banish-zone`);
@@ -2112,8 +2112,8 @@ function findCardZoneElement(card, side) {
 }
 
 /**
- * 逶ｸ謇九・謇区惆繧定｣丞髄縺阪〒謠冗判縺吶ｋ縲・
- * 譫壽焚縺縺代′蛻・°繧後・繧医＞縺ｮ縺ｧ荳ｭ霄ｫ縺ｯ謖√◆縺帙↑縺・・
+ * 相手の手札を裏向きで描画する。
+ * 枚数だけが分かればよいので中身は持たせない。
  */
 let _renderedOppHandCount = -1;
 function renderOpponentHand() {
@@ -2130,23 +2130,23 @@ function renderOpponentHand() {
     for (let i = 0; i < count; i++) {
         const el = document.createElement('div');
         el.className = 'opp-hand-card';
-        // 蠅励∴縺溷・縺縺大ｷｮ縺苓ｾｼ繧繧医≧縺ｫ隕九○繧・
+        // 増えた分だけ差し込むように見せる
         if (isDraw && i >= count - 1) el.classList.add('dealt');
         container.appendChild(el);
     }
 }
 
 /**
- * 蜉ｹ譫懃匱蜍輔↑縺ｩ繧偵ヨ繝ｼ繧ｹ繝医〒遏･繧峨○繧九・
- * 繧ｫ繝ｼ繝峨・逵滉ｸ九□縺ｨ逶､髱｢縺ｫ蝓九ｂ繧後※隕玖誠縺ｨ縺吶・縺ｧ縲∫嶌謇九・蝣ｴ縺ｨ隧ｳ邏ｰ繧ｨ繝ｪ繧｢縺ｮ髢薙・蟶ｯ縺ｫ蜃ｺ縺吶・
- * 譁ｰ縺励＞繝医・繧ｹ繝医′譚･縺溘ｉ蜑阪・繧ゅ・縺ｯ蜊ｳ蠎ｧ縺ｫ蟾ｮ縺玲崛縺医ｋ縲・
+ * 効果発動などをトーストで知らせる。
+ * カードの真下だと盤面に埋もれて見落とすので、相手の場と詳細エリアの間の帯に出す。
+ * 新しいトーストが来たら前のものは即座に差し替える。
  */
 let _effectToastTimer = null;
 function showToastMessage(text, side) {
     const toast = document.getElementById('effect-toast');
     if (!toast) return;
 
-    const owner = (side === "player") ? "閾ｪ蛻・ : "逶ｸ謇・;
+    const owner = (side === "player") ? "自分" : "相手";
     toast.innerHTML = `<span class="toast-owner">${owner}</span>${text}`;
     toast.classList.toggle('opponent', side === "opponent");
     toast.classList.add('show');
@@ -2155,7 +2155,7 @@ function showToastMessage(text, side) {
     _effectToastTimer = setTimeout(() => toast.classList.remove('show'), 1000);
 }
 
-/** 繝医・繧ｹ繝医ｒ蜊ｳ蠎ｧ縺ｫ豸医☆・亥ｯｾ謌ｦ邨ゆｺ・・繝ｪ繧ｻ繝・ヨ譎ゑｼ・*/
+/** トーストを即座に消す（対戦終了・リセット時） */
 function clearToastMessage() {
     const toast = document.getElementById('effect-toast');
     if (!toast) return;
@@ -2164,14 +2164,14 @@ function clearToastMessage() {
 }
 
 /**
- * 蜉ｹ譫懊′逋ｺ蜍輔＠縺溘き繝ｼ繝峨ｒ蜈峨ｉ縺帙▽縺､縲∝ｸｯ縺ｫ繝医・繧ｹ繝医ｒ蜃ｺ縺吶・
- * @returns {Promise} 貍泌・縺檎ｵゅｏ繧九∪縺ｧ蠕・※繧・
+ * 効果が発動したカードを光らせつつ、帯にトーストを出す。
+ * @returns {Promise} 演出が終わるまで待てる
  */
 function showEffectActivation(card, side) {
     return new Promise(resolve => {
         if (GAME_STATE.isGameOver) { resolve(); return; }
 
-        showToastMessage(`${card.name} 縺ｮ蜉ｹ譫懃匱蜍描, side);
+        showToastMessage(`${card.name} の効果発動`, side);
 
         const zone = findCardZoneElement(card, side);
         if (zone) {
@@ -2186,10 +2186,10 @@ function showEffectActivation(card, side) {
 }
 
 /**
- * HUD縺ｫ蜃ｺ縺儉P縲・
- * 繝繝｡繝ｼ繧ｸ謨ｰ蟄励′LP陦ｨ遉ｺ縺ｫ螻翫＞縺溽椪髢薙↓貂帙ｉ縺励◆縺・・縺ｧ縲・
- * 螳滄圀縺ｮLP(GAME_STATE)縺ｨ縺ｯ蛻･縺ｫ縲瑚｡ｨ遉ｺ荳ｭ縺ｮLP縲阪ｒ謖√▽縲・
- * null 縺ｮ髢薙・螳滓焚蛟､繧偵◎縺ｮ縺ｾ縺ｾ蜃ｺ縺吶・
+ * HUDに出すLP。
+ * ダメージ数字がLP表示に届いた瞬間に減らしたいので、
+ * 実際のLP(GAME_STATE)とは別に「表示中のLP」を持つ。
+ * null の間は実数値をそのまま出す。
  */
 const _pendingLpDisplay = { player: null, opponent: null };
 
@@ -2203,20 +2203,20 @@ function renderLpDisplay() {
 }
 
 /**
- * 蜿励￠縺溘ム繝｡繝ｼ繧ｸ・亥屓蠕ｩ・峨ｒ謨ｰ蟄励〒隕九○繧九・
- * 縺昴・蛛ｴ縺ｮ謇区惆縺ゅ◆繧翫↓蜃ｺ縺励※縺九ｉLP陦ｨ遉ｺ縺ｸ蜷ｸ縺・ｾｼ縺ｾ縺帙√←縺｡繧峨′菴慕せ蜿励￠縺溘°蛻・°繧九ｈ縺・↓縺吶ｋ縲・
- * 謨ｰ蟄励′LP縺ｫ螻翫＞縺溘ち繧､繝溘Φ繧ｰ縺ｧLP縺ｮ謨ｰ蛟､縺悟虚縺上・
+ * 受けたダメージ（回復）を数字で見せる。
+ * その側の手札あたりに出してからLP表示へ吸い込ませ、どちらが何点受けたか分かるようにする。
+ * 数字がLPに届いたタイミングでLPの数値が動く。
  */
 function showDamageNumber(side, amount, isHeal = false) {
     const viewport = document.getElementById('game-viewport');
     if (!viewport || amount <= 0) return;
 
     const lpEl = document.getElementById(side === "player" ? 'player-lp-hud' : 'opponent-lp-hud');
-    // 閾ｪ蛻・・謇区惆縲∫嶌謇九・陬丞髄縺肴焔譛ｭ縺ｮ蟶ｯ繧定ｵｷ轤ｹ縺ｫ縺吶ｋ
+    // 自分は手札、相手は裏向き手札の帯を起点にする
     const originEl = document.getElementById(side === "player" ? 'player-hand-container' : 'opponent-band');
     if (!lpEl || !originEl) return;
 
-    // 謨ｰ蟄励′LP縺ｫ螻翫￥縺ｾ縺ｧ縺ｯ螟牙虚蜑阪・蛟､繧貞・縺励※縺翫￥
+    // 数字がLPに届くまでは変動前の値を出しておく
     const before = GAME_STATE[side].lp + (isHeal ? -amount : amount);
     _pendingLpDisplay[side] = before;
     renderLpDisplay();
@@ -2231,7 +2231,7 @@ function showDamageNumber(side, amount, isHeal = false) {
     el.style.top = `${from.top + from.height / 2}px`;
     document.body.appendChild(el);
 
-    // 謨ｰ蟄励′隱ｭ繧√ｋ髢薙ｒ鄂ｮ縺・※縺九ｉLP縺ｸ鬟帙・縺・
+    // 数字が読める間を置いてからLPへ飛ばす
     setTimeout(() => {
         el.style.left = `${to.left + to.width / 2}px`;
         el.style.top = `${to.top + to.height / 2}px`;
@@ -2239,13 +2239,13 @@ function showDamageNumber(side, amount, isHeal = false) {
         el.style.opacity = '0';
     }, 450);
 
-    // 謨ｰ蟄励′LP縺ｫ蛻ｰ驕斐＠縺溽椪髢薙↓LP縺ｮ謨ｰ蛟､繧貞虚縺九☆
+    // 数字がLPに到達した瞬間にLPの数値を動かす
     setTimeout(() => {
         _pendingLpDisplay[side] = null;
         renderLpDisplay();
 
         if (!isHeal) {
-            // LP縺梧ｸ帙▲縺溘％縺ｨ繧堤判髱｢蜈ｨ菴薙〒繧ゆｼ昴∴繧・
+            // LPが減ったことを画面全体でも伝える
             viewport.classList.remove('lp-shake');
             void viewport.offsetWidth;
             viewport.classList.add('lp-shake');
@@ -2262,12 +2262,12 @@ function showDamageNumber(side, amount, isHeal = false) {
 }
 
 /**
- * 繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺檎ｴ螢翫＆繧後◆譎ゅ・貍泌・縲・
- * 菴輔・蜑崎ｧｦ繧後ｂ縺ｪ縺上ヨ繝ｩ繝・す繝･縺ｫ騾√ｉ繧後ｋ縺ｨ縲∽ｽ輔′襍ｷ縺阪◆縺ｮ縺句・縺九ｉ縺ｪ縺・◆繧√・
+ * モンスターが破壊された時の演出。
+ * 何の前触れもなくトラッシュに送られると、何が起きたのか分からないため。
  */
 /**
- * 莠､蟾ｮ縺励◆蜑｣縺ｮ繝槭・繧ｯ・域判謦・憾諷九・陦ｨ遉ｺ縺ｫ菴ｿ縺・・菴彜VG・峨・
- * 邨ｵ譁・ｭ励□縺ｨ迺ｰ蠅・＃縺ｨ縺ｫ邨ｵ譟・′螟峨ｏ繧九・縺ｧ縲√ヱ繧ｹ縺ｧ謖√▽縲・
+ * 交差した剣のマーク（攻撃状態の表示に使う自作SVG）。
+ * 絵文字だと環境ごとに絵柄が変わるので、パスで持つ。
  */
 const CROSSED_SWORDS_SVG = `
 <svg class="state-badge-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -2283,7 +2283,7 @@ const CROSSED_SWORDS_SVG = `
   </g>
 </svg>`;
 
-/** 1繧ｿ繝ｼ繝ｳ縺ｫ1蠎ｦ縺ｮ蜉ｹ譫懊ｒ菴ｿ縺・・縺｣縺溷魂・育ｦ∵ｭ｢繝槭・繧ｯ・・*/
+/** 1ターンに1度の効果を使い切った印（禁止マーク） */
 const EFFECT_USED_SVG = `
 <svg class="state-badge-icon" viewBox="0 0 24 24" aria-hidden="true">
   <circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="2.6"/>
@@ -2291,12 +2291,12 @@ const EFFECT_USED_SVG = `
 </svg>`;
 
 /**
- * 繝輔ぅ繝ｼ繝ｫ繝我ｸ翫・繧ｫ繝ｼ繝峨↓蜃ｺ縺咏憾諷九ヰ繝・ず縲・
- * 繝ｻ繝舌ヨ繝ｫ繝輔ぉ繧､繧ｺ荳ｭ縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ: 謾ｻ謦・〒縺阪ｋ縺具ｼ乗判謦・ｸ医∩縺・
- * 繝ｻ縲・繧ｿ繝ｼ繝ｳ縺ｫ1蠎ｦ縲阪ｒ菴ｿ縺・・縺｣縺溷柑譫・ 菴ｿ逕ｨ貂医∩
+ * フィールド上のカードに出す状態バッジ。
+ * ・バトルフェイズ中のモンスター: 攻撃できるか／攻撃済みか
+ * ・「1ターンに1度」を使い切った効果: 使用済み
  */
 function buildCardStateBadges(cardData, location, isMonster) {
-    // 莨上○繧ｫ繝ｼ繝峨・荳ｭ霄ｫ繧定ｦ九○縺ｪ縺・
+    // 伏せカードは中身を見せない
     if (cardData._isSet) return '';
 
     const side = (location === "ply-field") ? "player" : "opponent";
@@ -2305,20 +2305,20 @@ function buildCardStateBadges(cardData, location, isMonster) {
     if (isMonster && GAME_STATE.phase === "BATTLE" && GAME_STATE.turnPlayer === side) {
         const done = !!cardData._hasAttacked;
         html += `<div class="card-state-badge ${done ? 'attacked' : 'can-attack'}"
-                      title="${done ? '謾ｻ謦・ｸ医∩' : '謾ｻ謦・庄閭ｽ'}">${CROSSED_SWORDS_SVG}</div>`;
+                      title="${done ? '攻撃済み' : '攻撃可能'}">${CROSSED_SWORDS_SVG}</div>`;
     }
 
     if (EffectLogic.isLimitUsed(cardData)) {
         html += `<div class="card-state-badge used-effect"
-                      title="縺薙・繧ｿ繝ｼ繝ｳ縺ｮ蜉ｹ譫懊・菴ｿ逕ｨ貂医∩">${EFFECT_USED_SVG}</div>`;
+                      title="このターンの効果は使用済み">${EFFECT_USED_SVG}</div>`;
     }
 
     return html;
 }
 
 /**
- * 蜿ｬ蝟壽凾縺ｮ貍泌・縲ょ捉蝗ｲ縺瑚ｻｽ縺丞・繧九□縺代・遏ｭ縺・ｂ縺ｮ縲・
- * 蜿ｬ蝟・竊・・亥小蝟壽凾蜉ｹ譫懊′縺ゅｌ縺ｰ・牙柑譫懃匱蜍・縺ｮ鬆・↓隕九○繧九◆繧√∝・縺ｫ蜻ｼ縺ｶ縲・
+ * 召喚時の演出。周囲が軽く光るだけの短いもの。
+ * 召喚 → （召喚時効果があれば）効果発動 の順に見せるため、先に呼ぶ。
  */
 function playSummonEffect(side, slotIdx) {
     return new Promise(resolve => {
@@ -2358,8 +2358,8 @@ function playDestroyEffect(side, slotIdx) {
 }
 
 /**
- * 謾ｻ謦・・遏｢蜊ｰ貍泌・縲りｪｰ縺九ｉ隱ｰ縺ｫ謾ｻ謦・＠縺溘°繧定ｦ九○繧九・
- * defenderSlot 縺・-1 縺ｪ繧峨ム繧､繝ｬ繧ｯ繝医い繧ｿ繝・け・育嶌謇九・LP陦ｨ遉ｺ縺ｸ蜷代°縺・ｼ峨・
+ * 攻撃の矢印演出。誰から誰に攻撃したかを見せる。
+ * defenderSlot が -1 ならダイレクトアタック（相手のLP表示へ向かう）。
  */
 function showAttackArrow(attackerSide, attackerSlot, defenderSide, defenderSlot) {
     return new Promise(resolve => {
@@ -2371,7 +2371,7 @@ function showAttackArrow(attackerSide, attackerSlot, defenderSide, defenderSlot)
             const defPrefix = (defenderSide === "player") ? "ply" : "opt";
             toEl = document.getElementById(`${defPrefix}-monster-${defenderSlot}`);
         } else {
-            // 繝繧､繝ｬ繧ｯ繝医い繧ｿ繝・け縺ｯ螳医ｋ蛛ｴ縺ｮ謇区惆縺ゅ◆繧翫ｒ迢吶≧・医・繝ｬ繧､繝､繝ｼ譛ｬ菴薙ｒ谿ｴ繧九う繝｡繝ｼ繧ｸ・・
+            // ダイレクトアタックは守る側の手札あたりを狙う（プレイヤー本体を殴るイメージ）
             toEl = document.getElementById(
                 defenderSide === "player" ? 'player-hand-container' : 'opponent-band');
         }
@@ -2393,7 +2393,7 @@ function showAttackArrow(attackerSide, attackerSlot, defenderSide, defenderSlot)
         arrow.style.transform = `rotate(${angle}deg)`;
         document.body.appendChild(arrow);
 
-        // 遏｢蜊ｰ縺悟ｱ翫＞縺ｦ縺九ｉ謠ｺ繧峨☆・亥酔譎ゅ□縺ｨ蠖薙◆繧句燕縺ｫ逶ｸ謇九′髴・∴縺ｦ隕九∴繧具ｼ・
+        // 矢印が届いてから揺らす（同時だと当たる前に相手が震えて見える）
         const ARROW_REACH_MS = 320;
         setTimeout(() => toEl.classList.add('shake-target'), ARROW_REACH_MS);
 
@@ -2406,8 +2406,8 @@ function showAttackArrow(attackerSide, attackerSlot, defenderSide, defenderSlot)
 }
 
 /**
- * 繝・ャ繧ｭ縺九ｉ繝医Λ繝・す繝･縺ｸ1譫夊誠縺｡繧区ｼ泌・縲・
- * 荳豌励↓豸医∴繧九→菴輔′襍ｷ縺阪◆縺句・縺九ｉ縺ｪ縺・・縺ｧ縲・譫壹★縺､隕九○繧九・
+ * デッキからトラッシュへ1枚落ちる演出。
+ * 一気に消えると何が起きたか分からないので、1枚ずつ見せる。
  */
 function animateMillCard(cardData, side) {
     return new Promise(resolve => {
@@ -2435,7 +2435,7 @@ function animateMillCard(cardData, side) {
     });
 }
 
-/** 鄂縺檎匱蜍輔＠縺溘％縺ｨ繧定ｦ九○繧区ｼ泌・ */
+/** 罠が発動したことを見せる演出 */
 function showTrapActivation(side, slotIdx, card) {
     const prefix = (side === "player") ? "ply" : "opt";
     const zone = document.getElementById(`${prefix}-magic-${slotIdx}`);
@@ -2448,7 +2448,7 @@ function showTrapActivation(side, slotIdx, card) {
 
     const banner = document.getElementById('selection-prompt');
     if (!banner) return;
-    banner.innerHTML = `<span>鄂逋ｺ蜍・ ${card.name}</span>`;
+    banner.innerHTML = `<span>罠発動: ${card.name}</span>`;
     banner.classList.add('active', 'trap-banner');
     setTimeout(() => {
         banner.classList.remove('active', 'trap-banner');
@@ -2456,24 +2456,24 @@ function showTrapActivation(side, slotIdx, card) {
     }, 1600);
 }
 
-/** 蜿ｬ蝟壼・驕ｸ謚槭Δ繝ｼ繝峨・髢句ｧ・*/
+/** 召喚先選択モードの開始 */
 function startSlotSelection(cardData) {
     document.getElementById('floating-action-container').innerHTML = "";
     document.getElementById('field-surface').classList.add('selecting-mode');
     document.getElementById('game-viewport').classList.add('field-selecting');
-    showSelectionPrompt("蜿ｬ蝟壹☆繧句ｴ謇繧帝∈謚槭＠縺ｦ縺上□縺輔＞");
+    showSelectionPrompt("召喚する場所を選択してください");
     GAME_STATE.isSelectingSlot = true;
     GAME_STATE.pendingCard = cardData;
 
-    // 繝輔ぅ繝ｼ繝ｫ繝峨°繧峨Μ繝ｪ繝ｼ繧ｹ縺吶ｋ譫縺ｯ縲檎ｩｺ縺榊慍縲阪→縺励※謇ｱ縺・ｼ域焔譛ｭ繧ｳ繧ｹ繝医・譫繧堤ｩｺ縺代↑縺・ｼ・
+    // フィールドからリリースする枠は「空き地」として扱う（手札コストは枠を空けない）
     const costIndices = GAME_STATE.selectedCosts
         .filter(c => c.from === "field")
         .map(c => c.slotIdx);
 
-    // 繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧ｾ繝ｼ繝ｳ繧貞・繧峨○繧・
+    // モンスターゾーンを光らせる
     [0, 1, 2].forEach(i => {
         const zone = document.getElementById(`ply-monster-${i}`);
-        // 縲悟・縲・ｩｺ縲阪∪縺溘・縲後さ繧ｹ繝医〒縺・↑縺上↑繧九榊ｴ謇繧偵ワ繧､繝ｩ繧､繝・
+        // 「元々空」または「コストでいなくなる」場所をハイライト
         if (GAME_STATE.player.field.monsters[i] === null || costIndices.includes(i)) {
             zone.classList.add('highlight');
         }
@@ -2486,7 +2486,7 @@ async function finishSlotSelection(slotIdx) {
     const card = GAME_STATE.pendingCard;
     const costs = GAME_STATE.selectedCosts.slice();
 
-    // 莠碁㍾螳溯｡後ｒ髦ｲ縺舌◆繧√∬ｧ｣豎ｺ蜑阪↓驕ｸ謚樒憾諷九ｒ逡ｳ繧
+    // 二重実行を防ぐため、解決前に選択状態を畳む
     GAME_STATE.selectedCosts = [];
     cancelSlotSelection();
 
@@ -2508,23 +2508,23 @@ function cancelSlotSelection() {
 }
 
 function hideCardDetail() {
-    // 繧ｳ繧ｹ繝磯∈謚樔ｸｭ縺ｮ繧ｬ繧､繝峨ヰ繝ｼ縺ｯ髢峨§縺ｪ縺・ｼ郁レ譎ｯ繧ｿ繝・・縺ｧ豸医∴縺ｦ縺励∪縺・・繧帝亟縺撰ｼ・
+    // コスト選択中のガイドバーは閉じない（背景タップで消えてしまうのを防ぐ）
     if (GAME_STATE.isSelectingCost) return;
 
     document.getElementById('floating-action-container').innerHTML = "";
-    // 蜈ｨ縺ｦ縺ｮ謇区惆縺ｮ驕ｸ謚樒憾諷具ｼ域ｵｮ縺堺ｸ翫′繧奇ｼ峨ｒ隗｣髯､
+    // 全ての手札の選択状態（浮き上がり）を解除
     const handCards = document.querySelectorAll('#player-hand .card-mini');
     handCards.forEach(c => c.classList.remove('selected'));
 }
 
-/** 謾ｻ謦・ｯｾ雎｡驕ｸ謚槭Δ繝ｼ繝峨・髢句ｧ・*/
+/** 攻撃対象選択モードの開始 */
 function startAttackTargetSelection(attackerCard, attackerSlotIdx) {
     document.getElementById('floating-action-container').innerHTML = "";
     document.getElementById('game-viewport').classList.add('field-selecting');
     GAME_STATE.isSelectingTarget = true;
     GAME_STATE.attackerPending = { card: attackerCard, slotIdx: attackerSlotIdx };
 
-    // 逶ｸ謇九Δ繝ｳ繧ｹ繧ｿ繝ｼ縺後＞繧九せ繝ｭ繝・ヨ繧貞・繧峨○繧・
+    // 相手モンスターがいるスロットを光らせる
     [0, 1, 2].forEach(i => {
         const zone = document.getElementById(`opt-monster-${i}`);
         if (GAME_STATE.opponent.field.monsters[i] !== null) {
@@ -2554,7 +2554,7 @@ function cancelAttackTargetSelection() {
 }
 
 /**
- * 繝・ャ繧ｭ縺ｨ繝医Λ繝・す繝･縺ｮ隕冶ｦ夂噪譖ｴ譁ｰ・亥字縺ｿ縺ｨ荳逡ｪ荳翫・繧ｫ繝ｼ繝会ｼ・
+ * デッキとトラッシュの視覚的更新（厚みと一番上のカード）
  */
 function updateZoneVisuals(side, type) {
     const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
@@ -2566,14 +2566,14 @@ function updateZoneVisuals(side, type) {
     const pile = (type === "deck") ? p.deck : (type === "trash") ? p.trash : p.banished;
     const count = pile.length;
 
-    // 霑ｽ蜉: 繝医Λ繝・す繝･繝ｻ髯､螟悶ち繝・・繧､繝吶Φ繝医・隕冶ｦ壼宛蠕｡
+    // 追加: トラッシュ・除外タップイベントの視覚制御
     if (type === "trash" || type === "banish") {
         zoneEl.style.cursor = count > 0 ? "pointer" : "default";
-        // 蛻､螳壹ｒ遒ｺ螳溘↓縺吶ｋ縺溘ａ縲】-index繧貞虚逧・↓遒ｺ菫・
+        // 判定を確実にするため、z-indexを動的に確保
         zoneEl.style.zIndex = "100";
     }
 
-    // 1. 蜴壹∩繧ｯ繝ｩ繧ｹ縺ｮ譖ｴ譁ｰ
+    // 1. 厚みクラスの更新
     zoneEl.classList.remove('stack-stage-1', 'stack-stage-2', 'stack-stage-3');
     if (count > 0) {
         if (count >= 14) zoneEl.classList.add('stack-stage-3');
@@ -2581,12 +2581,12 @@ function updateZoneVisuals(side, type) {
         else zoneEl.classList.add('stack-stage-1');
     }
 
-    // 2. 繧ｫ繝ｼ繝画緒逕ｻ縺ｮ譖ｴ譁ｰ
+    // 2. カード描画の更新
     let cardEl = zoneEl.querySelector('.card-mini');
     if (count === 0) {
         if (cardEl) cardEl.remove();
     } else {
-        // 繧ｫ繝ｼ繝峨′蠢・ｦ√□縺悟ｭ伜惠縺励↑縺・ｴ蜷医・譁ｰ隕丈ｽ懈・
+        // カードが必要だが存在しない場合は新規作成
         if (!cardEl) {
             cardEl = document.createElement('div');
             zoneEl.appendChild(cardEl);
@@ -2594,16 +2594,16 @@ function updateZoneVisuals(side, type) {
 
         if (type === "deck") {
             cardEl.className = 'card-mini card-back';
-            cardEl.innerHTML = ''; // 繝・ャ繧ｭ縺ｯ閭碁擇逕ｻ蜒上・縺ｿ繧定｡ｨ遉ｺ
+            cardEl.innerHTML = ''; // デッキは背面画像のみを表示
         } else {
             const topCard = pile.at(-1);
-            // 譌｢蟄倥・ createCardElement 繧呈ｵ∫畑縺励※譛譁ｰ縺ｮ繧ｫ繝ｼ繝峨ｒ陦ｨ蜷代″縺ｧ陦ｨ遉ｺ
+            // 既存の createCardElement を流用して最新のカードを表向きで表示
             const newCard = createCardElement(topCard, `${side}-${type}`);
             zoneEl.replaceChild(newCard, cardEl);
         }
     }
 
-    // 3. 譫壽焚陦ｨ遉ｺ縺ｮ譖ｴ譁ｰ・・eck / Trash / Banish・・
+    // 3. 枚数表示の更新（Deck / Trash / Banish）
     const badgeIds = {
         deck: { player: 'ply-deck-count-badge', opponent: 'opt-deck-count' },
         trash: { player: 'ply-trash-count-badge', opponent: 'opt-trash-count-badge' },
@@ -2614,27 +2614,27 @@ function updateZoneVisuals(side, type) {
     const badge = document.getElementById(badgeId);
     if (badge) {
         badge.innerText = count;
-        // 0譫壹・譎ゅ・繝舌ャ繧ｸ繧帝國縺吶√≠繧九＞縺ｯ阮・￥縺吶ｋ貍泌・
+        // 0枚の時はバッジを隠す、あるいは薄くする演出
         badge.style.opacity = count > 0 ? "1" : "0";
     }
 }
 
 /**
- * 繝｢繝ｼ繝繝ｫ繧帝哩縺倥※螳滄圀縺ｫ繝・Η繧ｨ繝ｫ繧帝幕蟋九☆繧・
+ * モーダルを閉じて実際にデュエルを開始する
  */
 async function beginDuel() {
     const overlay = document.getElementById('game-start-overlay');
     overlay.style.display = "none";
 
-    // 蛻晄悄謇区惆縺ｮ驟榊ｸ・′邨ゅｏ縺｣縺ｦ縺九ｉ繧ｿ繝ｼ繝ｳ繧帝幕蟋九☆繧・
-    // (await 縺励↑縺・→繝峨Ο繝ｼ貍泌・縺ｨ繧ｿ繝ｼ繝ｳ髢句ｧ句・逅・′遶ｶ蜷医＠ isAnimating 縺悟｣翫ｌ繧・
+    // 初期手札の配布が終わってからターンを開始する
+    // (await しないとドロー演出とターン開始処理が競合し isAnimating が壊れる)
     await drawCard("player", 6);
     await drawCard("opponent", 6);
     updateUI();
     startTurnProcess();
 }
 
-/** 繧ｳ繧ｹ繝医ヵ繧｣繝ｫ繧ｿ縺ｫ蜷郁・縺吶ｋ縺・*/
+/** コストフィルタに合致するか */
 function matchesCostFilter(card, filter) {
     if (!card || card.type !== "monster") return false;
     if (!filter) return true;
@@ -2642,32 +2642,32 @@ function matchesCostFilter(card, filter) {
     if (filter.maxLevel && card.level > filter.maxLevel) return false;
     if (filter.attribute && card.attribute !== filter.attribute) return false;
     if (filter.category && (!card.categories || !card.categories.includes(filter.category))) return false;
-    // subType(騾壼ｸｸ/蜉ｹ譫懊Δ繝ｳ繧ｹ繧ｿ繝ｼ)縺ｮ邨槭ｊ霎ｼ縺ｿ縲ゆｻ･蜑阪・邏譚千ｨｮ蛻･繧堤┌隕悶＠縺ｦ縺・◆縺溘ａ縲・
-    // 萓九∴縺ｰ縲碁壼ｸｸ繝｢繝ｳ繧ｹ繧ｿ繝ｼ髯仙ｮ壹阪・繧ｳ繧ｹ繝域欠螳壹〒繧ょ柑譫懊Δ繝ｳ繧ｹ繧ｿ繝ｼ繧呈ｸ｡縺帙※縺励∪縺｣縺ｦ縺・◆縲・
+    // subType(通常/効果モンスター)の絞り込み。以前は素材種別を無視していたため、
+    // 例えば「通常モンスター限定」のコスト指定でも効果モンスターを渡せてしまっていた。
     if (filter.subType && card.subType !== filter.subType) return false;
     return true;
 }
 
-/** 蜿ｬ蝟壹さ繧ｹ繝亥ｯｾ雎｡縺ｮ蜿門ｾ暦ｼ郁・蛻・ヵ繧｣繝ｼ繝ｫ繝会ｼ・*/
+/** 召喚コスト対象の取得（自分フィールド） */
 function getValidCosterMonsters(filter) {
     return GAME_STATE.player.field.monsters
         .map((m, i) => ({ card: m, slotIdx: i, from: "field" }))
         .filter(obj => matchesCostFilter(obj.card, filter));
 }
 
-/** 蜿ｬ蝟壹さ繧ｹ繝亥ｯｾ雎｡縺ｮ蜿門ｾ暦ｼ郁・蛻・・謇区惆 / 謾ｯ謇輔≧縺ｨ髯､螟悶＆繧後ｋ・・*/
+/** 召喚コスト対象の取得（自分の手札 / 支払うと除外される） */
 function getValidHandCosters(filter, excludeCard = null) {
     return GAME_STATE.player.hand
         .map((c, i) => ({ card: c, handIdx: i, from: "hand" }))
         .filter(obj => obj.card !== excludeCard && matchesCostFilter(obj.card, filter));
 }
 
-/** 驕ｸ謚樊ｸ医∩繧ｳ繧ｹ繝医↓蜷ｫ縺ｾ繧後ｋ縺具ｼ医が繝悶ず繧ｧ繧ｯ繝亥酔荳諤ｧ縺ｧ蛻､螳夲ｼ・*/
+/** 選択済みコストに含まれるか（オブジェクト同一性で判定） */
 function isCostSelected(card) {
     return GAME_STATE.selectedCosts.some(c => c.card === card);
 }
 
-/** 繧ｳ繧ｹ繝磯∈謚槭Δ繝ｼ繝峨・髢句ｧ・*/
+/** コスト選択モードの開始 */
 function startCostSelection(cardData) {
     hideCardDetail();
     document.getElementById('field-surface').classList.add('selecting-mode');
@@ -2681,11 +2681,11 @@ function startCostSelection(cardData) {
         document.getElementById(`ply-monster-${obj.slotIdx}`).classList.add('cost-highlight');
     });
 
-    renderHand(); // 謇区惆蛛ｴ縺ｮ繧ｳ繧ｹ繝亥呵｣懊ワ繧､繝ｩ繧､繝医ｒ蜿肴丐
+    renderHand(); // 手札側のコスト候補ハイライトを反映
     renderCostSelectionBar();
 }
 
-/** 繧ｳ繧ｹ繝磯∈謚樔ｸｭ縺ｮ繧ｬ繧､繝会ｼ・｢ｺ螳壹ヰ繝ｼ繧呈緒逕ｻ */
+/** コスト選択中のガイド＆確定バーを描画 */
 function renderCostSelectionBar() {
     const container = document.getElementById('floating-action-container');
     container.innerHTML = "";
@@ -2705,23 +2705,23 @@ function renderCostSelectionBar() {
 
     const info = document.createElement('div');
     info.className = 'cost-select-info';
-    info.innerHTML = `<strong>${GAME_STATE.pendingCard.name}</strong> 縺ｮ蜿ｬ蝟壹さ繧ｹ繝・
+    info.innerHTML = `<strong>${GAME_STATE.pendingCard.name}</strong> の召喚コスト
         <span class="cost-progress">${selected.length} / ${req.costCount}</span>
-        <span class="cost-hint">蝣ｴ縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺ｯ繝医Λ繝・す繝･縺ｸ / 謇区惆縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺ｯ髯､螟悶＆繧後∪縺・{handPicks > 0 ? `・磯勁螟・${handPicks}譫夲ｼ荏 : ""}</span>
-        ${enough && !hasRoom ? `<span class="cost-warn">蝣ｴ縺ｫ鄂ｮ縺榊ｴ謇縺後≠繧翫∪縺帙ｓ縲ゅヵ繧｣繝ｼ繝ｫ繝峨°繧・菴謎ｻ･荳翫Μ繝ｪ繝ｼ繧ｹ縺励※縺上□縺輔＞</span>` : ""}`;
+        <span class="cost-hint">場のモンスターはトラッシュへ / 手札のモンスターは除外されます${handPicks > 0 ? `（除外 ${handPicks}枚）` : ""}</span>
+        ${enough && !hasRoom ? `<span class="cost-warn">場に置き場所がありません。フィールドから1体以上リリースしてください</span>` : ""}`;
 
     const btns = document.createElement('div');
     btns.className = 'cost-select-buttons';
 
     const okBtn = document.createElement('button');
     okBtn.className = 'btn-action-float';
-    okBtn.innerText = "遒ｺ螳・;
+    okBtn.innerText = "確定";
     okBtn.disabled = !(enough && hasRoom);
     okBtn.onclick = (e) => { e.stopPropagation(); proceedToSlotSelectionFromCost(); };
 
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'btn-action-float cancel';
-    cancelBtn.innerText = "繧・ａ繧・;
+    cancelBtn.innerText = "やめる";
     cancelBtn.onclick = (e) => { e.stopPropagation(); cancelCostSelection(); };
 
     btns.appendChild(cancelBtn);
@@ -2740,12 +2740,12 @@ function toggleCostSelection(costObj) {
     if (idx > -1) {
         GAME_STATE.selectedCosts.splice(idx, 1);
     } else {
-        // 蠢・ｦ∵焚繧定ｶ・∴繧矩∈謚槭・蜿励￠莉倥￠縺ｪ縺・ｼ磯∈縺ｳ逶ｴ縺励・隗｣髯､縺励※縺九ｉ・・
+        // 必要数を超える選択は受け付けない（選び直しは解除してから）
         if (GAME_STATE.selectedCosts.length >= req.costCount) return;
         GAME_STATE.selectedCosts.push(costObj);
     }
 
-    // 繝輔ぅ繝ｼ繝ｫ繝牙・縺ｮ隕九◆逶ｮ繧呈峩譁ｰ
+    // フィールド側の見た目を更新
     [0, 1, 2].forEach(i => {
         const zone = document.getElementById(`ply-monster-${i}`);
         const card = GAME_STATE.player.field.monsters[i];
@@ -2777,7 +2777,7 @@ function cancelCostSelection() {
     renderHand();
 }
 
-/** 蟇ｾ雎｡驕ｸ謚樔ｸｭ縺ｮ譯亥・繝・く繧ｹ繝医ｒ陦ｨ遉ｺ・乗ｶ亥悉縺吶ｋ */
+/** 対象選択中の案内テキストを表示／消去する */
 function showSelectionPrompt(text) {
     const el = document.getElementById('selection-prompt');
     if (!el) return;
@@ -2786,20 +2786,20 @@ function showSelectionPrompt(text) {
         el.innerHTML = "";
         return;
     }
-    el.innerHTML = `<span>${text}</span><small>閭梧勹繧偵ち繝・・縺ｧ繧ｭ繝｣繝ｳ繧ｻ繝ｫ</small>`;
+    el.innerHTML = `<span>${text}</span><small>背景をタップでキャンセル</small>`;
     el.classList.add('active');
 }
 
 /**
- * 豎守畑繧ｿ繝ｼ繧ｲ繝・ヨ驕ｸ謚霸romise
- * @param {Array<number>} validSlots - 驕ｸ謚槭ｒ險ｱ蜿ｯ縺吶ｋ繧ｹ繝ｭ繝・ヨ逡ｪ蜿ｷ・亥柑譫懊・繝輔ぅ繝ｫ繧ｿ驕ｩ逕ｨ貂医∩・・
- * @param {string} promptText - 繝励Ξ繧､繝､繝ｼ縺ｸ縺ｮ譯亥・譁・
- * @returns {Promise<number|null>} 驕ｸ縺ｰ繧後◆繧ｹ繝ｭ繝・ヨ逡ｪ蜿ｷ縲ゅく繝｣繝ｳ繧ｻ繝ｫ譎ゅ・ null
+ * 汎用ターゲット選択Promise
+ * @param {Array<number>} validSlots - 選択を許可するスロット番号（効果のフィルタ適用済み）
+ * @param {string} promptText - プレイヤーへの案内文
+ * @returns {Promise<number|null>} 選ばれたスロット番号。キャンセル時は null
  */
-async function selectTargetUI(side, type, validSlots = null, promptText = "蟇ｾ雎｡繧帝∈謚槭＠縺ｦ縺上□縺輔＞") {
+async function selectTargetUI(side, type, validSlots = null, promptText = "対象を選択してください") {
     const zoneList = GAME_STATE[side].field[type + "s"];
 
-    // 蟇ｾ雎｡謖・ｮ壹′縺ｪ縺・ｴ蜷医・縲後◎縺ｮ繧ｾ繝ｼ繝ｳ縺ｫ縺ゅｋ繧ｫ繝ｼ繝峨☆縺ｹ縺ｦ縲阪ｒ蛟呵｣懊→縺吶ｋ
+    // 対象指定がない場合は「そのゾーンにあるカードすべて」を候補とする
     let candidates = validSlots;
     if (!Array.isArray(candidates)) {
         candidates = zoneList.map((card, i) => (card ? i : null)).filter(i => i !== null);
@@ -2808,7 +2808,7 @@ async function selectTargetUI(side, type, validSlots = null, promptText = "蟇�
 
     if (candidates.length === 0) return null;
 
-    // 逶ｸ謇九ち繝ｼ繝ｳ・・PU・峨∪縺溘・髱槭ち繝ｼ繝ｳ繝励Ξ繧､繝､繝ｼ縺碁∈謚槭☆繧句ｴ蜷医・繝ｩ繝ｳ繝繝
+    // 相手ターン（CPU）または非ターンプレイヤーが選択する場合はランダム
     if (GAME_STATE.turnPlayer !== "player") {
         return candidates[Math.floor(Math.random() * candidates.length)];
     }
@@ -2826,7 +2826,7 @@ async function selectTargetUI(side, type, validSlots = null, promptText = "蟇�
             const zone = zones[i];
             if (!zone) return;
             zone.classList.add('highlight');
-            // 繧ｾ繝ｼ繝ｳ縺ｨ繧ｫ繝ｼ繝画悽菴薙√←縺｡繧峨・繧ｯ繝ｪ繝・け繧よ鏡縺医ｋ繧医≧縺ｫ縺吶ｋ・磯溘＞邨瑚ｷｯ・・
+            // ゾーンとカード本体、どちらのクリックも拾えるようにする（速い経路）
             const selectHandler = (e) => {
                 e.stopPropagation();
                 cleanup(i);
@@ -2836,8 +2836,8 @@ async function selectTargetUI(side, type, validSlots = null, promptText = "蟇�
             if (cardEl) cardEl.onclick = selectHandler;
         });
 
-        // 繝輔ぅ繝ｼ繝ｫ繝峨・3D螟牙ｽ｢縺励※縺翫ｊ縲．OM縺ｮ繝偵ャ繝医ユ繧ｹ繝医′隕ｪ隕∫ｴ縺ｫ蜷ｸ繧上ｌ縺ｦ繧ｾ繝ｼ繝ｳ縺ｮ
-        // onclick 縺檎匱轣ｫ縺励↑縺・％縺ｨ縺後≠繧九ゆｻ悶・驕ｸ謚槭Δ繝ｼ繝峨→蜷後§蟷ｾ菴募愛螳壹〒諡ｾ縺・・
+        // フィールドは3D変形しており、DOMのヒットテストが親要素に吸われてゾーンの
+        // onclick が発火しないことがある。他の選択モードと同じ幾何判定で拾う。
         const handleClick = (e) => {
             const hit = detectHitSlot(e, `${prefix}-${type}`, 3, true);
             if (hit !== -1 && candidates.includes(hit)) {
@@ -2845,7 +2845,7 @@ async function selectTargetUI(side, type, validSlots = null, promptText = "蟇�
                 cleanup(hit);
                 return;
             }
-            // 隱､繧ｿ繝・・縺ｧ縺・″縺ｪ繧贋ｸ咲匱縺ｫ縺ｪ繧峨↑縺・ｈ縺・∵・遉ｺ逧・↑閭梧勹繧ｿ繝・・縺ｮ縺ｿ繧ｭ繝｣繝ｳ繧ｻ繝ｫ謇ｱ縺・↓縺吶ｋ
+            // 誤タップでいきなり不発にならないよう、明示的な背景タップのみキャンセル扱いにする
             if (checkGlobalCancel(e)) cleanup(null);
         };
         setTimeout(() => { document.addEventListener('click', handleClick, true); }, 10);
@@ -2868,7 +2868,7 @@ async function selectTargetUI(side, type, validSlots = null, promptText = "蟇�
 }
 
 /**
- * 繝医Λ繝・す繝･髢ｲ隕ｧ繝｢繝ｼ繝繝ｫ繧帝幕縺・
+ * トラッシュ閲覧モーダルを開く
  * @param {string} side - "player" | "opponent"
  */
 function openTrashViewer(side) {
@@ -2876,22 +2876,22 @@ function openTrashViewer(side) {
 }
 
 /**
- * 髯､螟悶だ繝ｼ繝ｳ髢ｲ隕ｧ繝｢繝ｼ繝繝ｫ繧帝幕縺・
- * 髯､螟悶＆繧後◆繧ｫ繝ｼ繝峨・繧ｲ繝ｼ繝荳ｭ縺ｫ蠕ｩ蟶ｰ縺励↑縺・′縲∽ｽ輔ｒ蛻・▲縺溘°縺ｯ遒ｺ隱阪〒縺阪ｋ繧医≧縺ｫ縺吶ｋ
+ * 除外ゾーン閲覧モーダルを開く
+ * 除外されたカードはゲーム中に復帰しないが、何を切ったかは確認できるようにする
  */
 function openBanishViewer(side) {
     openCardPileViewer(side, "banish");
 }
 
 /**
- * 繧ｫ繝ｼ繝峨・螻ｱ・医ヨ繝ｩ繝・す繝･・城勁螟厄ｼ峨ｒ荳隕ｧ陦ｨ遉ｺ縺吶ｋ
+ * カードの山（トラッシュ／除外）を一覧表示する
  * @param {string} side - "player" | "opponent"
  * @param {string} pileType - "trash" | "banish"
  */
 function openCardPileViewer(side, pileType) {
-    // 驕ｸ謚槭Δ繝ｼ繝我ｸｭ・亥小蝟壹さ繧ｹ繝医・蜿ｬ蝟壼・繝ｻ謾ｻ謦・ｯｾ雎｡繝ｻ蜉ｹ譫懷ｯｾ雎｡縺ｪ縺ｩ・峨・髢九°縺ｪ縺・・
-    // 繧ｾ繝ｼ繝ｳ縺ｮonclick縺ｯ驕ｸ謚槭Δ繝ｼ繝峨・迥ｶ諷九↓髢｢繧上ｉ縺壼ｸｸ縺ｫ逕溘″縺ｦ縺・ｋ縺溘ａ縲√％縺薙〒
-    // 繧ｬ繝ｼ繝峨＠縺ｪ縺・→驕ｸ謚樊桃菴應ｸｭ縺ｮ隱､繧ｿ繝・・縺ｧ繝医Λ繝・す繝･/髯､螟悶ン繝･繝ｼ繧｢縺悟牡繧願ｾｼ繧縲・
+    // 選択モード中（召喚コスト・召喚先・攻撃対象・効果対象など）は開かない。
+    // ゾーンのonclickは選択モードの状態に関わらず常に生きているため、ここで
+    // ガードしないと選択操作中の誤タップでトラッシュ/除外ビューアが割り込む。
     if (GAME_STATE.isSelectingSlot || GAME_STATE.isSelectingTarget || GAME_STATE.isSelectingCost) return;
 
     const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
@@ -2902,12 +2902,12 @@ function openCardPileViewer(side, pileType) {
     const title = document.getElementById('trash-viewer-title');
     const list = document.getElementById('trash-card-list');
 
-    const owner = (side === "player") ? "閾ｪ蛻・ : "逶ｸ謇・;
-    const label = (pileType === "trash") ? "繝医Λ繝・す繝･" : "髯､螟悶だ繝ｼ繝ｳ";
-    title.innerText = `${owner}縺ｮ${label} (${pile.length}譫・`;
+    const owner = (side === "player") ? "自分" : "相手";
+    const label = (pileType === "trash") ? "トラッシュ" : "除外ゾーン";
+    title.innerText = `${owner}の${label} (${pile.length}枚)`;
     list.innerHTML = "";
 
-    // 隧ｳ邏ｰ繝代ロ繝ｫ縺ｧ繝舌ヵ霎ｼ縺ｿ縺ｮ謨ｰ蛟､繧貞・縺輔↑縺・ｈ縺・∫ｴ縺ｮ諠・ｱ縺ｨ縺励※陦ｨ遉ｺ縺吶ｋ
+    // 詳細パネルでバフ込みの数値を出さないよう、素の情報として表示する
     pile.forEach(card => {
         const el = createCardElement(card, "preview");
         el.onclick = (e) => {
@@ -2925,7 +2925,7 @@ function openCardPileViewer(side, pileType) {
 }
 
 /**
- * 繝医Λ繝・す繝･髢ｲ隕ｧ繝｢繝ｼ繝繝ｫ繧帝哩縺倥ｋ
+ * トラッシュ閲覧モーダルを閉じる
  */
 function closeTrashViewer() {
     const modal = document.getElementById('trash-viewer-modal');
@@ -2933,8 +2933,8 @@ function closeTrashViewer() {
 }
 
 /**
- * 繝｢繝ｼ繝繝ｫ繧剃ｽｿ逕ｨ縺励※謇区惆縺九ｉ繧ｫ繝ｼ繝峨ｒ驕ｸ謚槭＆縺帙ｋ
- * @param {number} count - 驕ｸ謚槭′蠢・ｦ√↑譫壽焚
+ * モーダルを使用して手札からカードを選択させる
+ * @param {number} count - 選択が必要な枚数
  */
 async function selectHandCardsUI(count) {
     return new Promise((resolve) => {
@@ -2948,11 +2948,11 @@ async function selectHandCardsUI(count) {
         modal.style.display = "flex";
         countBadge.innerText = count;
 
-        // 謇区惆繧偵け繝ｭ繝ｼ繝ｳ縺励※繝｢繝ｼ繝繝ｫ縺ｫ陦ｨ遉ｺ
+        // 手札をクローンしてモーダルに表示
         GAME_STATE.player.hand.forEach((card, idx) => {
             const el = createCardElement(card, "selection-preview");
             el.onclick = () => {
-                // 隧ｳ邏ｰ繝代ロ繝ｫ繧呈峩譁ｰ
+                // 詳細パネルを更新
                 updateInfoPanel(card, "selection-preview");
 
                 const sIdx = selectedIndices.indexOf(idx);
@@ -2964,7 +2964,7 @@ async function selectHandCardsUI(count) {
                     el.classList.add('selected');
                 }
 
-                // 繝懊ち繝ｳ迥ｶ諷九・譖ｴ譁ｰ
+                // ボタン状態の更新
                 const remaining = count - selectedIndices.length;
                 countBadge.innerText = Math.max(0, remaining);
                 if (remaining === 0) {
@@ -2988,7 +2988,7 @@ async function selectHandCardsUI(count) {
 }
 
 /**
- * 繧ｨ繝ｳ繝峨ヵ繧ｧ繧､繧ｺ縺ｮ髢句ｧ句・逅・ｼ域焔譛ｭ蛻ｶ髯舌メ繧ｧ繝・け・・
+ * エンドフェイズの開始処理（手札制限チェック）
  */
 async function startEndPhaseProcess() {
     if (GAME_STATE.isGameOver) return;
@@ -2998,10 +2998,10 @@ async function startEndPhaseProcess() {
         const hand = GAME_STATE.player.hand;
         if (hand.length > 10) {
             const discardCount = hand.length - 10;
-            // 縺吶〒縺ｫ main.js 縺ｫ螳溯｣・＆繧後※縺・ｋ selectHandCardsUI 繧貞茜逕ｨ
+            // すでに main.js に実装されている selectHandCardsUI を利用
             const targetIndices = await selectHandCardsUI(discardCount);
 
-            // 驕ｸ謚槭＆繧後◆繧ｫ繝ｼ繝峨ｒ繝医Λ繝・す繝･縺ｸ・医う繝ｳ繝・ャ繧ｯ繧ｹ縺ｮ繧ｺ繝ｬ繧帝亟縺舌◆繧・剄鬆・〒蜃ｦ逅・ｼ・
+            // 選択されたカードをトラッシュへ（インデックスのズレを防ぐため降順で処理）
             const discarded = targetIndices.sort((a, b) => b - a).map(idx => hand.splice(idx, 1)[0]);
             for (const card of discarded) {
                 sendCardToTrash("player", card);
@@ -3011,10 +3011,10 @@ async function startEndPhaseProcess() {
             updateUI();
             console.log(`Player discarded ${discardCount} cards to meet limit.`);
         }
-        // 蟆代＠菴咎渊繧堤ｽｮ縺・※縺九ｉ繧ｿ繝ｼ繝ｳ邨ゆｺ・
+        // 少し余韻を置いてからターン終了
         setTimeout(endTurn, 500);
     } else {
-        // CPU縺ｮ蝣ｴ蜷医・ cpu_logic.js 縺ｮ譌｢蟄倥Ο繧ｸ繝・け繧貞他縺ｳ蜃ｺ縺・
+        // CPUの場合は cpu_logic.js の既存ロジックを呼び出す
         if (typeof handleCpuEndPhase === "function") {
             handleCpuEndPhase();
         } else {
@@ -3024,9 +3024,9 @@ async function startEndPhaseProcess() {
 }
 
 /**
- * 豎守畑遒ｺ隱阪Δ繝ｼ繝繝ｫ繧定｡ｨ遉ｺ (Promise繝吶・繧ｹ)
- * @param {string} message - 陦ｨ遉ｺ縺吶ｋ繝｡繝・そ繝ｼ繧ｸ
- * @returns {Promise<boolean>} - 縺ｯ縺・ true, 縺・＞縺・ false
+ * 汎用確認モーダルを表示 (Promiseベース)
+ * @param {string} message - 表示するメッセージ
+ * @returns {Promise<boolean>} - はい: true, いいえ: false
  */
 window.showCustomConfirm = function (message) {
     return new Promise((resolve) => {
@@ -3037,7 +3037,7 @@ window.showCustomConfirm = function (message) {
 
         if (!modal || !msgEl || !btnOk || !btnCancel) {
             console.error("Confirm modal elements missing.");
-            // 繧ｨ繝ｩ繝ｼ譎ゅ・螳牙・蛛ｴ縺ｫ蛟偵＠縺ｦfalse縲√∪縺溘・邱頑･逕ｨalert繧貞・縺吶↑縺ｩ讀懆ｨ・
+            // エラー時は安全側に倒してfalse、または緊急用alertを出すなど検討
             resolve(false);
             return;
         }
@@ -3045,15 +3045,15 @@ window.showCustomConfirm = function (message) {
         msgEl.innerText = message;
         modal.style.display = 'flex';
 
-        // 繝上Φ繝峨Λ螳夂ｾｩ (荳蠎ｦ螳溯｡後＠縺溘ｉ繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・)
+        // ハンドラ定義 (一度実行したらクリーンアップ)
         const cleanup = (result) => {
             modal.style.display = 'none';
             resolve(result);
         };
 
-        // { once: true } 縺ｧ閾ｪ蜍慕噪縺ｫ繝ｪ繧ｹ繝翫・隗｣髯､縺輔ｌ繧九′縲・
-        // 繧ｭ繝｣繝ｳ繧ｻ繝ｫ譎ゅ↓OK繝懊ち繝ｳ縺ｮ繝ｪ繧ｹ繝翫・縺梧ｮ九ｋ(騾・ｂ辟ｶ繧・縺ｮ繧帝亟縺舌◆繧√・
-        // 繧ｯ繝ｭ繝ｼ繝ｳ隕∫ｴ縺ｸ縺ｮ鄂ｮ謠帙〒繝ｪ繧ｹ繝翫・繧剃ｸ謗・☆繧九・縺梧怙繧ょｮ牙・縺九▽謇玖ｻｽ
+        // { once: true } で自動的にリスナー解除されるが、
+        // キャンセル時にOKボタンのリスナーが残る(逆も然り)のを防ぐため、
+        // クローン要素への置換でリスナーを一掃するのが最も安全かつ手軽
         const newBtnOk = btnOk.cloneNode(true);
         const newBtnCancel = btnCancel.cloneNode(true);
 
@@ -3065,18 +3065,17 @@ window.showCustomConfirm = function (message) {
     });
 };
 
-// 繧ｰ繝ｭ繝ｼ繝舌Ν繧ｯ繝ｪ繝・け繝上Φ繝峨Λ縺ｮ逋ｻ骭ｲ (蛻晄悄蛹匁凾)
+// グローバルクリックハンドラの登録 (初期化時)
 setTimeout(() => {
     document.addEventListener('click', handleGlobalInteract);
     console.log("Global Interaction Handler Attached.");
 }, 100);
-// --- 逕ｻ蜒乗僑螟ｧ繝薙Η繝ｼ繧｢繝ｼ ---
+
 window.openImageViewer = function(htmlContent) {
     const modal = document.getElementById('image-viewer-modal');
     const container = document.getElementById('image-viewer-container');
     if(modal && container) {
         container.innerHTML = htmlContent;
-        // SVG縺悟・縺ｮ譫縺ｫ蜷医ｏ縺帙※螟ｧ縺阪￥縺ｪ繧翫☆縺弱↑縺・ｈ縺・↓縺吶ｋ
         const svg = container.querySelector('svg');
         if (svg) {
             svg.style.width = '100%';
@@ -3091,4 +3090,3 @@ window.closeImageViewer = function() {
         modal.style.display = 'none';
     }
 }
-
