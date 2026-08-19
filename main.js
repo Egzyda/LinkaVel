@@ -140,6 +140,16 @@ function ensureAuth() {
     }
     return authPromise;
 }
+
+/**
+ * ensureAuth にタイムアウトをつけたラッパー。
+ * 指定時間内に認証が完了しなくても null を返して処理を続行させる。
+ * Loading... で永久に止まるバグを防ぐ。
+ */
+function ensureAuthWithTimeout(ms = 3000) {
+    const timeout = new Promise(resolve => setTimeout(() => resolve(null), ms));
+    return Promise.race([ensureAuth(), timeout]);
+}
 window.ensureAuth = ensureAuth;
 
 /**
@@ -253,17 +263,23 @@ async function renderDeckSelection(target = "player") {
         `;
     }
 
-    // 1. ユーザーデッキ (Firestore) を先に、更新が新しい順で出す。
-    //    自作デッキのほうが使う頻度が高いので、スクロールせずに選べるようにする。
+    // 1. ユーザーデッキ (Firestore) を先に表示。
+    //    3秒以内に認証できなければタイムアウトしてスキップ（Loading固まり防止）。
     if (typeof DeckBuilder !== 'undefined') {
-        await ensureAuth();
-        const userDecks = await DeckBuilder.fetchUserDecks();
-        userDecks.forEach(deck => {
-            html += createDeckItemHtml(deck.id, deck.name, "user", true, target);
-        });
+        try {
+            const user = await ensureAuthWithTimeout(3000);
+            if (user) {
+                const userDecks = await DeckBuilder.fetchUserDecks();
+                userDecks.forEach(deck => {
+                    html += createDeckItemHtml(deck.id, deck.name, "user", true, target);
+                });
+            }
+        } catch (e) {
+            console.warn("ユーザーデッキ取得に失敗しました（スターターデッキのみ表示）:", e);
+        }
     }
 
-    // 2. あらかじめ用意されたデッキ
+    // 2. スターターデッキは必ず表示
     Object.keys(DECK_RECIPES).forEach(key => {
         const recipe = DECK_RECIPES[key];
         html += createDeckItemHtml(key, recipe.name, "starter", true, target);
@@ -320,15 +336,24 @@ async function renderDeckManager() {
         <hr style="border:0; border-top:1px solid #333; margin:10px 0; width:100%;">
     `;
 
-    // ユーザーデッキ一覧
-    await ensureAuth();
-    const userDecks = await DeckBuilder.fetchUserDecks();
-    if (userDecks.length === 0) {
-        html += `<div style="color:#666;text-align:center;padding:20px;">保存されたデッキはありません</div>`;
-    } else {
-        userDecks.forEach(deck => {
-            html += createDeckItemHtml(deck.id, deck.name, "user", false);
-        });
+    // ユーザーデッキ一覧（認証タイムアウト・エラー時も空リストで続行）
+    try {
+        const user = await ensureAuthWithTimeout(3000);
+        if (user) {
+            const userDecks = await DeckBuilder.fetchUserDecks();
+            if (userDecks.length === 0) {
+                html += `<div style="color:#666;text-align:center;padding:20px;">保存されたデッキはありません</div>`;
+            } else {
+                userDecks.forEach(deck => {
+                    html += createDeckItemHtml(deck.id, deck.name, "user", false);
+                });
+            }
+        } else {
+            html += `<div style="color:#666;text-align:center;padding:20px;">ログイン中... デッキ一覧を読み込めませんでした</div>`;
+        }
+    } catch (e) {
+        console.warn("デッキ一覧取得に失敗:", e);
+        html += `<div style="color:#666;text-align:center;padding:20px;">デッキ一覧の読み込みに失敗しました</div>`;
     }
 
     container.innerHTML = html;
