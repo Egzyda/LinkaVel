@@ -697,7 +697,6 @@ const MASTER_CARDS = {
     "s019": {
         id: "s019",
         image: "img/s019.webp",
-        icon: "GiAngelWings",
         name: "奇跡の復活",
         type: "magic",
         subType: "normal",
@@ -710,7 +709,6 @@ const MASTER_CARDS = {
     "s020": {
         id: "s020",
         image: "img/s020.webp",
-        icon: "GiBouncingSpring",
         name: "スモール・スプリング",
         type: "magic",
         subType: "trap",
@@ -729,7 +727,6 @@ const MASTER_CARDS = {
     "s021": {
         id: "s021",
         image: "img/s021.webp",
-        icon: "GiTerror",
         name: "威圧の罠",
         type: "magic",
         subType: "trap",
@@ -749,7 +746,6 @@ const MASTER_CARDS = {
     "s022": {
         id: "s022",
         image: "img/s022.webp",
-        icon: "GiFireShield",
         name: "炎界の加護",
         type: "magic",
         subType: "trap",
@@ -769,7 +765,6 @@ const MASTER_CARDS = {
     "s023": {
         id: "s023",
         image: "img/s023.webp",
-        icon: "GiBigWave",
         name: "海界の奇跡",
         type: "magic",
         subType: "trap",
@@ -787,7 +782,6 @@ const MASTER_CARDS = {
     "s024": {
         id: "s024",
         image: "img/s024.webp",
-        icon: "GiThornyVine",
         name: "森界の壁",
         type: "magic",
         subType: "trap",
@@ -805,7 +799,6 @@ const MASTER_CARDS = {
     "s025": {
         id: "s025",
         image: "img/s025.webp",
-        icon: "GiHolyWater",
         name: "聖界の雫",
         type: "magic",
         subType: "trap",
@@ -818,7 +811,6 @@ const MASTER_CARDS = {
     "s026": {
         id: "s026",
         image: "img/s026.webp",
-        icon: "GiVortex",
         name: "冥界の歪み",
         type: "magic",
         subType: "trap",
@@ -838,7 +830,6 @@ const MASTER_CARDS = {
     "m032": {
         id: "m032",
         image: "img/m032.webp",
-        icon: "GiSniffingDog",
         name: "セキュリティ・ハウンド",
         type: "monster",
         subType: "effect",
@@ -863,7 +854,6 @@ const MASTER_CARDS = {
     "m033": {
         id: "m033",
         image: "img/m033.webp",
-        icon: "GiTrumpet",
         name: "炎界の伝令 フレアス",
         type: "monster",
         subType: "effect",
@@ -878,7 +868,6 @@ const MASTER_CARDS = {
     "m034": {
         id: "m034",
         image: "img/m034.webp",
-        icon: "GiCannon",
         name: "炎界の砲手 ドラグバレル",
         type: "monster",
         subType: "effect",
@@ -895,7 +884,6 @@ const MASTER_CARDS = {
     "m035": {
         id: "m035",
         image: "img/m035.webp",
-        icon: "GiTrident",
         name: "海界の潮騎士 タイダル",
         type: "monster",
         subType: "effect",
@@ -913,7 +901,6 @@ const MASTER_CARDS = {
     "m036": {
         id: "m036",
         image: "img/m036.webp",
-        icon: "GiCompass",
         name: "海界の羅針 ナビス",
         type: "monster",
         subType: "effect",
@@ -930,7 +917,6 @@ const MASTER_CARDS = {
     "m037": {
         id: "m037",
         image: "img/m037.webp",
-        icon: "GiSpiderWeb",
         name: "森界の罠師 ヴァイン",
         type: "monster",
         subType: "effect",
@@ -945,7 +931,6 @@ const MASTER_CARDS = {
     "m038": {
         id: "m038",
         image: "img/m038.webp",
-        icon: "GiOak",
         name: "森界の巨木 エルドラント",
         type: "monster",
         subType: "effect",
@@ -965,7 +950,6 @@ const MASTER_CARDS = {
     "m039": {
         id: "m039",
         image: "img/m039.webp",
-        icon: "GiHealing",
         name: "聖界の癒し手 ルミナ",
         type: "monster",
         subType: "effect",
@@ -983,7 +967,6 @@ const MASTER_CARDS = {
     "m040": {
         id: "m040",
         image: "img/m040.webp",
-        icon: "GiScales",
         name: "聖界の審判者 セラフィム",
         type: "monster",
         subType: "effect",
@@ -1003,7 +986,6 @@ const MASTER_CARDS = {
     "m041": {
         id: "m041",
         image: "img/m041.webp",
-        icon: "GiTombstone",
         name: "冥界の墓守 グレイヴ",
         type: "monster",
         subType: "effect",
@@ -1021,7 +1003,6 @@ const MASTER_CARDS = {
     "m042": {
         id: "m042",
         image: "img/m042.webp",
-        icon: "GiCrownedSkull",
         name: "冥界の骸兵長 ネクローズ",
         type: "monster",
         subType: "effect",
@@ -1045,7 +1026,6 @@ const MASTER_CARDS = {
     "s027": {
         id: "s027",
         image: "img/s027.webp",
-        icon: "GiFishingHook",
         name: "トラップ・サルベージ",
         type: "magic",
         subType: "normal",
