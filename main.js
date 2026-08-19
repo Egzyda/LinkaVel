@@ -2642,6 +2642,9 @@ function matchesCostFilter(card, filter) {
     if (filter.maxLevel && card.level > filter.maxLevel) return false;
     if (filter.attribute && card.attribute !== filter.attribute) return false;
     if (filter.category && (!card.categories || !card.categories.includes(filter.category))) return false;
+    // subType(通常/効果モンスター)の絞り込み。以前は素材種別を無視していたため、
+    // 例えば「通常モンスター限定」のコスト指定でも効果モンスターを渡せてしまっていた。
+    if (filter.subType && card.subType !== filter.subType) return false;
     return true;
 }
 
