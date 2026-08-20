@@ -1,22 +1,22 @@
-﻿/**
+/**
  * LinkaVel Card Game - Effect Logic Manager
- * 繧ｫ繝ｼ繝峨・蜉ｹ譫懶ｼ育音谿雁小蝟壹√ラ繝ｭ繝ｼ縲√ヰ繝慕ｭ会ｼ峨ｒ蟆る摩縺ｫ謇ｱ縺・ｱ守畑繧ｨ繝ｳ繧ｸ繝ｳ
+ * カードの効果（特殊召喚、ドロー、バフ等）を専門に扱う汎用エンジン
  * Ver 1.3 (Common Logic Spec Compliant)
  */
 
 const EffectLogic = {
-    // 蜉ｹ譫懊・騾｣骼悶′蠕ｪ迺ｰ縺励◆蝣ｴ蜷医↓蛯吶∴縺滓ｷｱ縺募宛髯撰ｼ育┌髯舌Ν繝ｼ繝鈴亟豁｢・・
+    // 効果の連鎖が循環した場合に備えた深さ制限（無限ループ防止）
     MAX_RESOLVE_DEPTH: 12,
     _resolveDepth: 0,
-    // 繝励Ξ繧､繝､繝ｼ縺悟ｯｾ雎｡驕ｸ謚槭ｒ繧ｭ繝｣繝ｳ繧ｻ繝ｫ縺励◆蝣ｴ蜷医↓遶九▽繝輔Λ繧ｰ縲・
-    // 縲瑚・蛻・→逶ｸ謇九ｒ1菴薙★縺､遐ｴ螢翫阪・繧医≧縺ｪ蜉ｹ譫懊〒縲∫援譁ｹ縺縺大ｮ溯｡後＆繧後ｋ縺ｮ繧帝亟縺舌・
+    // プレイヤーが対象選択をキャンセルした場合に立つフラグ。
+    // 「自分と相手を1体ずつ破壊」のような効果で、片方だけ実行されるのを防ぐ。
     _selectionCancelled: false,
 
     /**
-     * 繧ｫ繝ｼ繝峨′謖√▽蜉ｹ譫憺・蛻励ｒ鬆・分縺ｫ隗｣豎ｺ縺吶ｋ (Ver 1.3貅匁侠)
-     * @param {Object} cardData - 繧ｫ繝ｼ繝峨ョ繝ｼ繧ｿ
-     * @param {string} side - 逋ｺ蜍募・ ("player" | "opponent")
-     * @param {string} triggerFilter - 迚ｹ螳壹・繝医Μ繧ｬ繝ｼ縺ｮ縺ｿ螳溯｡後☆繧句ｴ蜷医↓謖・ｮ・(null縺ｪ繧牙・螳溯｡・
+     * カードが持つ効果配列を順番に解決する (Ver 1.3準拠)
+     * @param {Object} cardData - カードデータ
+     * @param {string} side - 発動側 ("player" | "opponent")
+     * @param {string} triggerFilter - 特定のトリガーのみ実行する場合に指定 (nullなら全実行)
      */
     async resolveEffects(cardData, side, triggerFilter = null) {
         if (!cardData || !cardData.logic || cardData.logic.length === 0) return;
@@ -29,11 +29,11 @@ const EffectLogic = {
 
         console.log(`EffectLogic: Resolving [${triggerFilter || "All"}] logic for ${cardData.name}`);
 
-        // 繝輔ぅ繝ｼ繝ｫ繝我ｸ翫・繧ｫ繝ｼ繝峨・蜉ｹ譫懊′蜍輔￥譎ゅ・縲√←縺ｮ繧ｫ繝ｼ繝峨′逋ｺ蜍輔＠縺溘・縺九ｒ隕九○繧九・
-        // 繝ｻ蟶ｸ譎ょ柑譫・always)縺ｯ貍泌・縺励↑縺・ｼ亥愛螳壹・縺溘・縺ｫ蜈峨▲縺ｦ縺励∪縺・ｼ・
-        // 繝ｻ蟇ｾ雎｡縺後↑縺上※遨ｺ謖ｯ繧翫☆繧句柑譫懊ｂ貍泌・縺励↑縺・ｼ育┌鬧・↑蠕・■譎る俣縺ｫ縺ｪ繧具ｼ・
-        // 繝ｻ縲・繧ｿ繝ｼ繝ｳ縺ｫ1蠎ｦ縲阪ｒ菴ｿ縺・・縺｣縺溷柑譫懊ｂ貍泌・縺励↑縺・
-        //   ・域擅莉ｶ繧呈ｺ縺溘☆縺溘・縺ｫ蜈峨ｋ縺悟ｮ滄圀縺ｫ縺ｯ菴輔ｂ襍ｷ縺阪↑縺・√→縺・≧迥ｶ諷九ｒ髦ｲ縺撰ｼ・
+        // フィールド上のカードの効果が動く時は、どのカードが発動したのかを見せる。
+        // ・常時効果(always)は演出しない（判定のたびに光ってしまう）
+        // ・対象がなくて空振りする効果も演出しない（無駄な待ち時間になる）
+        // ・「1ターンに1度」を使い切った効果も演出しない
+        //   （条件を満たすたびに光るが実際には何も起きない、という状態を防ぐ）
         if (typeof showEffectActivation === "function"
             && triggerFilter && triggerFilter !== "always"
             && this.hasUsableAction(cardData, triggerFilter)
@@ -49,27 +49,27 @@ const EffectLogic = {
                 if (triggerFilter && action.trigger !== triggerFilter) continue;
                 if (GAME_STATE.isGameOver) break;
 
-                // 隱倡匱譚｡莉ｶ・医が繝悶ず繧ｧ繧ｯ繝亥ｽ｢蠑擾ｼ峨ｒ貅縺溘＆縺ｪ縺・い繧ｯ繧ｷ繝ｧ繝ｳ縺ｯ螳溯｡後＠縺ｪ縺・
+                // 誘発条件（オブジェクト形式）を満たさないアクションは実行しない
                 if (action.condition && typeof action.condition === "object"
                     && !this._checkEventCondition(action, this._eventContext)) {
                     continue;
                 }
 
-                // 1繧ｿ繝ｼ繝ｳ縺ｫ1蠎ｦ縺ｮ蛻ｶ髯舌メ繧ｧ繝・け (繧､繝ｳ繝・ャ繧ｯ繧ｹ縺ｧ邂｡逅・
+                // 1ターンに1度の制限チェック (インデックスで管理)
                 if (action.countLimit === "once_per_turn") {
                     cardData._usedLimits = cardData._usedLimits || {};
                     const limitKey = `action_${i}`;
-                    // 迴ｾ蝨ｨ縺ｮ繧ｿ繝ｼ繝ｳ縺ｧ縺吶〒縺ｫ菴ｿ逕ｨ貂医∩縺ｪ繧峨せ繧ｭ繝・・
+                    // 現在のターンですでに使用済みならスキップ
                     if (cardData._usedLimits[limitKey] === GAME_STATE.turnCount) {
                         console.log(`Effect Limit Reached: ${cardData.name} (Action ${i})`);
                         continue;
                     }
-                    // 菴ｿ逕ｨ貂医∩繝輔Λ繧ｰ繧堤ｫ九※繧・
+                    // 使用済みフラグを立てる
                     cardData._usedLimits[limitKey] = GAME_STATE.turnCount;
                 }
 
-                // 繧ｳ繧ｹ繝茨ｼ域焔譛ｭ繧呈昏縺ｦ繧具ｼ上ヨ繝ｩ繝・す繝･繧帝勁螟悶☆繧狗ｭ会ｼ峨ｒ蜈医↓謾ｯ謇輔≧縲・
-                // 謇輔∴縺ｪ縺代ｌ縺ｰ縺昴・繧｢繧ｯ繧ｷ繝ｧ繝ｳ縺ｯ逋ｺ蜍輔＠縺ｪ縺・・
+                // コスト（手札を捨てる／トラッシュを除外する等）を先に支払う。
+                // 払えなければそのアクションは発動しない。
                 if (action.cost && !(await this.payActionCost(action, side))) {
                     console.log(`Cost not payable: ${cardData.name} (Action ${i})`);
                     continue;
@@ -77,10 +77,10 @@ const EffectLogic = {
 
                 await this.executeAction(action, side, cardData);
 
-                // 蟇ｾ雎｡驕ｸ謚槭′繧ｭ繝｣繝ｳ繧ｻ繝ｫ縺輔ｌ縺溘ｉ縲∽ｻ･髯阪・繧｢繧ｯ繧ｷ繝ｧ繝ｳ縺ｯ螳溯｡後＠縺ｪ縺・
+                // 対象選択がキャンセルされたら、以降のアクションは実行しない
                 if (this._selectionCancelled) {
                     this._selectionCancelled = false;
-                    console.log(`EffectLogic: ${cardData.name} 縺ｮ蜉ｹ譫懊・蟇ｾ雎｡驕ｸ謚槭・荳ｭ譁ｭ縺ｫ繧医ｊ邨ゆｺ・);
+                    console.log(`EffectLogic: ${cardData.name} の効果は対象選択の中断により終了`);
                     break;
                 }
             }
@@ -90,13 +90,13 @@ const EffectLogic = {
     },
 
     // ==========================================
-    // 鄂鬲碑｡難ｼ医そ繝・ヨ 竊・譚｡莉ｶ謌千ｫ九〒蠑ｷ蛻ｶ逋ｺ蜍包ｼ・
+    // 罠魔術（セット → 条件成立で強制発動）
     // ==========================================
 
     /**
-     * 鄂縺ｮ繝医Μ繧ｬ繝ｼ縺ｨ縲瑚ｪｰ縺梧戟縺､鄂縺悟渚蠢懊☆繧九°縲阪・蟇ｾ蠢懊・
-     * "opponent" = 繧､繝吶Φ繝医ｒ襍ｷ縺薙＠縺溷・縺ｮ逶ｸ謇九′謖√▽鄂
-     * "self"     = 繧､繝吶Φ繝医ｒ襍ｷ縺薙＠縺溷・閾ｪ霄ｫ縺梧戟縺､鄂
+     * 罠のトリガーと「誰が持つ罠が反応するか」の対応。
+     * "opponent" = イベントを起こした側の相手が持つ罠
+     * "self"     = イベントを起こした側自身が持つ罠
      */
     TRAP_TRIGGERS: {
         on_opponent_summon: "opponent",
@@ -104,14 +104,14 @@ const EffectLogic = {
         on_own_monster_destroyed: "self"
     },
 
-    // 隱倡匱蜈・・諠・ｱ・域判謦・＠縺ｦ縺阪◆繝｢繝ｳ繧ｹ繧ｿ繝ｼ遲会ｼ峨りｧ｣豎ｺ荳ｭ縺ｮ縺ｿ譛牙柑縲・
+    // 誘発元の情報（攻撃してきたモンスター等）。解決中のみ有効。
     _eventContext: null,
 
     /**
-     * 謖・ｮ壹ヨ繝ｪ繧ｬ繝ｼ縺ｮ鄂繧呈爾縺励∵擅莉ｶ繧呈ｺ縺溘☆繧ゅ・繧帝・↓蠑ｷ蛻ｶ逋ｺ蜍輔☆繧・
+     * 指定トリガーの罠を探し、条件を満たすものを順に強制発動する
      * @param {string} trigger
-     * @param {string} eventSide - 繧､繝吶Φ繝医ｒ襍ｷ縺薙＠縺溷・
-     * @param {Object} context   - 隱倡匱蜈・・諠・ｱ
+     * @param {string} eventSide - イベントを起こした側
+     * @param {Object} context   - 誘発元の情報
      */
     async fireTrapTrigger(trigger, eventSide, context) {
         if (GAME_STATE.isGameOver) return;
@@ -123,10 +123,10 @@ const EffectLogic = {
             ? (eventSide === "player" ? "opponent" : "player")
             : eventSide;
 
-        // 隗｣豎ｺ荳ｭ縺ｫ鬲碑｡薙だ繝ｼ繝ｳ縺悟､牙虚縺吶ｋ縺溘ａ縲∝ｯｾ雎｡繧貞・縺ｫ遒ｺ螳壹＆縺帙ｋ
+        // 解決中に魔術ゾーンが変動するため、対象を先に確定させる
         const pending = GAME_STATE[watcherSide].field.magics.filter(card => {
             if (!card || card.subType !== "trap" || !card._isSet) return false;
-            // 莨上○縺溘ち繝ｼ繝ｳ縺ｯ逋ｺ蜍輔〒縺阪↑縺・
+            // 伏せたターンは発動できない
             if (card._setTurnSerial === GAME_STATE.turnSerial) return false;
 
             const actions = (card.logic || []).filter(a => a.trigger === trigger);
@@ -137,19 +137,19 @@ const EffectLogic = {
         for (const card of pending) {
             if (GAME_STATE.isGameOver) return;
             const slotIdx = GAME_STATE[watcherSide].field.magics.indexOf(card);
-            if (slotIdx === -1) continue; // 隗｣豎ｺ荳ｭ縺ｫ蝣ｴ繧帝屬繧後◆
+            if (slotIdx === -1) continue; // 解決中に場を離れた
             await this.activateTrap(card, watcherSide, slotIdx, trigger, context);
         }
     },
 
-    /** 鄂繧定｡ｨ蜷代″縺ｫ縺励※隗｣豎ｺ縺励√ヨ繝ｩ繝・す繝･縺ｸ騾√ｋ */
+    /** 罠を表向きにして解決し、トラッシュへ送る */
     async activateTrap(card, side, slotIdx, trigger, context) {
         console.log(`Trap Activated: ${card.name} (${side})`);
 
         card._isSet = false;
         if (typeof renderFieldCard === "function") renderFieldCard(side, "magic", slotIdx, card);
         if (typeof showTrapActivation === "function") showTrapActivation(side, slotIdx, card);
-        await new Promise(r => setTimeout(r, 700)); // 逋ｺ蜍輔ｒ隕九○繧矩俣
+        await new Promise(r => setTimeout(r, 700)); // 発動を見せる間
 
         const previous = this._eventContext;
         this._eventContext = context;
@@ -159,7 +159,7 @@ const EffectLogic = {
             this._eventContext = previous;
         }
 
-        // 鄂縺ｯ隗｣豎ｺ蠕後ヨ繝ｩ繝・す繝･縺ｸ・磯壼ｸｸ鬲碑｡薙→蜷後§謇ｱ縺・ｼ・
+        // 罠は解決後トラッシュへ（通常魔術と同じ扱い）
         const current = GAME_STATE[side].field.magics.indexOf(card);
         if (current !== -1) {
             GAME_STATE[side].field.magics[current] = null;
@@ -169,7 +169,7 @@ const EffectLogic = {
         if (typeof updateUI === "function") updateUI();
     },
 
-    /** 隱倡匱譚｡莉ｶ・医が繝悶ず繧ｧ繧ｯ繝亥ｽ｢蠑擾ｼ峨・蛻､螳・*/
+    /** 誘発条件（オブジェクト形式）の判定 */
     _checkEventCondition(action, context) {
         const cond = action.condition;
         if (!cond || typeof cond !== "object") return true;
@@ -191,14 +191,14 @@ const EffectLogic = {
         }
         if (typeof cond.attackerWeakenedBy === "number") {
             if (!ctx.attacker) return false;
-            // 縲悟・縲・・繝代Ρ繝ｼ繧医ｊN繝繧ｦ繝ｳ縲・ 蜊ｰ蛻ｷ蛟､縺ｨ迴ｾ蝨ｨ縺ｮ螳滓焚蛟､・医が繝ｼ繝ｩ霎ｼ縺ｿ・峨・蟾ｮ
+            // 「元々のパワーよりNダウン」= 印刷値と現在の実数値（オーラ込み）の差
             const downBy = this.getPowerDrop(ctx.attacker, ctx.attackerSide, ctx.attackerSlot);
             if (downBy < cond.attackerWeakenedBy) return false;
         }
         return true;
     },
 
-    /** 繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺ｮ蜿ｬ蝟壹・迚ｹ谿雁小蝟壹ｒ鄂縺ｫ騾夂衍縺吶ｋ */
+    /** モンスターの召喚・特殊召喚を罠に通知する */
     async notifySummon(side, summonedCards) {
         const cards = (summonedCards || []).filter(Boolean);
         if (cards.length === 0) return;
@@ -209,8 +209,8 @@ const EffectLogic = {
     },
 
     /**
-     * 謾ｻ謦・ｮ｣險繧堤ｽ縺ｫ騾夂衍縺吶ｋ
-     * @returns {boolean} 謾ｻ謦・ｒ荳ｭ豁｢縺吶∋縺阪↑繧・true・域判謦・Δ繝ｳ繧ｹ繧ｿ繝ｼ繧・ｯｾ雎｡縺悟､ｱ繧上ｌ縺溷ｴ蜷茨ｼ・
+     * 攻撃宣言を罠に通知する
+     * @returns {boolean} 攻撃を中止すべきなら true（攻撃モンスターや対象が失われた場合）
      */
     async notifyAttackDeclared(attackerSide, attacker, attackerSlot, defender, defenderSlot) {
         const defenderSide = (attackerSide === "player") ? "opponent" : "player";
@@ -221,13 +221,13 @@ const EffectLogic = {
         });
 
         if (GAME_STATE.isGameOver) return true;
-        // 鄂縺ｧ謾ｻ謦・Δ繝ｳ繧ｹ繧ｿ繝ｼ縺碁勁蜴ｻ縺輔ｌ縺溷ｴ蜷医・謌ｦ髣倥◎縺ｮ繧ゅ・縺檎匱逕溘＠縺ｪ縺・
+        // 罠で攻撃モンスターが除去された場合は戦闘そのものが発生しない
         if (GAME_STATE[attackerSide].field.monsters[attackerSlot] !== attacker) return true;
         if (defender && GAME_STATE[defenderSide].field.monsters[defenderSlot] !== defender) return true;
         return false;
     },
 
-    /** 繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺檎ｴ螢翫＆繧後ヨ繝ｩ繝・す繝･縺ｸ騾√ｉ繧後◆縺薙→繧堤ｽ縺ｫ騾夂衍縺吶ｋ */
+    /** モンスターが破壊されトラッシュへ送られたことを罠に通知する */
     async notifyMonsterDestroyed(side, card) {
         if (!card) return;
         await this.fireTrapTrigger("on_own_monster_destroyed", side, {
@@ -237,15 +237,15 @@ const EffectLogic = {
     },
 
     /**
-     * 襍ｷ蜍募柑譫懊′縲後％縺ｮ繧ｿ繝ｼ繝ｳ菴ｿ逕ｨ貂医∩縲阪°縺ｩ縺・°・・I/CPU縺ｮ陦ｨ遉ｺ蛻､螳夂畑・・
+     * 起動効果が「このターン使用済み」かどうか（UI/CPUの表示判定用）
      */
     isIgnitionUsed(cardData) {
         return this.isLimitUsed(cardData, "ignition");
     },
 
     /**
-     * 縲・繧ｿ繝ｼ繝ｳ縺ｫ1蠎ｦ縲阪・蜉ｹ譫懊ｒ縲√％縺ｮ繧ｿ繝ｼ繝ｳ縺吶〒縺ｫ菴ｿ縺・・縺｣縺ｦ縺・ｋ縺九・
-     * trigger 繧堤怐逡･縺吶ｋ縺ｨ縲√◎縺ｮ繧ｫ繝ｼ繝峨・縺ｩ繧後°縺ｮ蝗樊焚蛻ｶ髯仙柑譫懊′菴ｿ逕ｨ貂医∩縺九ｒ隕九ｋ縲・
+     * 「1ターンに1度」の効果を、このターンすでに使い切っているか。
+     * trigger を省略すると、そのカードのどれかの回数制限効果が使用済みかを見る。
      */
     isLimitUsed(cardData, trigger = null) {
         if (!cardData || !cardData.logic || !cardData._usedLimits) return false;
@@ -255,13 +255,13 @@ const EffectLogic = {
                 action.countLimit === "once_per_turn" &&
                 (trigger === null || action.trigger === trigger));
         if (limited.length === 0) return false;
-        // 蝗樊焚蛻ｶ髯舌・縺ゅｋ蜉ｹ譫懊′縺吶∋縺ｦ菴ｿ逕ｨ貂医∩縺ｪ繧峨御ｽｿ逕ｨ貂医∩縲阪→縺ｿ縺ｪ縺・
+        // 回数制限のある効果がすべて使用済みなら「使用済み」とみなす
         return limited.every(({ i }) => cardData._usedLimits[`action_${i}`] === GAME_STATE.turnCount);
     },
 
     /**
-     * 縺薙・繝医Μ繧ｬ繝ｼ縺ｧ螳滄圀縺ｫ蜍輔￥菴吝慍縺後≠繧九°縲・
-     * 蝗樊焚蛻ｶ髯舌ｒ菴ｿ縺・・縺｣縺溷柑譫懊＠縺狗┌縺・ｴ蜷医・縲∵ｼ泌・繧ょ・縺輔↑縺・・
+     * このトリガーで実際に動く余地があるか。
+     * 回数制限を使い切った効果しか無い場合は、演出も出さない。
      */
     hasUsableAction(cardData, trigger) {
         if (!cardData || !cardData.logic) return false;
@@ -275,18 +275,18 @@ const EffectLogic = {
     },
 
     /**
-     * 繧ｫ繝ｼ繝峨′繝医Λ繝・す繝･縺ｫ騾√ｉ繧後◆莠九↓繧医ｋ隱倡匱繧偵∪縺ｨ繧√※蜃ｦ逅・☆繧九・
-     * - 騾√ｉ繧後◆繧ｫ繝ｼ繝芽・霄ｫ縺ｮ on_sent_to_trash
-     * - 繝輔ぅ繝ｼ繝ｫ繝我ｸ翫・莉悶き繝ｼ繝峨・ on_other_sent_to_trash・医ヵ繧｣繝ｫ繧ｿ縺ｨ謖√■荳ｻ繧貞愛螳壹☆繧具ｼ・
+     * カードがトラッシュに送られた事による誘発をまとめて処理する。
+     * - 送られたカード自身の on_sent_to_trash
+     * - フィールド上の他カードの on_other_sent_to_trash（フィルタと持ち主を判定する）
      *
-     * 髯､螟・banish)縺ｯ縺薙・髢｢謨ｰ繧帝壹ｉ縺ｪ縺・◆繧√∝｢灘慍隱倡匱縺ｯ荳蛻・匱逕溘＠縺ｪ縺・・
-     * @param {Object} card - 繝医Λ繝・す繝･縺ｫ騾√ｉ繧後◆繧ｫ繝ｼ繝・
-     * @param {string} side - 縺昴・繧ｫ繝ｼ繝峨・謖√■荳ｻ ("player" | "opponent")
+     * 除外(banish)はこの関数を通らないため、墓地誘発は一切発生しない。
+     * @param {Object} card - トラッシュに送られたカード
+     * @param {string} side - そのカードの持ち主 ("player" | "opponent")
      */
     async notifyCardSentToTrash(card, side, location = "unknown") {
         if (!card || GAME_STATE.isGameOver) return;
 
-        // 1. 莉悶き繝ｼ繝峨・隱倡匱・医い繧ｯ繧｢繝ｻ繧ｵ繝ｫ繝吶・繧ｸ s006 遲会ｼ・
+        // 1. 他カードの誘発（アクア・サルベージ s006 等）
         for (const watcherSide of ["player", "opponent"]) {
             const p = GAME_STATE[watcherSide];
             const sources = [...p.field.monsters, ...p.field.magics];
@@ -313,20 +313,20 @@ const EffectLogic = {
             }
         }
 
-        // 2. 騾√ｉ繧後◆繧ｫ繝ｼ繝芽・霄ｫ縺ｮ隱倡匱
+        // 2. 送られたカード自身の誘発
         await this.resolveEffects(card, side, "on_sent_to_trash");
     },
 
     /**
-     * 蜊倅ｸ縺ｮ繧｢繧ｯ繧ｷ繝ｧ繝ｳ蜻ｽ莉､繧貞ｮ溯｡後☆繧・(蜻ｽ莉､縺ｮ謖ｯ繧雁・縺・
-     * @param {Object} action - logic蜀・・蜊倅ｸ繧ｪ繝悶ず繧ｧ繧ｯ繝・
+     * 単一のアクション命令を実行する (命令の振り分け)
+     * @param {Object} action - logic内の単一オブジェクト
      * @param {string} side - "player" | "opponent"
-     * @param {Object} sourceCard - 蜉ｹ譫懊・逋ｺ逕滓ｺ・
+     * @param {Object} sourceCard - 効果の発生源
      */
     async executeAction(action, side, sourceCard) {
         switch (action.type) {
-            // applyHeal 縺ｯ蜀・Κ縺ｧ on_lp_gain 縺ｮ騾｣骼悶ｒ隗｣豎ｺ縺吶ｋ縺ｮ縺ｧ蠢・★蠕・▽縲・
-            // await 縺励↑縺・→縲∝屓蠕ｩ縺ｫ蜿榊ｿ懊☆繧句柑譫懊′蠕檎ｶ壼・逅・→縺壹ｌ縺ｦ蜍輔￥縲・
+            // applyHeal は内部で on_lp_gain の連鎖を解決するので必ず待つ。
+            // await しないと、回復に反応する効果が後続処理とずれて動く。
             case "heal": await this.applyHeal(action, side); break;
             case "draw_card":
                 if (typeof drawCard === "function") await drawCard(side, action.count || 1);
@@ -348,7 +348,7 @@ const EffectLogic = {
             case "global_protection":
             case "damage_reduction":
             case "resist_magic":
-                // 縺薙ｌ繧峨・蛻､螳壹ヵ繧ｧ繝ｼ繧ｺ縺ｧ蜿ら・縺輔ｌ繧九◆繧∝ｮ溯｡梧凾縺ｯ繝ｭ繧ｰ縺ｮ縺ｿ
+                // これらは判定フェーズで参照されるため実行時はログのみ
                 console.log(`Static Effect Active: ${action.type}`);
                 break;
             default: console.log(`Effect Type [${action.type}] is not yet implemented.`); break;
@@ -356,7 +356,7 @@ const EffectLogic = {
         if (typeof updateUI === "function") updateUI();
     },
 
-    /** LP蝗槫ｾｩ蜃ｦ逅・*/
+    /** LP回復処理 */
     applyHeal: async function(action, side) {
         const amount = action.value || 0;
         if (amount <= 0) return;
@@ -368,14 +368,14 @@ const EffectLogic = {
         if (typeof showDamageNumber === "function") showDamageNumber(side, amount, true);
         if (typeof updateUI === "function") updateUI();
 
-        // 蜑ｲ繧願ｾｼ縺ｿ繝医Μ繧ｬ繝ｼ: on_lp_gain (閨也阜邇九Ξ繧ｪ繝九ム繧ｹ遲・
-        // 蝗槫ｾｩ縺励◆繝励Ξ繧､繝､繝ｼ蛛ｴ縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺ｮ縺ｿ縺悟渚蠢懊☆繧・
+        // 割り込みトリガー: on_lp_gain (聖界王レオニダス等)
+        // 回復したプレイヤー側のモンスターのみが反応する
         for (const m of GAME_STATE[side].field.monsters) {
             if (m) await this.resolveEffects(m, side, "on_lp_gain");
         }
     },
 
-    /** 繝・ャ繧ｭ蛻・炎蜃ｦ逅・(Mill) */
+    /** デッキ切削処理 (Mill) */
     applyMill: async function(action, side) {
         const count = action.count || 0;
         const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
@@ -383,16 +383,16 @@ const EffectLogic = {
 
         while (remaining > 0) {
             if (p.deck.length === 0) {
-                // 蜉ｹ譫懷・逅・・騾比ｸｭ縺ｧ繧よ擅莉ｶ繧呈ｺ縺溘＠縺溽椪髢薙↓繝ｪ繝輔Ξ繝・す繝･縺吶ｋ (繝ｫ繝ｼ繝ｫ Ver.1.1)
+                // 効果処理の途中でも条件を満たした瞬間にリフレッシュする (ルール Ver.1.1)
                 if (p.trash.length > 0 && p.refreshCount < 1) {
                     console.log(`${side} performs Deck Refresh during Milling!`);
                     p.deck = shuffleArray(p.trash.map(resetCardState));
                     p.trash = [];
                     p.refreshCount++;
-                    // 繝ｪ繝輔Ξ繝・す繝･蠕後・霑ｽ蜉縺ｧ 1 譫壹ラ繝ｭ繝ｼ縺吶ｋ
+                    // リフレッシュ後は追加で 1 枚ドローする
                     await drawCard(side, 1);
                     updateUI();
-                    // 縺薙・繝峨Ο繝ｼ縺ｧ蜀阪・繝・ャ繧ｭ縺檎ｩｺ縺ｫ縺ｪ繧九％縺ｨ縺後≠繧九・縺ｧ縲∝ｿ・★蛻､螳壹＠逶ｴ縺・
+                    // このドローで再びデッキが空になることがあるので、必ず判定し直す
                     continue;
                 } else {
                     break;
@@ -401,8 +401,8 @@ const EffectLogic = {
 
             const card = p.deck.pop();
 
-            // 1譫壹★縺､繝・ャ繧ｭ竊偵ヨ繝ｩ繝・す繝･縺ｸ關ｽ縺ｨ縺励※隕九○繧九・
-            // 縺ｾ縺ｨ繧√※豸医∴繧九→菴輔′襍ｷ縺阪◆縺ｮ縺句・縺九ｉ縺ｪ縺・◆繧√・
+            // 1枚ずつデッキ→トラッシュへ落として見せる。
+            // まとめて消えると何が起きたのか分からないため。
             if (typeof animateMillCard === "function") {
                 await animateMillCard(card, side);
             }
@@ -415,14 +415,14 @@ const EffectLogic = {
         console.log(`${side} milled ${count} cards.`);
     },
 
-    /** 繝代Ρ繝ｼ蠅玲ｸ帛・逅・(謇句虚驕ｸ謚槫ｯｾ蠢・ */
+    /** パワー増減処理 (手動選択対応) */
     async applyBuff(action, side, sourceCard) {
         const value = action.value || 0;
         const targets = await this._acquireTargets(action, side, sourceCard);
 
         targets.forEach(t => {
             t.card._tempBuffs = t.card._tempBuffs || [];
-            // 謖∫ｶ壹ち繝ｼ繝ｳ縺ｮ謨ｰ蛟､蛹・
+            // 持続ターンの数値化
             let durationCount = action.duration;
             if (action.duration === "until_end_turn") durationCount = 1;
             if (action.duration === "until_opponent_end") durationCount = 2;
@@ -439,7 +439,7 @@ const EffectLogic = {
         });
     },
 
-    /** 繝代Ρ繝ｼ繧｢繝・・繧帝夂衍縺吶ｋ */
+    /** パワーアップを通知する */
     async notifyPowerUp(card, side) {
         if (!card || GAME_STATE.isGameOver) return;
         for (const watcherSide of ["player", "opponent"]) {
@@ -462,7 +462,7 @@ const EffectLogic = {
         }
     },
 
-    /** 遐ｴ螢雁・逅・・螳溯｣・*/
+    /** 破壊処理の実装 */
     async applyDestroy(action, side) {
         const targets = await this._acquireTargets(action, side);
         for (const t of targets) {
@@ -472,19 +472,19 @@ const EffectLogic = {
         }
     },
 
-    /** 髯､螟門・逅・・螳溯｣・*/
+    /** 除外処理の実装 */
     async applyBanish(action, side, sourceCard) {
         const targets = await this._acquireTargets(action, side, sourceCard);
         for (const t of targets) {
             const p = GAME_STATE[t.side];
             const card = p.field.monsters[t.slotIdx];
             if (card) {
-                // UI縺九ｉ蜑企勁
+                // UIから削除
                 const prefix = (t.side === "player") ? "ply" : "opt";
                 const el = document.getElementById(`${prefix}-monster-${t.slotIdx}`);
                 if (el) el.innerHTML = "";
                 
-                if (typeof showToastMessage === "function") showToastMessage(`${card.name} 縺碁勁螟悶＆繧後◆`, t.side);
+                if (typeof showToastMessage === "function") showToastMessage(`${card.name} が除外された`, t.side);
                 p.field.monsters[t.slotIdx] = null;
                 if (typeof banishCard === "function") {
                     banishCard(t.side, card);
@@ -494,7 +494,7 @@ const EffectLogic = {
         }
     },
 
-    /** LP繝繝｡繝ｼ繧ｸ繧剃ｸ弱∴繧・*/
+    /** LPダメージを与える */
     applyDamage(action, side) {
         const targetSide = (action.targetSide === "opponent")
             ? (side === "player" ? "opponent" : "player")
@@ -502,7 +502,7 @@ const EffectLogic = {
         const amount = action.value || 0;
         if (amount <= 0) return;
 
-        // 蜉ｹ譫懊ム繝｡繝ｼ繧ｸ縺ｪ縺ｮ縺ｧ謌ｦ髣倥ム繝｡繝ｼ繧ｸ霆ｽ貂帙・騾壹＆縺壹√◎縺ｮ縺ｾ縺ｾ荳弱∴繧・
+        // 効果ダメージなので戦闘ダメージ軽減は通さず、そのまま与える
         const p = GAME_STATE[targetSide];
         p.lp = Math.max(0, p.lp - amount);
         console.log(`${targetSide} took ${amount} effect damage. LP: ${p.lp}`);
@@ -511,7 +511,7 @@ const EffectLogic = {
         if (typeof checkGameEnd === "function") checkGameEnd();
     },
 
-    /** 鬲碑｡薙だ繝ｼ繝ｳ縺ｮ繧ｫ繝ｼ繝峨ｒ遐ｴ螢翫☆繧具ｼ井ｼ上○繧ｫ繝ｼ繝峨ｂ蟇ｾ雎｡・・*/
+    /** 魔術ゾーンのカードを破壊する（伏せカードも対象） */
     async applyDestroyMagic(action, side) {
         const targetSide = (action.targetSide === "opponent")
             ? (side === "player" ? "opponent" : "player")
@@ -532,7 +532,7 @@ const EffectLogic = {
 
             if (action.targetSelect === "manual" && (side === "player" || GAME_STATE.isOnlineMatch)) {
                 const slot = await selectTargetUI(targetSide, "magic", candidates,
-                    `遐ｴ螢翫☆繧・{targetSide === side ? "閾ｪ蛻・ : "逶ｸ謇・}縺ｮ鬲碑｡薙ｒ驕ｸ謚槭＠縺ｦ縺上□縺輔＞`);
+                    `破壊する${targetSide === side ? "自分" : "相手"}の魔術を選択してください`);
                 if (slot === null) { this._selectionCancelled = true; break; }
                 chosen.push(slot);
                 candidates = candidates.filter(c => c !== slot);
@@ -556,8 +556,8 @@ const EffectLogic = {
     },
 
     /**
-     * 繧｢繧ｯ繧ｷ繝ｧ繝ｳ縺ｫ莉倬囂縺吶ｋ繧ｳ繧ｹ繝医ｒ謾ｯ謇輔≧縲・
-     * 謇輔∴縺ｪ縺・ｴ蜷医・ false 繧定ｿ斐＠縲√◎縺ｮ繧｢繧ｯ繧ｷ繝ｧ繝ｳ縺ｯ螳溯｡後＠縺ｪ縺・・
+     * アクションに付随するコストを支払う。
+     * 払えない場合は false を返し、そのアクションは実行しない。
      */
     async payActionCost(action, side) {
         const cost = action.cost;
@@ -565,7 +565,7 @@ const EffectLogic = {
 
         const p = GAME_STATE[side];
 
-        // 謇区惆繧呈昏縺ｦ繧九さ繧ｹ繝・
+        // 手札を捨てるコスト
         if (cost.discardHand) {
             const n = cost.discardHand;
             if (p.hand.length < n) return false;
@@ -588,7 +588,7 @@ const EffectLogic = {
             }
         }
 
-        // 繝医Λ繝・す繝･繧帝勁螟悶☆繧九さ繧ｹ繝・
+        // トラッシュを除外するコスト
         if (cost.banishTrash) {
             const n = cost.banishTrash;
             if (p.trash.length < n) return false;
@@ -598,7 +598,7 @@ const EffectLogic = {
             }
         }
 
-        // LP繧呈髪謇輔≧繧ｳ繧ｹ繝・
+        // LPを支払うコスト
         if (cost.payLp) {
             if (p.lp <= cost.payLp) return false;
             p.lp -= cost.payLp;
@@ -606,7 +606,7 @@ const EffectLogic = {
             console.log(`${side} paid ${cost.payLp} LP. Current LP: ${p.lp}`);
         }
 
-        // 迚ｹ螳壹・繧ｫ繝ｼ繝峨ｒ繝医Λ繝・す繝･縺吶ｋ繧ｳ繧ｹ繝・
+        // 特定のカードをトラッシュするコスト
         if (cost.sendToTrash) {
             const n = cost.sendToTrash;
             let candidates = [];
@@ -625,7 +625,7 @@ const EffectLogic = {
             }
             if (candidates.length < n) return false;
             
-            // 閾ｪ蜍輔〒驕ｸ縺ｶ・井ｻ雁屓縺ｯ謇区惆蜆ｪ蜈医√◎繧後°繧峨Δ繝ｳ繧ｹ繧ｿ繝ｼ縲・ｭ碑｡薙・鬆・〒驕ｸ縺ｶ縺ｪ縺ｩ邁｡譏薙Ο繧ｸ繝・け・・
+            // 自動で選ぶ（今回は手札優先、それからモンスター、魔術の順で選ぶなど簡易ロジック）
             for (let i = 0; i < n; i++) {
                 const target = candidates[i];
                 if (target.type === "hand") {
@@ -652,7 +652,7 @@ const EffectLogic = {
         return true;
     },
 
-    /** 繧ｳ繧ｹ繝医ｒ謾ｯ謇輔∴繧九□縺代・雉・ｺ舌′縺ゅｋ縺具ｼ育匱蜍募庄閭ｽ蛻､螳夂畑繝ｻ螳滄圀縺ｫ縺ｯ謇輔ｏ縺ｪ縺・ｼ・*/
+    /** コストを支払えるだけの資源があるか（発動可能判定用・実際には払わない） */
     canPayActionCost(action, side) {
         const cost = action.cost;
         if (!cost) return true;
@@ -674,7 +674,7 @@ const EffectLogic = {
         return true;
     },
 
-    /** 蟇ｾ雎｡繧呈戟縺｡荳ｻ縺ｮ謇区惆縺ｸ謌ｻ縺呻ｼ医ヰ繧ｦ繝ｳ繧ｹ・・*/
+    /** 対象を持ち主の手札へ戻す（バウンス） */
     async applyBounce(action, side, sourceCard) {
         const targets = await this._acquireTargets(action, side, sourceCard);
 
@@ -692,7 +692,7 @@ const EffectLogic = {
     },
 
     /**
-     * 隱倡匱蜈・ｼ域判謦・Δ繝ｳ繧ｹ繧ｿ繝ｼ繝ｻ蜿ｬ蝟壹＆繧後◆繝｢繝ｳ繧ｹ繧ｿ繝ｼ遲会ｼ峨ｒ蟇ｾ雎｡縺ｨ縺励※蜿門ｾ励☆繧・
+     * 誘発元（攻撃モンスター・召喚されたモンスター等）を対象として取得する
      */
     _acquireEventTargets(action, side) {
         const ctx = this._eventContext || {};
@@ -701,7 +701,7 @@ const EffectLogic = {
 
         const push = (card, cardSide) => {
             if (!card || !cardSide) return;
-            // 蝣ｴ繧帝屬繧後※縺・ｋ蝣ｴ蜷医・蟇ｾ雎｡縺ｫ縺ｪ繧峨↑縺・
+            // 場を離れている場合は対象にならない
             const slotIdx = GAME_STATE[cardSide].field.monsters.indexOf(card);
             if (slotIdx === -1) return;
             if (!this._checkFilter(card, filter)) return;
@@ -723,12 +723,12 @@ const EffectLogic = {
         return results;
     },
 
-    /** 繧ｿ繝ｼ繧ｲ繝・ヨ蜿門ｾ礼畑蜀・Κ繝｡繧ｽ繝・ラ */
+    /** ターゲット取得用内部メソッド */
     async _acquireTargets(action, side, sourceCard) {
         const targetSide = (action.targetSide === "opponent") ? (side === "player" ? "opponent" : "player") : side;
         const select = action.targetSelect || "auto";
 
-        // 隱倡匱蜈・ｒ蟇ｾ雎｡縺ｫ縺吶ｋ謖・ｮ夲ｼ育ｽ鬲碑｡薙↑縺ｩ・・
+        // 誘発元を対象にする指定（罠魔術など）
         if (select === "event" || select === "event_attacker" || select === "event_defender") {
             return this._acquireEventTargets(action, side);
         }
@@ -756,9 +756,9 @@ const EffectLogic = {
         let candidates = [];
         p.field.monsters.forEach((m, i) => {
             if (m && this._checkFilter(m, filter)) {
-                // 譚｡莉ｶ蛻､螳・ is_weakened (譽ｮ逡後・諤偵ｊ遲・
+                // 条件判定: is_weakened (森界の怒り等)
                 if (action.condition === "is_weakened" && !this.isWeakened(m, targetSide, i)) return;
-                // 鬲碑｡楢先ｧ蛻､螳・
+                // 魔術耐性判定
                 if (sourceCard && sourceCard.type === "magic" && targetSide !== side) {
                     if (this.checkMagicProtection(m, targetSide)) return;
                 }
@@ -776,14 +776,14 @@ const EffectLogic = {
                 for (let i = 0; i < count; i++) {
                     if (candidates.length === 0) break;
 
-                    // 蜉ｹ譫懊・譚｡莉ｶ繧呈ｺ縺溘☆繧ｹ繝ｭ繝・ヨ縺縺代ｒ驕ｸ謚槫庄閭ｽ縺ｫ縺吶ｋ
-                    // (繝輔ぅ繝ｫ繧ｿ螟悶・繧ｫ繝ｼ繝峨ｒ驕ｸ繧薙〒縲御ｽ輔ｂ襍ｷ縺阪↑縺・阪・繧帝亟縺・
+                    // 効果の条件を満たすスロットだけを選択可能にする
+                    // (フィルタ外のカードを選んで「何も起きない」のを防ぐ)
                     const validSlots = candidates.map(c => c.slotIdx);
-                    const label = (count > 1) ? `${prompt}・・{i + 1}/${count}・荏 : prompt;
+                    const label = (count > 1) ? `${prompt}（${i + 1}/${count}）` : prompt;
                     const slot = await selectTargetUI(targetSide, "monster", validSlots, label);
 
                     if (slot === null) {
-                        // 繧ｭ繝｣繝ｳ繧ｻ繝ｫ縺輔ｌ縺溷ｴ蜷医・蜉ｹ譫懷・菴薙ｒ荳ｭ譁ｭ縺輔○繧・
+                        // キャンセルされた場合は効果全体を中断させる
                         this._selectionCancelled = true;
                         break;
                     }
@@ -792,7 +792,7 @@ const EffectLogic = {
                 }
                 return results;
             } else {
-                // CPU縺ｮ繧､繝ｳ繝・Μ繧ｸ繧ｧ繝ｳ繧ｹ驕ｸ謚・(s014遲峨・蟇ｾ蠢・
+                // CPUのインテリジェンス選択 (s014等の対応)
                 const targetsOwnSide = (targetSide === side);
                 const isRemoval = (action.type === "destroy");
                 const results = [];
@@ -805,10 +805,10 @@ const EffectLogic = {
                         const hasTrashEff = (c) => (c.logic && c.logic.some(l => l.trigger === "on_sent_to_trash")) ? 1 : 0;
 
                         if (targetsOwnSide && isRemoval) {
-                            // 閾ｪ蛻・ｒ遐ｴ螢翫☆繧句ｴ蜷・ 蠅灘慍蜉ｹ譫懈戟縺｡縲√∪縺溘・蠑ｱ縺・Δ繝ｳ繧ｹ繧ｿ繝ｼ繧貞━蜈・
+                            // 自分を破壊する場合: 墓地効果持ち、または弱いモンスターを優先
                             return (hasTrashEff(b.card) - hasTrashEff(a.card)) || (pA - pB);
                         }
-                        // 逶ｸ謇九∈縺ｮ髯､蜴ｻ繝ｻ蠑ｱ菴灘喧縲∬・蛻・∈縺ｮ蠑ｷ蛹悶・縺・★繧後ｂ縲悟ｼｷ縺・Δ繝ｳ繧ｹ繧ｿ繝ｼ縲阪′譛蜆ｪ蜈・
+                        // 相手への除去・弱体化、自分への強化はいずれも「強いモンスター」が最優先
                         return pB - pA;
                     });
                     results.push(candidates.shift());
@@ -826,23 +826,23 @@ const EffectLogic = {
         }
     },
 
-    /** 繝峨Ο繝ｼ&繝・ぅ繧ｹ繧ｫ繝ｼ繝牙・逅・*/
+    /** ドロー&ディスカード処理 */
     applyDrawAndDiscard: async function(action, side) {
-        // 1. 繝峨Ο繝ｼ繧貞ｮ溯｡・
+        // 1. ドローを実行
         if (typeof drawCard === "function") {
             await drawCard(side, action.drawCount || 0);
         }
 
-        // 2. 謐ｨ縺ｦ繧句・逅・
+        // 2. 捨てる処理
         const p = GAME_STATE[side];
         const discardCount = Math.min(action.discardCount || 0, p.hand.length);
 
         if (discardCount <= 0) return;
 
         if ((side === "player" || GAME_STATE.isOnlineMatch) && action.discardType === "manual") {
-            // 繝励Ξ繧､繝､繝ｼ縺瑚・蛻・〒驕ｸ縺ｶ
+            // プレイヤーが自分で選ぶ
             const targets = await selectHandCardsUI(discardCount);
-            // 繧､繝ｳ繝・ャ繧ｯ繧ｹ縺ｮ繧ｺ繝ｬ繧帝亟縺舌◆繧・剄鬆・〒蜑企勁
+            // インデックスのズレを防ぐため降順で削除
             const sortedTargets = targets.sort((a, b) => b - a);
             for (const idx of sortedTargets) {
                 const card = p.hand.splice(idx, 1)[0];
@@ -850,14 +850,14 @@ const EffectLogic = {
                 await this.notifyCardSentToTrash(card, side);
             }
         } else {
-            // CPU謌ｦ逡･逧・ョ繧｣繧ｹ繧ｫ繝ｼ繝・ 蠅灘慍蛻ｩ逕ｨ繝ｻ鬮廊v繧貞━蜈医＠縲´v1繧・ｱ守畑鬲碑｡薙ｒ谿九☆
-            // (蜆ｪ蜈亥ｺｦ縺ｮ螳夂ｾｩ縺ｯ CpuLogic 蛛ｴ縺ｫ荳譛ｬ蛹悶＠縺ｦ縺・ｋ)
+            // CPU戦略的ディスカード: 墓地利用・高Lvを優先し、Lv1や汎用魔術を残す
+            // (優先度の定義は CpuLogic 側に一本化している)
             const score = (c) => (typeof CpuLogic !== "undefined") ? CpuLogic.discardScore(c) : 0;
 
             for (let i = 0; i < discardCount; i++) {
                 if (p.hand.length === 0) break;
 
-                p.hand.sort((a, b) => score(b) - score(a)); // 繧ｹ繧ｳ繧｢鬮倥＞鬆・ｼ域昏縺ｦ縺溘＞鬆・ｼ・
+                p.hand.sort((a, b) => score(b) - score(a)); // スコア高い順（捨てたい順）
 
                 const card = p.hand.shift();
                 sendCardToTrash(side, card);
@@ -868,14 +868,14 @@ const EffectLogic = {
         if (typeof updateUI === "function") updateUI();
     },
 
-    /** 迚ｹ谿雁小蝟壼・逅・*/
+    /** 特殊召喚処理 */
     applySpecialSummon: async function(action, side) {
         const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
         const count = action.count || 1;
         const source = action.source; // deck / trash / choice_deck_or_trash / event
         const filter = action.filter || {};
 
-        // source: "event" 縺ｯ縲瑚ｪ倡匱蜈・↓縺ｪ縺｣縺溘◎縺ｮ繧ｫ繝ｼ繝峨阪ｒ陂・函縺吶ｋ・域ｵｷ逡後・螂・ｷ｡ 遲会ｼ・
+        // source: "event" は「誘発元になったそのカード」を蘇生する（海界の奇跡 等）
         if (source === "event") {
             const ctx = this._eventContext || {};
             const target = ctx.destroyed;
@@ -883,10 +883,10 @@ const EffectLogic = {
 
             const ownerSide = ctx.destroyedSide || side;
             const trashIdx = GAME_STATE[ownerSide].trash.indexOf(target);
-            if (trashIdx === -1) return; // 縺吶〒縺ｫ繝医Λ繝・す繝･縺ｫ縺ｪ縺・
+            if (trashIdx === -1) return; // すでにトラッシュにない
 
             const slotIdx = p.field.monsters.indexOf(null);
-            if (slotIdx === -1) return; // 遨ｺ縺肴棧縺後↑縺・
+            if (slotIdx === -1) return; // 空き枠がない
 
             GAME_STATE[ownerSide].trash.splice(trashIdx, 1);
             p.field.monsters[slotIdx] = target;
@@ -898,12 +898,12 @@ const EffectLogic = {
             return;
         }
 
-        // 1. 蛟呵｣懊き繝ｼ繝峨・蜿朱寔
+        // 1. 候補カードの収集
         let pool = [];
         if (source === "deck" || source === "choice_deck_or_trash") pool = pool.concat(p.deck);
         if (source === "trash" || source === "choice_deck_or_trash") pool = pool.concat(p.trash);
 
-        // 2. 繝輔ぅ繝ｫ繧ｿ繝ｪ繝ｳ繧ｰ (繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺ｮ縺ｿ繝ｻ譚｡莉ｶ蜷郁・)
+        // 2. フィルタリング (モンスターのみ・条件合致)
         let candidates = pool.filter(card => {
             if (card.type !== "monster") return false;
             if (filter.level && card.level !== filter.level) return false;
@@ -914,11 +914,11 @@ const EffectLogic = {
             return true;
         });
 
-        // 3. 蜿ｬ蝟壽棧縺ｮ遒ｺ隱・
+        // 3. 召喚枠の確認
         let emptySlots = [];
         p.field.monsters.forEach((m, i) => { if (m === null) emptySlots.push(i); });
 
-        // 4. 螳溯｡・
+        // 4. 実行
         const summonedCards = [];
         const summonLimit = Math.min(count, emptySlots.length, candidates.length);
         for (let i = 0; i < summonLimit; i++) {
@@ -926,7 +926,7 @@ const EffectLogic = {
             const targetCard = candidates.splice(randIdx, 1)[0];
             const slotIdx = emptySlots.shift();
 
-            // 蜈・・蝣ｴ謇(deck/trash)縺九ｉ蜑企勁 (騾｣骼冶ｧ｣豎ｺ縺ｫ繧医ｋ遘ｻ蜍輔ｒ閠・・)
+            // 元の場所(deck/trash)から削除 (連鎖解決による移動を考慮)
             const deckIdx = p.deck.indexOf(targetCard);
             const trashIdx = p.trash.indexOf(targetCard);
 
@@ -935,34 +935,34 @@ const EffectLogic = {
             } else if (trashIdx !== -1) {
                 p.trash.splice(trashIdx, 1);
             } else {
-                // 蛟呵｣懊↓縺ｯ縺ゅ▲縺溘′縲・｣骼悶＠縺溘ラ繝ｭ繝ｼ繧・挨縺ｮ迚ｹ谿雁小蝟壹〒譌｢縺ｫ遘ｻ蜍墓ｸ医∩縺ｮ蝣ｴ蜷医・繧ｹ繧ｭ繝・・
+                // 候補にはあったが、連鎖したドローや別の特殊召喚で既に移動済みの場合はスキップ
                 console.log(`Summon Cancel: ${targetCard.name} is no longer in deck/trash.`);
                 continue;
             }
 
-            // 繝輔ぅ繝ｼ繝ｫ繝峨∈驟咲ｽｮ
+            // フィールドへ配置
             p.field.monsters[slotIdx] = targetCard;
 
-            // UI謠冗判縺ｮ譖ｴ譁ｰ (main.js縺ｮ髢｢謨ｰ繧貞他縺ｳ蜃ｺ縺・
+            // UI描画の更新 (main.jsの関数を呼び出し)
             if (typeof renderFieldCard === "function") {
                 renderFieldCard(side, "monster", slotIdx, targetCard);
             }
-            // 迚ｹ谿雁小蝟壹ｂ縲悟小蝟壽ｼ泌・ 竊・蜉ｹ譫懃匱蜍輔阪・鬆・↓隕九○繧・
+            // 特殊召喚も「召喚演出 → 効果発動」の順に見せる
             if (typeof playSummonEffect === "function") {
                 await playSummonEffect(side, slotIdx);
             }
 
             summonedCards.push(targetCard);
 
-            // 騾｣骼厄ｼ夂音谿雁小蝟壹ｂ縲悟小蝟壽・蜉滓凾縲阪→縺励※謇ｱ縺・(繝ｭ繧ｸ繝・け螳夂ｾｩ1.3貅匁侠)
+            // 連鎖：特殊召喚も「召喚成功時」として扱う (ロジック定義1.3準拠)
             await this.resolveEffects(targetCard, side, "on_summon");
         }
 
-        // 縲・菴謎ｻ･荳雁小蝟壹＠縺滓凾縲阪・鄂縺ｯ縲√∪縺ｨ繧√※1蝗槭□縺大愛螳壹☆繧・
+        // 「1体以上召喚した時」の罠は、まとめて1回だけ判定する
         await this.notifySummon(side, summonedCards);
     },
 
-    /** 繧ｵ繝ｼ繝∝・逅・(繝・ャ繧ｭ縺九ｉ謇区惆) */
+    /** サーチ処理 (デッキから手札) */
     applySearch: async function(action, side) {
         const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
         const count = action.count || 1;
@@ -983,7 +983,7 @@ const EffectLogic = {
             }
         }
         
-        // followUp蜃ｦ逅・(萓・ discard)
+        // followUp処理 (例: discard)
         if (action.followUp && action.followUp.type === "discard") {
             const discardCount = action.followUp.count || 1;
             if (p.hand.length > 0) {
@@ -1007,7 +1007,7 @@ const EffectLogic = {
         }
     },
 
-    /** 繧ｵ繝ｫ繝吶・繧ｸ蜃ｦ逅・(繝医Λ繝・す繝･縺九ｉ謇区惆) */
+    /** サルベージ処理 (トラッシュから手札) */
     applySalvage: async function(action, side) {
         const p = (side === "player") ? GAME_STATE.player : GAME_STATE.opponent;
         const count = action.count || 1;
@@ -1020,7 +1020,7 @@ const EffectLogic = {
             const randIdx = Math.floor(GameRandom() * candidates.length);
             const targetCard = candidates.splice(randIdx, 1)[0];
 
-            // 繝医Λ繝・す繝･縺九ｉ蜑企勁縺励※謇区惆縺ｸ (螳牙・縺ｫ繧､繝ｳ繝・ャ繧ｯ繧ｹ繧堤｢ｺ隱・
+            // トラッシュから削除して手札へ (安全にインデックスを確認)
             const idx = p.trash.indexOf(targetCard);
             if (idx !== -1) {
                 p.trash.splice(idx, 1);
@@ -1031,40 +1031,40 @@ const EffectLogic = {
     },
 
     /**
-     * 蜈・・・繝代Ρ繝ｼ・亥魂蛻ｷ蛟､・峨°繧臥樟蝨ｨ菴輔ム繧ｦ繝ｳ縺励※縺・ｋ縺九ｒ霑斐☆縲・
-     * getCurrentPower 縺ｯ蟶ｸ譎ゅが繝ｼ繝ｩ繝ｻ荳譎ゅヰ繝輔ｒ縺吶∋縺ｦ蜷ｫ繧√◆螳滓焚蛟､縺ｪ縺ｮ縺ｧ縲・
-     * 縺薙％繧ょ酔讒倥↓縲御ｻ翫ヵ繧｣繝ｼ繝ｫ繝峨↓蜃ｺ縺ｦ縺・ｋ迥ｶ諷九阪ｒ縺昴・縺ｾ縺ｾ豈碑ｼ・☆繧九・
-     * 萓・ 閾ｪ霄ｫ縺ｫ+300縺ｮ蟶ｸ譎ゅが繝ｼ繝ｩ繧呈戟縺､繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺ｯ縲・300縺ｮ繝・ヰ繝輔ｒ蜿励￠縺ｦ繧・
-     * 蟾ｮ縺怜ｼ輔″0・亥魂蛻ｷ蛟､縺ｨ蜷後§・峨↑縺ｮ縺ｧ縲悟ｼｱ菴灘喧縲肴桶縺・↓縺ｯ縺ｪ繧峨↑縺・・
+     * 元々のパワー（印刷値）から現在何ダウンしているかを返す。
+     * getCurrentPower は常時オーラ・一時バフをすべて含めた実数値なので、
+     * ここも同様に「今フィールドに出ている状態」をそのまま比較する。
+     * 例: 自身に+300の常時オーラを持つモンスターは、-300のデバフを受けても
+     * 差し引き0（印刷値と同じ）なので「弱体化」扱いにはならない。
      */
     getPowerDrop: function(card, side, slotIdx) {
         if (!card) return 0;
         return card.power - this.getCurrentPower(card, side, slotIdx);
     },
 
-    /** 縲後ヱ繝ｯ繝ｼ縺悟・縲・・謨ｰ蛟､繧医ｊ菴惹ｸ九＠縺ｦ縺・ｋ縲榊愛螳・(譽ｮ逡後・諤偵ｊ s007 遲・ */
+    /** 「パワーが元々の数値より低下している」判定 (森界の怒り s007 等) */
     isWeakened: function(card, side, slotIdx) {
         return this.getPowerDrop(card, side, slotIdx) > 0;
     },
 
-    /** 蟇ｾ雎｡驕ｸ謚樊凾縺ｫ繝励Ξ繧､繝､繝ｼ縺ｸ蜃ｺ縺呎｡亥・譁・*/
+    /** 対象選択時にプレイヤーへ出す案内文 */
     _targetPromptText: function(action, targetSide, side) {
-        const owner = (targetSide === side) ? "閾ｪ蛻・ : "逶ｸ謇・;
+        const owner = (targetSide === side) ? "自分" : "相手";
         switch (action.type) {
             case "destroy":
-                return `遐ｴ螢翫☆繧・{owner}縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧帝∈謚槭＠縺ｦ縺上□縺輔＞`;
+                return `破壊する${owner}のモンスターを選択してください`;
             case "buff":
                 return (action.value || 0) < 0
-                    ? `蠑ｱ菴灘喧縺輔○繧・{owner}縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧帝∈謚槭＠縺ｦ縺上□縺輔＞`
-                    : `蠑ｷ蛹悶☆繧・{owner}縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧帝∈謚槭＠縺ｦ縺上□縺輔＞`;
+                    ? `弱体化させる${owner}のモンスターを選択してください`
+                    : `強化する${owner}のモンスターを選択してください`;
             case "apply_combat_effect":
-                return `蜉ｹ譫懊ｒ驕ｩ逕ｨ縺吶ｋ${owner}縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧帝∈謚槭＠縺ｦ縺上□縺輔＞`;
+                return `効果を適用する${owner}のモンスターを選択してください`;
             default:
-                return `蟇ｾ雎｡縺ｫ縺吶ｋ${owner}縺ｮ繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧帝∈謚槭＠縺ｦ縺上□縺輔＞`;
+                return `対象にする${owner}のモンスターを選択してください`;
         }
     },
 
-    /** 蜀・Κ逕ｨ繝輔ぅ繝ｫ繧ｿ繝ｪ繝ｳ繧ｰ繝ｭ繧ｸ繝・け */
+    /** 内部用フィルタリングロジック */
     _checkFilter: function(card, filter) {
         if (filter.level && card.level !== filter.level) return false;
         if (filter.minLevel && card.level < filter.minLevel) return false;
@@ -1077,46 +1077,46 @@ const EffectLogic = {
     },
 
     /**
-     * 繧ｫ繝ｼ繝峨・迴ｾ蝨ｨ縺ｮ繝代Ρ繝ｼ繧貞虚逧・↓險育ｮ励☆繧・(繧ｪ繝ｼ繝ｩ繝ｻ譚｡莉ｶ莉倥ヰ繝輔ｒ蜿肴丐)
+     * カードの現在のパワーを動的に計算する (オーラ・条件付バフを反映)
      */
     getCurrentPower: function(card, side, slotIdx) {
         if (!card || card.type !== "monster") return 0;
 
-        // 1. 繝吶・繧ｹ繝代Ρ繝ｼ
+        // 1. ベースパワー
         let currentPower = card.power;
 
-        // 2. 荳譎ら噪縺ｪ蛟倶ｽ薙ヰ繝・(_tempBuffs) 縺ｮ蜉邂・
+        // 2. 一時的な個体バフ (_tempBuffs) の加算
         if (card._tempBuffs) {
             card._tempBuffs.forEach(b => {
                 currentPower += b.value;
             });
         }
 
-        // 3. 蜈ｨ繝輔ぅ繝ｼ繝ｫ繝峨ｒ襍ｰ譟ｻ縺励※縲径lways縲阪ヨ繝ｪ繧ｬ繝ｼ縺ｮ繝舌ヵ繧帝←逕ｨ
+        // 3. 全フィールドを走査して「always」トリガーのバフを適用
         const players = ["player", "opponent"];
         players.forEach(pSide => {
             const p = GAME_STATE[pSide];
-            // 繝｢繝ｳ繧ｹ繧ｿ繝ｼ繧ｾ繝ｼ繝ｳ縺ｨ鬲碑｡薙だ繝ｼ繝ｳ縺ｮ荳｡譁ｹ繧偵メ繧ｧ繝・け
+            // モンスターゾーンと魔術ゾーンの両方をチェック
             const allFields = [...p.field.monsters, ...p.field.magics];
 
             allFields.forEach(source => {
                 if (!source || !source.logic) return;
 
                 source.logic.forEach(action => {
-                    // 繝舌ヵ邉ｻ縺ｮ豌ｸ邯壼柑譫・(always) 縺九メ繧ｧ繝・け
+                    // バフ系の永続効果 (always) かチェック
                     if (action.trigger === "always" && (action.type === "buff" || action.type === "global_buff")) {
 
-                        // 逋ｺ蜍墓擅莉ｶ (is_opponent_turn遲・ 縺ｮ繝√ぉ繝・け
+                        // 発動条件 (is_opponent_turn等) のチェック
                         if (!this._checkCondition(action, pSide, source)) return;
 
-                        // 蜉ｹ譫懊・蟇ｾ雎｡繧ｵ繧､繝・(targetSide: "opponent" 縺ｪ繧臥匱蜍戊・・騾・・)
+                        // 効果の対象サイド (targetSide: "opponent" なら発動者の逆側)
                         const effectTargetSide = (action.targetSide === "opponent")
                             ? (pSide === "player" ? "opponent" : "player")
                             : pSide;
 
                         if (effectTargetSide !== side) return;
 
-                        // 繝輔ぅ繝ｫ繧ｿ (螻樊ｧ繝ｻ繧ｫ繝・ざ繝ｪ遲・ 縺ｮ荳閾ｴ遒ｺ隱・
+                        // フィルタ (属性・カテゴリ等) の一致確認
                         if (action.type === "global_buff" && !this._checkFilter(card, action.filter || {})) return;
                         if (action.type === "buff" && action.target === "self" && source !== card) return;
 
@@ -1126,20 +1126,20 @@ const EffectLogic = {
             });
         });
 
-        // 繝代Ρ繝ｼ縺ｯ 0 譛ｪ貅縺ｫ縺ｪ繧峨↑縺・(繝ｫ繝ｼ繝ｫ 3 貅匁侠)
+        // パワーは 0 未満にならない (ルール 3 準拠)
         return Math.max(0, currentPower);
     },
 
-    /** 譚｡莉ｶ繝√ぉ繝・け繝ｭ繧ｸ繝・け */
+    /** 条件チェックロジック */
     _checkCondition: function(action, side, sourceCard) {
         if (!action.condition) return true;
 
         switch (action.condition) {
             case "is_opponent_turn":
-                // 迴ｾ蝨ｨ縺ｮ繧ｿ繝ｼ繝ｳ繝励Ξ繧､繝､繝ｼ縺悟柑譫懊・謖√■荳ｻ縺ｨ逡ｰ縺ｪ繧九°
+                // 現在のターンプレイヤーが効果の持ち主と異なるか
                 return GAME_STATE.turnPlayer !== side;
             case "has_category_on_field":
-                // 迚ｹ螳壹き繝・ざ繝ｪ縺瑚・蛻・ヵ繧｣繝ｼ繝ｫ繝峨↓蟄伜惠縺吶ｋ縺・
+                // 特定カテゴリが自分フィールドに存在するか
                 const p = GAME_STATE[side];
                 return p.field.monsters.some(m => m && m.categories.includes(action.category));
             default:
@@ -1147,7 +1147,7 @@ const EffectLogic = {
         }
     },
 
-    /** 鬲碑｡楢先ｧ縺ｮ蛻､螳・*/
+    /** 魔術耐性の判定 */
     checkMagicProtection: function(card, side) {
         let isProtected = false;
         const p = GAME_STATE[side];
@@ -1168,7 +1168,7 @@ const EffectLogic = {
         return isProtected;
     },
 
-    /** 謌ｦ髣倡ｴ螢願先ｧ縺ｮ蛻､螳・*/
+    /** 戦闘破壊耐性の判定 */
     checkBattleProtection: function(card, side, slotIdx) {
         const players = ["player", "opponent"];
         let isProtected = false;
@@ -1180,7 +1180,7 @@ const EffectLogic = {
             allFields.forEach(source => {
                 if (!source || !source.logic) return;
                 source.logic.forEach(action => {
-                    // 閠先ｧ邉ｻ蜉ｹ譫・always)縺九メ繧ｧ繝・け
+                    // 耐性系効果(always)かチェック
                     if (action.trigger === "always" && (action.type === "battle_protection" || action.type === "global_protection")) {
 
                         const effectTargetSide = (action.targetSide === "opponent")
@@ -1189,20 +1189,20 @@ const EffectLogic = {
 
                         if (effectTargetSide !== side) return;
 
-                        // 蛟句挨閠先ｧ(self)縺句・菴楢先ｧ(filter荳閾ｴ)縺・
+                        // 個別耐性(self)か全体耐性(filter一致)か
                         const isSelf = (action.target === "self" && source === card);
                         const isGlobalMatch = (action.type === "global_protection" && this._checkFilter(card, action.filter || {}));
 
                         if (isSelf || isGlobalMatch) {
-                            // 1繧ｿ繝ｼ繝ｳ縺ｫ1蠎ｦ縺ｮ蛻ｶ髯舌メ繧ｧ繝・け
+                            // 1ターンに1度の制限チェック
                             if (action.countLimit === "once_per_turn") {
-                                // 菫ｮ豁｣: 閠先ｧ莉倅ｸ主・(source)縺ｧ縺ｯ縺ｪ縺上∝ｮ医ｉ繧後ｋ蛛ｴ(card)縺ｫ繝輔Λ繧ｰ繧呈戟縺溘○繧・
+                                // 修正: 耐性付与元(source)ではなく、守られる側(card)にフラグを持たせる
                                 card._usedProtections = card._usedProtections || {};
-                                const protectionKey = `prot_${source.id}_${action.type}`; // sourceID縺ｨ蜉ｹ譫懊ち繧､繝励〒隴伜挨
+                                const protectionKey = `prot_${source.id}_${action.type}`; // sourceIDと効果タイプで識別
 
                                 if (card._usedProtections[protectionKey] === GAME_STATE.turnCount) return;
 
-                                // 驕ｩ逕ｨ譎ゅ↓繝輔Λ繧ｰ繧堤ｫ九※繧・
+                                // 適用時にフラグを立てる
                                 card._usedProtections[protectionKey] = GAME_STATE.turnCount;
                             }
                             isProtected = true;
@@ -1214,7 +1214,7 @@ const EffectLogic = {
         return isProtected;
     },
 
-    /** 譛邨ゅム繝｡繝ｼ繧ｸ縺ｮ險育ｮ・(霆ｽ貂帛渚譏) */
+    /** 最終ダメージの計算 (軽減反映) */
     calculateFinalDamage: function(side, originalDamage) {
         let reduction = 0;
         const players = ["player", "opponent"];
@@ -1233,7 +1233,7 @@ const EffectLogic = {
 
                         if (effectTargetSide !== side) return;
 
-                        // 逋ｺ蜍墓擅莉ｶ (has_category_on_field遲・ 縺ｮ繝√ぉ繝・け
+                        // 発動条件 (has_category_on_field等) のチェック
                         if (!this._checkCondition(action, pSide, source)) return;
 
                         reduction += (action.value || 0);
@@ -1246,7 +1246,7 @@ const EffectLogic = {
     },
 
     /**
-     * 繧ｫ繝ｼ繝峨′迴ｾ蝨ｨ逋ｺ蜍募庄閭ｽ・域怏蜉ｹ縺ｪ蟇ｾ雎｡縺後≠繧具ｼ峨°蛻､螳壹☆繧・
+     * カードが現在発動可能（有効な対象がある）か判定する
      */
     isEffectActivatable: function(cardData, side, trigger = "on_activate") {
         if (!cardData.logic || cardData.logic.length === 0) return true;
@@ -1255,13 +1255,13 @@ const EffectLogic = {
         if (actions.length === 0) return true;
 
         return actions.some(action => {
-            // 繧ｳ繧ｹ繝医ｒ謇輔∴縺ｪ縺・ｂ縺ｮ縺ｯ逋ｺ蜍輔〒縺阪↑縺・
+            // コストを払えないものは発動できない
             if (!this.canPayActionCost(action, side)) return false;
 
             if (action.type === "mill" || action.type === "draw_and_discard") return true;
             if (cardData.id === "s013") return true;
 
-            // s014: 蜀･逡後°繧峨・霑弱∴ (閾ｪ蛻・→逶ｸ謇九・蝣ｴ縺ｫ繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺悟ｿ・ｦ・
+            // s014: 冥界からの迎え (自分と相手の場にモンスターが必要)
             if (cardData.id === "s014") {
                 const p = GAME_STATE[side];
                 const opp = GAME_STATE[side === "player" ? "opponent" : "player"];
@@ -1277,25 +1277,25 @@ const EffectLogic = {
                 case "buff":
                     return p.field.monsters.some((m, i) => {
                         if (!m || !this._checkFilter(m, action.filter || {})) return false;
-                        // 繝・ヰ繝輔・蝣ｴ蜷医∵里縺ｫ繝代Ρ繝ｼ0縺ｪ繧臥匱蜍穂ｸ榊庄
+                        // デバフの場合、既にパワー0なら発動不可
                         if (action.value < 0 && this.getCurrentPower(m, targetSide, i) <= 0) return false;
                         return true;
                     });
                 case "destroy":
                     return p.field.monsters.some((m, i) => {
                         if (!m || !this._checkFilter(m, action.filter || {})) return false;
-                        // 譚｡莉ｶ(is_weakened遲・縺ｮ繝√ぉ繝・け
+                        // 条件(is_weakened等)のチェック
                         if (action.condition === "is_weakened" && !this.isWeakened(m, targetSide, i)) return false;
                         return true;
                     });
                 case "apply_combat_effect":
                     return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}));
                 case "special_summon": {
-                    // 繝輔ぅ繝ｼ繝ｫ繝峨↓遨ｺ縺阪′縺ｪ縺・ｴ蜷医・逋ｺ蜍穂ｸ榊庄
+                    // フィールドに空きがない場合は発動不可
                     if (!p.field.monsters.includes(null)) return false;
-                    // 迚ｹ谿雁小蝟壹〒縺阪ｋ縺ｮ縺ｯ繝｢繝ｳ繧ｹ繧ｿ繝ｼ縺縺代・
-                    // maxLevel 遲峨・繝輔ぅ繝ｫ繧ｿ縺ｯ level 繧呈戟縺溘↑縺・ｭ碑｡薙ｒ蠑ｾ縺九↑縺・・縺ｧ縲・
-                    // 縺薙％縺ｧ遞ｮ蛻･繧定ｦ九↑縺・→縲悟ｯｾ雎｡縺後＞縺ｪ縺・・縺ｫ逋ｺ蜍輔〒縺阪ｋ縲咲憾諷九↓縺ｪ繧九・
+                    // 特殊召喚できるのはモンスターだけ。
+                    // maxLevel 等のフィルタは level を持たない魔術を弾かないので、
+                    // ここで種別を見ないと「対象がいないのに発動できる」状態になる。
                     const summonable = c => c.type === "monster" && this._checkFilter(c, action.filter || {});
                     if (action.source === "deck") return p.deck.some(summonable);
                     if (action.source === "trash") return p.trash.some(summonable);
@@ -1311,13 +1311,13 @@ const EffectLogic = {
                 case "global_buff":
                     return p.field.monsters.some(m => m !== null);
                 case "destroy_magic":
-                    // 莨上○繧ｫ繝ｼ繝峨ｂ蜷ｫ繧√∝ｯｾ雎｡縺ｮ鬲碑｡薙だ繝ｼ繝ｳ縺ｫ菴輔°縺ゅｌ縺ｰ逋ｺ蜍輔〒縺阪ｋ
+                    // 伏せカードも含め、対象の魔術ゾーンに何かあれば発動できる
                     return p.field.magics.some(m => m !== null && this._checkFilter(m, action.filter || {}));
                 case "bounce":
                     return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}));
                 case "banish":
-                    // 蟇ｾ雎｡縺ｪ縺励〒逋ｺ蜍輔〒縺阪※縺励∪縺・→縲´P遲峨・繧ｳ繧ｹ繝医□縺第鴛縺｣縺ｦ
-                    // 菴輔ｂ襍ｷ縺阪↑縺・憾諷九↓縺ｪ繧・閨也阜蜈画ｳ｢ s031 遲・
+                    // 対象なしで発動できてしまうと、LP等のコストだけ払って
+                    // 何も起きない状態になる(聖界光波 s031 等)
                     return p.field.monsters.some(m => m !== null && this._checkFilter(m, action.filter || {}));
                 default:
                     return true;
@@ -1325,12 +1325,12 @@ const EffectLogic = {
         });
     },
 
-    /** 蜈ｨ繝輔ぅ繝ｼ繝ｫ繝峨・繝舌ヵ謖∫ｶ壽凾髢薙ｒ譖ｴ譁ｰ */
+    /** 全フィールドのバフ持続時間を更新 */
     cleanAllBuffs: function() {
         ["player", "opponent"].forEach(side => {
-            // 鬲碑｡薙だ繝ｼ繝ｳ繧ょｯｾ雎｡縺ｫ蜷ｫ繧√ｋ縲・
-            // 蜷ｫ繧√↑縺・→豌ｸ邯夐ｭ碑｡薙・ countLimit 縺後Μ繧ｻ繝・ヨ縺輔ｌ縺壹・
-            // 縲・繧ｿ繝ｼ繝ｳ縺ｫ1蠎ｦ縲阪′縲・繧ｲ繝ｼ繝縺ｫ1蠎ｦ縲阪↓縺ｪ縺｣縺ｦ縺励∪縺・・
+            // 魔術ゾーンも対象に含める。
+            // 含めないと永続魔術の countLimit がリセットされず、
+            // 「1ターンに1度」が「1ゲームに1度」になってしまう。
             const cards = [
                 ...GAME_STATE[side].field.monsters,
                 ...GAME_STATE[side].field.magics
@@ -1339,7 +1339,7 @@ const EffectLogic = {
             cards.forEach(m => {
                 if (!m) return;
 
-                // 繝舌ヵ縺ｮ謗・勁
+                // バフの掃除
                 if (m._tempBuffs) {
                     m._tempBuffs = m._tempBuffs.filter(b => {
                         if (b.duration === "permanent") return true;
@@ -1347,7 +1347,7 @@ const EffectLogic = {
                         return b.duration > 0;
                     });
                 }
-                // 謌ｦ髣倅ｺ育ｴ・お繝輔ぉ繧ｯ繝医・謗・勁
+                // 戦闘予約エフェクトの掃除
                 if (m._combatEffects) {
                     m._combatEffects = m._combatEffects.filter(e => {
                         e.duration--;
@@ -1355,7 +1355,7 @@ const EffectLogic = {
                     });
                 }
 
-                // 1繧ｿ繝ｼ繝ｳ縺ｫ1蠎ｦ縺ｮ蛻ｶ髯舌Μ繧ｻ繝・ヨ (繧ｿ繝ｼ繝ｳ髢句ｧ区凾縺ｫ繧ｯ繝ｪ繝ｼ繝九Φ繧ｰ)
+                // 1ターンに1度の制限リセット (ターン開始時にクリーニング)
                 if (m._usedLimits) m._usedLimits = {};
                 if (m._usedProtections) m._usedProtections = {};
                 delete m._usedTurn;
@@ -1363,7 +1363,7 @@ const EffectLogic = {
         });
     },
 
-    /** 蠎・沺繝舌ヵ/繝・ヰ繝輔・驕ｩ逕ｨ (繝懊Ν繝輔√す繝ｫ繝ｴ繧｡繧ｹ遲・ */
+    /** 広域バフ/デバフの適用 (ボルフ、シルヴァス等) */
     async applyGlobalBuff(action, side, sourceCard) {
         const targets = await this._acquireTargets({ ...action, targetSelect: "all" }, side, sourceCard);
         const value = action.value || 0;
@@ -1383,7 +1383,7 @@ const EffectLogic = {
         console.log(`Global Buff applied: ${value} to ${targets.length} targets.`);
     },
 
-    /** 謌ｦ髣倅ｺ育ｴ・柑譫懊・莉倅ｸ・(豬ｷ縺ｮ遯∵茶遲・ */
+    /** 戦闘予約効果の付与 (海の突撃等) */
     async applyCombatEffect(action, side, sourceCard) {
         const targets = await this._acquireTargets(action, side, sourceCard);
         targets.forEach(t => {

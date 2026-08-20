@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LinkaVel - Matchmaking UI
  */
 
@@ -65,7 +65,7 @@ window.confirmDeckSelection = async function(deckId, type, oppDeckId, oppType) {
             // ローカルプレイヤーのデッキを取得してFirestoreへ送信
             let deckArray = [];
             if (deckId === "random") {
-                const starterKeys = Object.keys(DECK_RECIPES).filter(k => DECK_RECIPES[k].type === "starter");
+                const starterKeys = Object.keys(DECK_RECIPES).filter(k => k.startsWith("starter_"));
                 const randomKey = starterKeys[Math.floor(Math.random() * starterKeys.length)];
                 deckArray = DECK_RECIPES[randomKey].cards;
             } else {

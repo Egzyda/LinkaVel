@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LinkaVel - Network Logic for Room Match
  */
 
@@ -35,7 +35,9 @@ const NetworkManager = {
         const roomId = this.generateRoomId();
         const roomRef = window.db.collection('rooms').doc(roomId);
         
-        await roomRef.set({
+        this.roomId = roomId;
+          this.isHost = true;
+          roomRef.set({
             status: 'waiting',
             host: { uid: this.myUid, ready: false, deck: null },
             guest: null,
@@ -60,7 +62,9 @@ const NetworkManager = {
         const data = snap.data();
         if (data.status !== 'waiting' || data.guest !== null) return false;
 
-        await roomRef.update({
+        this.roomId = roomId;
+          this.isHost = false;
+          roomRef.update({
             guest: { uid: this.myUid, ready: false, deck: null },
             status: 'selecting_deck'
         });
@@ -102,7 +106,10 @@ const NetworkManager = {
                 if (typeof onRoomMatched === 'function') onRoomMatched(data);
             }
             
-            if (data.status === 'playing' && !GAME_STATE.isOnlineMatch) {
+            if (this.isHost && data.status === 'selecting_deck' && data.host.ready && data.guest && data.guest.ready) { this.roomId = roomId;
+          this.isHost = false;
+          roomRef.update({ status: 'playing' }); }
+            if (data.status === 'playing' && (typeof GAME_STATE !== 'undefined') && !GAME_STATE.isOnlineMatch) {
                 GAME_STATE.isOnlineMatch = true;
                 this.listenActions(roomId);
                 if (typeof startOnlineMatch === 'function') startOnlineMatch(data);
@@ -119,7 +126,9 @@ const NetworkManager = {
         const roomRef = window.db.collection('rooms').doc(this.roomId);
         
         const playerKey = this.isHost ? 'host' : 'guest';
-        await roomRef.update({
+        this.roomId = roomId;
+          this.isHost = false;
+          roomRef.update({
             [`${playerKey}.deck`]: deckArray,
             [`${playerKey}.ready`]: true
         });
@@ -128,7 +137,9 @@ const NetworkManager = {
             const snap = await roomRef.get();
             const data = snap.data();
             if (data.host.ready && data.guest && data.guest.ready) {
-                await roomRef.update({ status: 'playing' });
+                this.roomId = roomId;
+          this.isHost = false;
+          roomRef.update({ status: 'playing' });
             }
         }
     },
