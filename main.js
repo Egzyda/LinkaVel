@@ -1,4 +1,4 @@
-/**
+﻿/**
  * LinkaVel Card Game - Main Logic (Rebuilt for Stability)
  * * 役割: ゲームのコアサイクル（ドロー、召喚、戦闘、ターン進行）の確実な実行
  * * 特記事項:
@@ -320,6 +320,10 @@ async function renderDeckSelection(target = "player") {
 
 /** 自分のデッキを選んだあと、相手のデッキ選択へ進む */
 function selectPlayerDeck(deckId, type) {
+    if (typeof NetworkManager !== 'undefined' && NetworkManager.roomId) {
+        confirmDeckSelection(deckId, type, 'random', 'random');
+        return;
+    }
     _pendingPlayerDeck = { deckId, type };
     renderDeckSelection("opponent");
 }
