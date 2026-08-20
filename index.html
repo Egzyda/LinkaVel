@@ -33,9 +33,9 @@
                     <span class="btn-icon">👤</span>
                     <span class="btn-text">SOLO MODE - <small>CPU対戦</small></span>
                 </button>
-                <button class="menu-btn disabled">
+                <button class="menu-btn" onclick="openRoomMatchMenu()">
                     <span class="btn-icon">🌐</span>
-                    <span class="btn-text">ROOM MATCH - <small>近日公開</small></span>
+                    <span class="btn-text">ROOM MATCH - <small>オンライン対戦</small></span>
                 </button>
                 <button class="menu-btn" onclick="openDeckEditor()">
                     <span class="btn-icon">🃏</span>
@@ -44,6 +44,37 @@
                 <button class="menu-btn" onclick="openTutorial()">
                     <span class="btn-icon">📖</span>
                     <span class="btn-text">HOW TO PLAY - <small>遊び方</small></span>
+                </button>
+            </div>
+        </div>
+        <!-- ルームマッチ画面 -->
+        <div id="room-match-screen" class="screen">
+            <div class="menu-header">
+                <h1 class="game-title">ROOM MATCH</h1>
+                <p class="game-subtitle">オンライン対戦</p>
+            </div>
+            <div class="menu-options">
+                <div id="room-menu-content">
+                    <button class="menu-btn" onclick="createRoom()">
+                        <span class="btn-icon">🏠</span>
+                        <span class="btn-text">CREATE ROOM - <small>ルームを作成</small></span>
+                    </button>
+                    <div style="margin: 20px 0; text-align: center; color: #aaa;">- OR -</div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="join-room-id" placeholder="ルームIDを入力" style="flex: 1; padding: 10px; font-size: 16px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; text-transform: uppercase;">
+                        <button class="menu-btn" onclick="joinRoom()" style="width: auto; padding: 0 20px;">参加</button>
+                    </div>
+                </div>
+                
+                <div id="room-waiting-content" style="display: none; text-align: center;">
+                    <div style="font-size: 24px; color: #fff; margin-bottom: 20px;">ROOM ID: <span id="display-room-id" style="color: #4CAF50; font-weight: bold; letter-spacing: 2px;"></span></div>
+                    <p style="color: #aaa; margin-bottom: 30px;">対戦相手を待っています...</p>
+                    <div class="loading-spinner"></div>
+                </div>
+
+                <button class="menu-btn cancel-btn" onclick="leaveRoomMenu()" style="margin-top: 40px;">
+                    <span class="btn-icon">⬅</span>
+                    <span class="btn-text">戻る</span>
                 </button>
             </div>
         </div>
@@ -500,6 +531,8 @@
     <script src="cards.js"></script>
     <script src="decks.js"></script>
     <script src="deck_builder.js"></script>
+    <script src="network.js"></script>
+    <script src="match_ui.js"></script>
     <script src="effect_logic.js"></script>
     <script src="main.js"></script>
     <script src="cpu_logic.js"></script>

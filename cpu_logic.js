@@ -11,6 +11,7 @@ const CpuLogic = {
      * main.jsからフェイズごとに呼び出されるエントリーポイント
      */
     async execute() {
+        if (GAME_STATE.isOnlineMatch) return;
         if (GAME_STATE.turnPlayer !== "opponent" || GAME_STATE.isGameOver) return;
 
         console.log(`CPU Thinking... Phase: ${GAME_STATE.phase}`);
